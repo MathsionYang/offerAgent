@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OfferAgent | 产品经理面试准备助手</title>
+    <meta
+      name="description"
+      content="OfferAgent 开源 Web MVP：用户临时配置大模型 Key，生成产品经理面试准备报告并下载到本地。"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <nav class="nav">
+        <div class="brand">
+          <span class="brand-mark">OA</span>
+          <div>
+            <strong>OfferAgent</strong>
+            <span>Offer 沙盘 + 面试官 Skill 库</span>
+          </div>
+        </div>
+      </nav>
+
+      <div class="hero-content">
+        <div class="hero-copy">
+          <p class="eyebrow">Open Source Web MVP</p>
+          <h1>产品经理面试准备助手</h1>
+          <p class="hero-subtitle">生成面试前可用的岗位匹配分析、证据链、追问清单、可选问题库与人工反馈报告。</p>
+          <div class="hero-actions">
+            <a class="hero-link" href="#workspace">开始生成报告</a>
+          </div>
+        </div>
+
+        <aside class="hero-summary" aria-label="核心能力">
+          <div>
+            <span>01</span>
+            <strong>岗位匹配</strong>
+            <p>对齐 JD 核心职责、必备能力和加分项。</p>
+          </div>
+          <div>
+            <span>02</span>
+            <strong>证据链优先</strong>
+            <p>关键判断绑定简历、JD 或上下文证据。</p>
+          </div>
+          <div>
+            <span>03</span>
+            <strong>问题库</strong>
+            <p>覆盖岗位要求、项目经历和项目推进视角。</p>
+          </div>
+        </aside>
+      </div>
+    </header>
+
+    <main id="workspace" class="workspace">
+      <section class="workflow">
+        <article class="step-card">
+          <span>Step 1</span>
+          <strong>配置模型</strong>
+          <p>选择模型服务商和本次使用的模型。</p>
+        </article>
+        <article class="step-card">
+          <span>Step 2</span>
+          <strong>粘贴材料</strong>
+          <p>输入简历、JD 和可选面试上下文。</p>
+        </article>
+        <article class="step-card">
+          <span>Step 3</span>
+          <strong>生成报告</strong>
+          <p>输出分析结果、证据链、追问清单与可选问题库。</p>
+        </article>
+        <article class="step-card">
+          <span>Step 4</span>
+          <strong>补充反馈</strong>
+          <p>把人工判断写回报告并下载保存。</p>
+        </article>
+      </section>
+
+      <div class="layout">
+        <div class="left-stack">
+          <section class="panel config-panel" aria-labelledby="config-title">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Step 1</p>
+                <h2 id="config-title">临时配置模型</h2>
+              </div>
+              <button id="mockBtn" class="ghost-btn" type="button">填充脱敏样例</button>
+            </div>
+
+            <div class="grid two">
+              <label>
+                <span>模型服务商</span>
+                <select id="provider">
+                  <option value="mock">Mock Demo（不调用模型）</option>
+                  <option value="openai">OpenAI</option>
+                  <option value="deepseek">DeepSeek</option>
+                  <option value="qwen">通义千问 / DashScope</option>
+                  <option value="kimi">Kimi / Moonshot</option>
+                  <option value="custom">OpenAI-Compatible 自定义接口</option>
+                </select>
+              </label>
+
+              <label>
+                <span>模型名称</span>
+                <input id="model" type="text" value="gpt-4.1-mini" autocomplete="off" />
+              </label>
+            </div>
+
+            <div class="grid two">
+              <label>
+                <span>临时 API Key</span>
+                <input
+                  id="apiKey"
+                  type="password"
+                  placeholder="输入本次使用的模型 API Key"
+                  autocomplete="off"
+                  spellcheck="false"
+                />
+              </label>
+
+              <label>
+                <span>自定义 Base URL（可选）</span>
+                <input
+                  id="baseUrl"
+                  type="url"
+                  placeholder="例如 https://api.openai.com/v1"
+                  autocomplete="off"
+                  spellcheck="false"
+                />
+              </label>
+            </div>
+
+          </section>
+
+          <section class="panel input-panel" aria-labelledby="input-title">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Step 2</p>
+                <h2 id="input-title">输入简历与 JD</h2>
+              </div>
+              <button id="clearBtn" class="ghost-btn danger" type="button">清空当前页面</button>
+            </div>
+
+            <label>
+              <span>候选人简历</span>
+              <textarea
+                id="resume"
+                rows="10"
+                placeholder="粘贴候选人简历文本。不建议在公共设备输入真实敏感信息。"
+              ></textarea>
+            </label>
+
+            <label>
+              <span>岗位 JD</span>
+              <textarea id="jobDescription" rows="8" placeholder="粘贴产品经理岗位 JD。"></textarea>
+            </label>
+
+            <label>
+              <span>公司 / 面试上下文（可选）</span>
+              <textarea
+                id="companyContext"
+                rows="5"
+                placeholder="例如公司阶段、业务方向、目标职级、面试重点、薪资约束等。"
+              ></textarea>
+            </label>
+
+            <div class="actions">
+              <button id="generateBtn" class="primary-btn" type="button">生成面试准备报告</button>
+              <button id="downloadMdBtn" class="secondary-btn" type="button" disabled>
+                下载 Markdown
+              </button>
+              <button id="downloadJsonBtn" class="secondary-btn" type="button" disabled>
+                下载 JSON
+              </button>
+            </div>
+
+            <p id="status" class="status" role="status">准备就绪。未配置 Key 时会使用 Mock Demo。</p>
+          </section>
+
+          <section class="panel feedback-panel" aria-labelledby="feedback-title">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Step 4</p>
+                <h2 id="feedback-title">人工反馈</h2>
+              </div>
+              <span class="run-badge">仅当前页面有效</span>
+            </div>
+
+            <div class="grid two">
+              <label>
+                <span>是否同意系统判断</span>
+                <select id="feedbackAgreement">
+                  <option value="未反馈">未反馈</option>
+                  <option value="同意">同意</option>
+                  <option value="部分同意">部分同意</option>
+                  <option value="不同意">不同意</option>
+                </select>
+              </label>
+
+              <label>
+                <span>追问是否可采用</span>
+                <select id="feedbackQuestionUse">
+                  <option value="未反馈">未反馈</option>
+                  <option value="采用">采用</option>
+                  <option value="改写采用">改写采用</option>
+                  <option value="未采用">未采用</option>
+                </select>
+              </label>
+            </div>
+
+            <label>
+              <span>人工补充意见</span>
+              <textarea
+                id="feedbackNotes"
+                rows="4"
+                placeholder="例如：哪些结论不准确、哪些问题更适合、还需要验证什么。"
+              ></textarea>
+            </label>
+
+            <div class="actions">
+              <button id="appendFeedbackBtn" class="secondary-btn" type="button" disabled>
+                把反馈写入报告
+              </button>
+            </div>
+          </section>
+        </div>
+
+        <section class="panel report-panel" aria-labelledby="report-title">
+          <div class="panel-head report-head">
+            <div>
+              <p class="eyebrow">Step 3</p>
+              <h2 id="report-title">报告预览</h2>
+            </div>
+            <span id="runBadge" class="run-badge">尚未生成</span>
+          </div>
+
+          <article id="report" class="report empty">
+            <div class="empty-state">
+              <span class="empty-mark">OA</span>
+              <h3>等待生成报告</h3>
+              <p>
+                报告会覆盖岗位匹配、项目亮点、风险与待验证、必问追问、面试问题库、证据链和人工反馈建议。
+              </p>
+            </div>
+          </article>
+        </section>
+      </div>
+    </main>
+
+    <footer class="footer">
+      <p>OfferAgent 第一版只做面试准备辅助，不输出自动录用或淘汰结论。</p>
+    </footer>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

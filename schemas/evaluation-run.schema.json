@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offeragent.dev/schemas/evaluation-run.schema.json",
+  "title": "EvaluationRun",
+  "type": "object",
+  "required": ["id", "created_at", "input_snapshot", "report"],
+  "properties": {
+    "id": { "type": "string" },
+    "created_at": { "type": "string" },
+    "provider": { "type": "string" },
+    "model": { "type": "string" },
+    "input_snapshot": {
+      "type": "object",
+      "properties": {
+        "resume": { "type": "string" },
+        "job_description": { "type": "string" },
+        "company_context": { "type": "string" }
+      }
+    },
+    "report": { "type": "string" },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "source_type": { "type": "string" },
+          "claim": { "type": "string" },
+          "confidence": { "type": "number" }
+        }
+      }
+    }
+  }
+}
+

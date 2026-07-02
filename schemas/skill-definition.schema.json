@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offeragent.dev/schemas/skill-definition.schema.json",
+  "title": "SkillDefinition",
+  "type": "object",
+  "required": ["id", "name", "type", "version"],
+  "properties": {
+    "id": { "type": "string" },
+    "name": { "type": "string" },
+    "type": {
+      "type": "string",
+      "enum": ["hr", "business_interviewer", "technical_interviewer", "role", "company", "industry", "negotiation"]
+    },
+    "applicable_scenarios": { "type": "array", "items": { "type": "string" } },
+    "decision_framework": { "type": "array", "items": { "type": "string" } },
+    "evidence_standards": { "type": "array", "items": { "type": "string" } },
+    "recommended_questions": { "type": "array", "items": { "type": "string" } },
+    "anti_patterns": { "type": "array", "items": { "type": "string" } },
+    "boundaries": { "type": "array", "items": { "type": "string" } },
+    "confidence_rules": { "type": "array", "items": { "type": "string" } },
+    "feedback_fields": { "type": "array", "items": { "type": "string" } },
+    "version": { "type": "string" }
+  }
+}
+
