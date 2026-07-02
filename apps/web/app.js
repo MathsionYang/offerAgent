@@ -16,6 +16,7 @@ const modelModeEl = $("modelMode");
 const runBadgeEl = $("runBadge");
 const generateBtn = $("generateBtn");
 const downloadMdBtn = $("downloadMdBtn");
+const downloadInterviewerBtn = $("downloadInterviewerBtn");
 const feedbackAgreementEl = $("feedbackAgreement");
 const feedbackQuestionUseEl = $("feedbackQuestionUse");
 const feedbackNotesEl = $("feedbackNotes");
@@ -76,6 +77,11 @@ const systemPrompt = `你是面试准备助手。
 - 不要输出大段纯文本。优先使用 Markdown 表格、分层列表和短句。
 - “一页摘要”“项目匹配闸口”“岗位匹配”“候选人准备重点”“面试官候选问题库”“面试官视角库”建议使用 Markdown 表格呈现。
 - 表格控制在 3 到 4 列，列名必须清晰，单元格内容保持短句。
+- 生成内容允许使用 Markdown 结构，但最终报告不能出现多余 Markdown 装饰符，例如加粗星号、分隔线、代码围栏、引用符号、裸露表格分隔线。
+- 所有报告必须先下结论，再列详细分析。
+- 每一个结论都必须给出证据，表格中优先使用“结论 / 证据 / 详细说明 / 下一步”结构。
+- 面向候选人的报告必须增加招聘岗位分析：企业需要候选人具备什么能力、当前简历与岗位职责的匹配程度、不匹配点和重点准备建议。
+- 禁止输出空章节。每个章节至少包含一个有证据的表格或 3 条以上具体问题。
 
 其中“项目匹配闸口”是第一步，必须先输出：
 - 根据 JD 岗位职责拆出核心项目证据要求。
@@ -84,15 +90,19 @@ const systemPrompt = `你是面试准备助手。
 - 如果匹配或部分匹配，明确建议“进入下一轮沙盘”，再展开 Offer 沙盘推演。
 
 其中“候选人准备重点”必须包含：
+- 该模块服务候选人，下载版只应包含简历与 JD 不匹配的点、待补齐证据、建议重点准备的问题。
 - 候选人应准备的项目故事：背景、目标、约束、动作、结果、复盘。
 - 候选人应补齐的证据：指标口径、个人贡献、关键决策、协作对象、失败或反思案例。
 - 候选人应提前演练的表达：自我介绍、项目讲述、岗位匹配、动机与期望。
 
 其中“面试官候选问题库（供挑选）”必须包含：
+- 该模块服务面试官，下载版应包含简历与 JD 不匹配的点、不同面试官视角、验证简历过度包装的问题。
+- 所有提问必须兼顾岗位职责与项目经历：每个问题都要说明它对应的 JD 职责，以及它要验证的候选人具体项目证据。
 - 岗位要求验证问题：针对 JD 核心职责、必备能力、加分项提出若干问题。
 - 项目经历追问：围绕简历中的项目追问真实角色、个人贡献、决策过程、结果归因。
 - 项目经理 / 推进视角问题：追问目标拆解、里程碑、资源协调、风险控制、跨团队沟通和复盘机制。
 - 候选人准备提示：帮助候选人准备项目证据、指标口径、个人贡献和复盘案例。
+- 高匹配反包装追问：当简历与 JD 看起来高度匹配时，不要降低验证强度，要进一步追问候选人的真实角色、关键决策、指标口径、失败细节、技术/业务取舍和无法提前背诵的现场推演问题，用于识别简历过度包装。
 
 其中“面试官视角库”必须体现为虚拟生成的面试官团队。它不是单独的 Skill，也不是固定模板题库，而是一组不同面试角色的评估视角：
 - 先根据 JD 职责、候选人项目经历和公司 / Offer 上下文，生成 3 到 6 个虚拟面试官角色。
@@ -173,7 +183,7 @@ providerEl.addEventListener("change", () => {
 
 apiKeyEl.addEventListener("input", updateModelMode);
 
-$("mockBtn").addEventListener("click", () => {
+bindClick("mockBtn", () => {
   resumeEl.value = sample.resume;
   jobEl.value = sample.job;
   contextEl.value = sample.context;
@@ -185,7 +195,7 @@ $("mockBtn").addEventListener("click", () => {
   setStatus("已填充脱敏样例。可以直接生成 Mock 报告。");
 });
 
-$("clearBtn").addEventListener("click", () => {
+bindClick("clearBtn", () => {
   apiKeyEl.value = "";
   resumeEl.value = "";
   jobEl.value = "";
@@ -198,6 +208,7 @@ $("clearBtn").addEventListener("click", () => {
   reportEl.innerHTML = '<div class="empty-state"><span class="empty-mark">OA</span><h3>等待生成报告</h3><p>报告会覆盖候选人准备重点、岗位匹配、Offer 沙盘推演、面试官候选问题库、证据链和人工反馈建议。</p></div>';
   runBadgeEl.textContent = "尚未生成";
   downloadMdBtn.disabled = true;
+  setInterviewerDownloadDisabled(true);
   appendFeedbackBtn.disabled = true;
   feedbackAgreementEl.value = "未反馈";
   feedbackQuestionUseEl.value = "未反馈";
@@ -214,6 +225,7 @@ generateBtn.addEventListener("click", async () => {
 
   generateBtn.disabled = true;
   downloadMdBtn.disabled = true;
+  setInterviewerDownloadDisabled(true);
   appendFeedbackBtn.disabled = true;
   runBadgeEl.textContent = "生成中...";
   renderStreamingReport("", input.useRealModel ? "真实模型流式生成中" : "Mock 分块生成中");
@@ -245,9 +257,10 @@ generateBtn.addEventListener("click", async () => {
       report: cleanedReport,
     };
 
-    renderStreamingReport(cleanedReport, input.useRealModel ? "真实模型生成完成" : "Mock 分块生成完成", true);
+    renderStreamingReport(buildPreviewMarkdown(currentRun), input.useRealModel ? "真实模型生成完成" : "Mock 分块生成完成", true);
     runBadgeEl.textContent = currentRun.id;
     downloadMdBtn.disabled = false;
+    setInterviewerDownloadDisabled(false);
     appendFeedbackBtn.disabled = false;
     setStatus(input.useRealModel ? "真实模型报告已生成。请下载到本地保存。" : "Mock 沙盘报告已生成。请下载到本地保存。");
   } catch (error) {
@@ -261,11 +274,23 @@ downloadMdBtn.addEventListener("click", () => {
   if (!currentRun) return;
   currentRun.human_feedback = collectFeedback();
   downloadFile(
-    `offeragent-${currentRun.id}.html`,
-    reportToStaticHtmlDocument(currentRun),
+    `candidate-report-${currentRun.id}.html`,
+    reportToStaticHtmlDocument(currentRun, "candidate"),
     "text/html;charset=utf-8",
   );
 });
+
+if (downloadInterviewerBtn) {
+  downloadInterviewerBtn.addEventListener("click", () => {
+    if (!currentRun) return;
+    currentRun.human_feedback = collectFeedback();
+    downloadFile(
+      `interviewer-report-${currentRun.id}.html`,
+      reportToStaticHtmlDocument(currentRun, "interviewer"),
+      "text/html;charset=utf-8",
+    );
+  });
+}
 
 appendFeedbackBtn.addEventListener("click", () => {
   if (!currentRun) {
@@ -276,8 +301,9 @@ appendFeedbackBtn.addEventListener("click", () => {
   const feedback = collectFeedback();
   currentRun.human_feedback = feedback;
   currentRun.report = appendFeedbackToReport(currentRun.report, feedback);
-  renderReport(currentRun.report);
+  renderReport(buildPreviewMarkdown(currentRun));
   downloadMdBtn.disabled = false;
+  setInterviewerDownloadDisabled(false);
   setStatus("人工反馈已写入当前报告。请下载保存，刷新页面后不会保留。");
 });
 
@@ -296,6 +322,15 @@ function collectInput() {
     selectedSkills: collectSelectedSkills(),
     useRealModel: providerEl.value !== "mock" && Boolean(apiKeyEl.value.trim()),
   };
+}
+
+function bindClick(id, handler) {
+  const element = $(id);
+  if (element) element.addEventListener("click", handler);
+}
+
+function setInterviewerDownloadDisabled(disabled) {
+  if (downloadInterviewerBtn) downloadInterviewerBtn.disabled = disabled;
 }
 
 function collectFeedback() {
@@ -442,8 +477,13 @@ function generateMockReport(input) {
 
   const canEnterSandbox = hasB2B && hasMetrics && hasCollab;
   const gateDecision = canEnterSandbox ? "进入下一轮沙盘" : "暂不进入下一轮沙盘";
+  const packagingRisk = canEnterSandbox
+    ? "简历与 JD 匹配度较高，需要提高追问深度，验证是否存在过度包装。"
+    : "当前材料尚未达到高匹配状态，优先补齐项目证据。";
   const match = canEnterSandbox ? "基本匹配，建议进入下一轮沙盘验证" : "项目证据不足，建议先补充关键项目经历";
   const offerReadiness = hasB2B && hasMetrics && hasCollab && !hasOfferRisk ? "可继续推进面试验证" : "需要先补齐关键证据与动机信息";
+  const matchScore = [hasB2B, hasMetrics, hasCollab].filter(Boolean).length;
+  const matchLevel = matchScore === 3 ? "高匹配" : matchScore === 2 ? "中等匹配" : "低匹配";
 
   return `# 面试准备报告
 
@@ -456,13 +496,23 @@ function generateMockReport(input) {
 | 最大亮点 | 简历中出现与 B 端产品、跨团队推进或指标结果相关的经历 | 准备项目背景、目标、动作、结果 |
 | 最大风险 | “负责 / 主导 / 推动”仍需还原真实角色、决策过程和结果归因 | 准备个人贡献证据和关键决策过程 |
 | Offer 沙盘 | 候选人当前处于“${input.candidateStage}”阶段，${offerReadiness} | 提前梳理动机、期望和到岗约束 |
+| 过度包装风险 | ${packagingRisk} | 准备可被追溯的细节证据、失败案例和现场推演回答 |
 | 必问重点 | 需求判断、指标口径、优先级取舍、跨团队推进、项目复盘和入职动机 | 按问题库做模拟面试 |
+
+## 招聘岗位分析
+
+| 结论 | 证据 | 详细说明 | 下一步 |
+| --- | --- | --- | --- |
+| 企业需要候选人具备行业/业务场景理解 | JD 证据：${clip(input.jobDescription)} | 候选人需要证明自己理解目标行业、客户场景和业务约束 | 准备最接近 JD 场景的项目 |
+| 企业需要候选人具备项目闭环能力 | JD 中出现产品规划、推进、复盘或生命周期相关要求 | 仅说“参与/负责”不够，需要讲清从需求到上线复盘的闭环 | 准备完整项目链路 |
+| 当前简历与岗位职责匹配程度：${matchLevel} | 简历证据：${clip(input.resume)} | 当前匹配度来自行业线索、指标线索和跨团队推进线索三类证据 | 补齐缺失证据并准备追问 |
 
 ## 分析结果
 
-- 当前阶段建议把该候选人作为“面试前重点验证对象”，而不是直接给录用或淘汰结论。
-- 系统判断依据来自简历、JD 和上下文中的岗位相关证据。
-- 关键不确定性集中在个人贡献、指标口径和项目复盘深度。
+| 结论 | 证据 | 详细说明 |
+| --- | --- | --- |
+| 当前阶段建议先完成项目匹配闸口 | JD 与简历均提供了岗位相关材料 | 不直接给最终录用结论，先验证项目证据 |
+| 关键不确定性集中在个人贡献、指标口径和复盘深度 | 简历中存在负责、主导、推动等表述 | 需要通过追问还原真实角色和结果归因 |
 
 ## 项目匹配闸口
 
@@ -495,6 +545,7 @@ function generateMockReport(input) {
 - 项目成果可能是团队成果，需要确认候选人的个人贡献。
 - 指标改善需要确认统计口径、前后对比周期和候选人的具体动作。
 - “主导 / 负责”需要拆解为需求判断、优先级取舍、推动过程和复盘结果。
+- 高匹配反包装风险：${packagingRisk}
 - Offer 侧风险：${hasOfferRisk ? "存在预算、期望、竞争机会或到岗时间相关信息，需在面试后段进一步确认。" : "暂未发现明确 Offer 侧约束，但仍需验证候选人动机和到岗意愿。"}
 
 ## Offer 沙盘推演
@@ -528,12 +579,12 @@ function generateMockReport(input) {
 
 ### A. 岗位要求验证问题
 
-| 问题 | 考察点 | 候选人准备提示 |
-| --- | --- | --- |
-| JD 要求你具备的核心能力中，哪一项证据最强？请用一个项目说明。 | 岗位核心能力匹配 | 选择与 JD 最贴近的项目 |
-| 这个岗位强调 ${hasB2B ? "B 端 / SaaS 场景" : "目标业务场景"}，你过去最相似的项目是什么？ | 场景迁移能力 | 对比相似点与差异点 |
-| 如果入职后第一个月只能完成一件最关键的事，你会如何判断优先级？ | 优先级判断 | 说明判断标准和取舍逻辑 |
-| 请举例说明你如何把岗位目标拆成可衡量指标。 | 指标意识 | 准备指标口径和推动动作 |
+| JD 职责 | 项目经历锚点 | 问题 | 验证目的 |
+| --- | --- | --- | --- |
+| 核心能力匹配 | 最贴近 JD 的项目 | JD 要求你具备的核心能力中，哪一项证据最强？请用一个项目说明。 | 验证岗位职责与项目证据是否一致 |
+| ${hasB2B ? "B 端 / SaaS 场景" : "目标业务场景"} | 相似业务项目 | 你过去最相似的项目是什么？相似点和差异点分别是什么？ | 验证场景迁移能力 |
+| 入职后优先级判断 | 过往项目取舍案例 | 如果入职后第一个月只能完成一件最关键的事，你会如何判断优先级？ | 验证职责落地能力 |
+| 指标拆解与推进 | 指标项目或复盘案例 | 请举例说明你如何把岗位目标拆成可衡量指标。 | 验证指标意识和推动动作 |
 
 ### B. 项目经历追问
 
@@ -554,6 +605,16 @@ function generateMockReport(input) {
 - 候选人可用这些问题做模拟面试，检查项目讲述是否完整。
 - 面试官可从问题库中挑选最贴近 JD 的问题，避免泛泛提问。
 - 每个问题都应回到候选人的项目证据、岗位职责和个人贡献。
+
+### E. 高匹配反包装追问
+
+| JD 职责 | 项目经历锚点 | 反包装问题 | 观察信号 |
+| --- | --- | --- | --- |
+| 负责产品规划与生命周期 | 候选人声称主导的项目 | 请画出从需求发现到上线复盘的关键决策链。 | 能否说清每个决策的输入、取舍和责任人 |
+| 指标复盘与质量控制 | 有数字结果的项目 | 项目里哪一个指标最容易被误读？你当时如何定义口径？ | 是否能解释统计周期、样本范围和归因边界 |
+| 成本、进度、资源控制 | 跨团队推进项目 | 如果现在把研发资源砍掉 40%，你会保留和放弃哪些能力？ | 是否能基于目标、风险和用户价值做取舍 |
+| 复杂问题解决 | 失败或延期项目 | 请讲一个该项目中你判断错误或推进失败的细节。 | 是否只有完美叙事，缺少真实反思 |
+| 方案设计与现场应变 | 最匹配 JD 的项目 | 面试官现场给一个新约束，你如何调整原方案？ | 是否能临场拆解问题并形成可执行方案 |
 
 ## 面试官视角库
 
@@ -578,7 +639,13 @@ ${skillQuestions}
 function cleanReportMarkdown(markdown) {
   return markdown
     .replace(/\*\*([^*\n][\s\S]*?[^*\n])\*\*/g, "$1")
-    .replace(/\*\*/g, "");
+    .replace(/`([^`\n]+)`/g, "$1")
+    .replace(/```[\s\S]*?```/g, (block) => block.replace(/```[a-zA-Z]*\n?|```/g, ""))
+    .replace(/^\s{0,3}>\s?/gm, "")
+    .replace(/^\s*[-*_]{3,}\s*$/gm, "")
+    .replace(/\*\*/g, "")
+    .replace(/__([^_\n]+)__/g, "$1")
+    .replace(/~~([^~\n]+)~~/g, "$1");
 }
 
 async function streamMockReport(input) {
@@ -759,13 +826,15 @@ function markdownToHtml(markdown) {
   const lines = escaped.split("\n");
   const html = [];
   let inList = false;
+  let listType = "";
   let inTable = false;
   let tableRowIndex = 0;
 
   const closeList = () => {
     if (inList) {
-      html.push("</ul>");
+      html.push(`</${listType}>`);
       inList = false;
+      listType = "";
     }
   };
 
@@ -802,17 +871,25 @@ function markdownToHtml(markdown) {
       if (tableRowIndex === 0) {
         html.push(`<thead><tr>${cells.map((cell) => `<th>${cell}</th>`).join("")}</tr></thead><tbody>`);
       } else {
-        html.push(`<tr>${cells.map((cell) => `<td>${cell}</td>`).join("")}</tr>`);
+        html.push(`<tr>${cells.map((cell) => `<td class="${cellToneClass(cell)}">${cell}</td>`).join("")}</tr>`);
       }
       tableRowIndex += 1;
     } else if (/^- /.test(line)) {
       closeTable();
-      if (!inList) html.push("<ul>");
+      if (!inList || listType !== "ul") {
+        closeList();
+        html.push("<ul>");
+        listType = "ul";
+      }
       inList = true;
       html.push(`<li>${line.replace(/^- /, "")}</li>`);
     } else if (/^\d+\. /.test(line)) {
       closeTable();
-      if (!inList) html.push("<ul>");
+      if (!inList || listType !== "ol") {
+        closeList();
+        html.push("<ol>");
+        listType = "ol";
+      }
       inList = true;
       html.push(`<li>${line.replace(/^\d+\. /, "")}</li>`);
     } else if (line.trim() === "") {
@@ -848,15 +925,24 @@ function parseMarkdownTableCells(line) {
     .map((cell) => cell.trim());
 }
 
-function reportToStaticHtmlDocument(run) {
-  const markdown = run.report;
+function cellToneClass(value) {
+  if (/不匹配|低匹配|明显缺口|缺少|未体现|淘汰|不推进|风险/.test(value)) return "tone-risk";
+  if (/部分匹配|中等匹配|待验证|待补|证据不足|不确定/.test(value)) return "tone-warn";
+  if (/高匹配|匹配|进入下一轮|有项目证据|有相关证据|已匹配/.test(value)) return "tone-good";
+  return "";
+}
+
+function reportToStaticHtmlDocument(run, audience = "full") {
+  const markdown = buildAudienceMarkdown(run, audience);
   const createdAt = new Date(run.created_at).toLocaleString("zh-CN");
+  const reportTitle = audience === "candidate" ? "候选人面试准备报告" : audience === "interviewer" ? "面试官提问辅助报告" : "面试准备报告";
+  const reportEyebrow = audience === "candidate" ? "候选人模块" : audience === "interviewer" ? "面试官模块" : "Offer 沙盘 + 面试官视角库";
   return `<!doctype html>
 <html lang="zh-CN">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>面试准备报告</title>
+    <title>${reportTitle}</title>
     <style>
       :root {
         color-scheme: light;
@@ -1038,6 +1124,24 @@ function reportToStaticHtmlDocument(run) {
         font-weight: 700;
       }
 
+      .tone-good {
+        background: #ecfdf3;
+        color: #166534;
+        font-weight: 700;
+      }
+
+      .tone-warn {
+        background: #fff7ed;
+        color: #9a3412;
+        font-weight: 700;
+      }
+
+      .tone-risk {
+        background: #fef2f2;
+        color: #b42318;
+        font-weight: 700;
+      }
+
       @media print {
         body {
           background: #ffffff;
@@ -1064,8 +1168,8 @@ function reportToStaticHtmlDocument(run) {
   <body>
     <main class="page">
       <section class="cover">
-        <p class="eyebrow">Offer 沙盘 + 面试官视角库</p>
-        <h1>面试准备报告</h1>
+        <p class="eyebrow">${reportEyebrow}</p>
+        <h1>${reportTitle}</h1>
         <div class="meta">
           <div>
             <span>生成时间</span>
@@ -1087,6 +1191,240 @@ function reportToStaticHtmlDocument(run) {
     </main>
   </body>
 </html>`;
+}
+
+function buildPreviewMarkdown(run) {
+  return `${buildAudienceMarkdown(run, "candidate")}
+
+${buildAudienceMarkdown(run, "interviewer")}`;
+}
+
+function buildAudienceMarkdown(run, audience) {
+  const report = run.report;
+  const snapshot = run.input_snapshot || {};
+  const resumeEvidence = snapshot.resume ? clip(snapshot.resume) : "未提供简历快照";
+  const jdEvidence = snapshot.job_description ? clip(snapshot.job_description) : "未提供 JD 快照";
+  const directConclusion = buildDirectConclusion(snapshot);
+  if (audience === "candidate") {
+    const body = [
+      extractSection(report, "项目匹配闸口"),
+      extractSection(report, "岗位匹配"),
+      extractSection(report, "风险与待验证"),
+      extractSection(report, "候选人准备重点"),
+      extractSection(report, "必问追问"),
+      extractSection(report, "证据链"),
+    ]
+      .filter(hasSubstantiveSection)
+      .join("\n\n");
+    return `# 候选人面试准备报告
+
+## 先看结论
+
+| 结论 | 证据 | 不匹配 / 待验证点 | 下一步 |
+| --- | --- | --- | --- |
+| ${directConclusion.label} | JD 证据：${jdEvidence}；简历证据：${resumeEvidence} | ${directConclusion.points} | ${directConclusion.nextStep} |
+
+## 招聘岗位分析
+
+${buildConcreteJobAnalysis(snapshot)}
+
+## 简历与 JD 不匹配点
+
+${buildConcreteGapTable(snapshot)}
+
+## 简历修改意见与重点准备
+
+${buildCandidateRevisionAdvice(snapshot)}
+
+## 建议重点准备的问题
+
+${buildConcreteCandidateQuestions(snapshot)}
+
+${body}`;
+  }
+
+  if (audience === "interviewer") {
+    const body = directConclusion.blockQuestions
+      ? [
+          extractSection(report, "项目匹配闸口"),
+          extractSection(report, "岗位匹配"),
+          extractSection(report, "证据链"),
+        ]
+          .filter(hasSubstantiveSection)
+          .join("\n\n")
+      : [
+          extractSection(report, "项目匹配闸口"),
+          extractSection(report, "岗位匹配"),
+          extractSection(report, "风险与待验证"),
+          extractSection(report, "面试官候选问题库（供挑选）"),
+          extractSection(report, "面试官视角库"),
+          extractSection(report, "证据链"),
+        ]
+          .filter(hasSubstantiveSection)
+          .join("\n\n");
+    return `# 面试官提问辅助报告
+
+## 先看结论
+
+| 结论 | 证据 | 不匹配 / 待验证点 | 下一步 |
+| --- | --- | --- | --- |
+| ${directConclusion.label} | JD 证据：${jdEvidence}；简历证据：${resumeEvidence} | ${directConclusion.points} | ${directConclusion.interviewerNextStep} |
+
+## 简历与 JD 不匹配点
+
+${buildConcreteGapTable(snapshot)}
+
+${directConclusion.blockQuestions ? `## 面试官处理建议
+
+| 结论 | 原因 | 建议 |
+| --- | --- | --- |
+| 当前不列举追问问题 | 全部核心能力均为待验证 / 缺证，没有足够项目锚点支撑有效追问 | 建议先要求候选人补充能证明缺口能力的项目材料；补齐后再进入追问或沙盘 |
+| 暂不进入下一轮沙盘 | 简历缺少支撑 JD 核心职责的有效项目证据 | 只保留不匹配点和证据缺口，作为筛选记录 |
+` : `## 面试官可选追问
+
+${buildConcreteInterviewerQuestions(snapshot)}
+`}
+
+${body}`;
+  }
+
+  return report;
+}
+
+function extractSection(markdown, heading) {
+  const pattern = new RegExp(`(^## ${escapeRegExp(heading)}\\n[\\s\\S]*?)(?=\\n## |$)`, "m");
+  const match = markdown.match(pattern);
+  return match ? match[1].trim() : "";
+}
+
+function hasSubstantiveSection(section) {
+  const body = section.replace(/^## .+$/m, "").replace(/\s+/g, "");
+  return body.length > 30;
+}
+
+function buildDirectConclusion(snapshot) {
+  const rows = buildRequirementEvidenceRows(snapshot);
+  const missingRows = rows.filter((row) => row.resumeEvidence === "简历未体现明确证据");
+  const matchedRows = rows.filter((row) => row.resumeEvidence !== "简历未体现明确证据");
+  const points = (missingRows.length ? missingRows : rows)
+    .slice(0, 4)
+    .map((row) => `${row.capability}：${row.resumeEvidence === "简历未体现明确证据" ? "简历未提供可支撑证据" : "已有线索但需验证真实贡献"}`)
+    .join("；");
+
+  if (matchedRows.length === 0) {
+    return {
+      label: "当前简历与 JD 全部为待验证 / 缺证，视同不匹配",
+      points,
+      nextStep: "优先补齐这些能力对应的项目案例，再准备面试回答",
+      interviewerNextStep: "不列追问问题，先要求补充项目证据",
+      hasMissing: true,
+      blockQuestions: true,
+    };
+  }
+
+  if (missingRows.length) {
+    return {
+      label: `当前简历与 JD 部分匹配，仍有 ${missingRows.length} 项待验证 / 缺证`,
+      points,
+      nextStep: "补齐缺证项，同时准备已匹配项目的深挖问题",
+      interviewerNextStep: "围绕已匹配项目继续追问，验证缺证项和过度包装风险",
+      hasMissing: true,
+      blockQuestions: false,
+    };
+  }
+
+  return {
+    label: "当前简历与 JD 表面匹配，但仍需验证",
+    points,
+    nextStep: "准备关键决策、指标口径、失败细节和现场推演回答",
+    interviewerNextStep: "使用反包装问题验证真实角色、指标口径和临场判断",
+    hasMissing: false,
+    blockQuestions: false,
+  };
+}
+
+function buildConcreteJobAnalysis(snapshot) {
+  const rows = buildRequirementEvidenceRows(snapshot);
+  const matchCount = rows.filter((row) => row.resumeEvidence !== "简历未体现明确证据").length;
+  const matchLevel = matchCount >= 4 ? "高匹配" : matchCount >= 2 ? "中等匹配" : "低匹配";
+  return `| 企业需要的能力 | JD 证据 | 当前简历证据 | 匹配判断 |
+| --- | --- | --- | --- |
+${rows.map((row) => `| ${row.capability} | ${row.jdEvidence} | ${row.resumeEvidence} | ${row.resumeEvidence === "简历未体现明确证据" ? "不匹配 / 待补证" : "有项目证据，仍需深挖"} |`).join("\n")}
+| 综合匹配程度 | 基于 JD 职责与简历项目证据逐项对照 | 已匹配 ${matchCount}/${rows.length} 项能力证据 | ${matchLevel} |`;
+}
+
+function buildConcreteGapTable(snapshot) {
+  const allRows = buildRequirementEvidenceRows(snapshot);
+  const rows = allRows.filter((row) => row.resumeEvidence === "简历未体现明确证据");
+  const gapRows = rows.length ? rows : allRows.slice(0, 3);
+  return `| 不匹配 / 待验证点 | JD 证据 | 简历当前证据 | 建议补充 |
+| --- | --- | --- | --- |
+${gapRows.map((row) => {
+  const status = row.resumeEvidence === "简历未体现明确证据" ? "不匹配 / 缺证" : "待验证";
+  return `| ${status}：${row.capability} | ${row.jdEvidence} | ${row.resumeEvidence} | 准备一个能证明“${row.capability}”的具体项目，说明背景、个人动作、结果和复盘 |`;
+}).join("\n")}`;
+}
+
+function buildConcreteCandidateQuestions(snapshot) {
+  const rows = buildRequirementEvidenceRows(snapshot).slice(0, 6);
+  return `| 准备问题 | 对应岗位职责 | 当前项目锚点 | 回答要点 |
+| --- | --- | --- | --- |
+${rows.map((row) => `| 请用一个项目证明你具备“${row.capability}”，你当时的真实角色和关键决策是什么？ | ${row.jdEvidence} | ${row.resumeEvidence} | 讲清背景、目标、约束、个人动作、结果指标和复盘 |`).join("\n")}`;
+}
+
+function buildCandidateRevisionAdvice(snapshot) {
+  const rows = buildRequirementEvidenceRows(snapshot);
+  const missingRows = rows.filter((row) => row.resumeEvidence === "简历未体现明确证据");
+  const targetRows = missingRows.length ? missingRows : rows.slice(0, 4);
+  return `| 需要修改 / 准备的点 | 当前问题 | 修改建议 | 面试准备材料 |
+| --- | --- | --- | --- |
+${targetRows.map((row) => {
+  const problem = row.resumeEvidence === "简历未体现明确证据" ? `简历没有体现“${row.capability}”的项目证据` : `简历已有“${row.capability}”线索，但缺少细节支撑`;
+  return `| ${row.capability} | ${problem} | 在简历中补充一个对应项目，写清你的真实角色、关键动作、结果指标和复盘 | 准备项目背景、目标、约束、个人贡献、指标口径、失败或取舍案例 |`;
+}).join("\n")}`;
+}
+
+function buildConcreteInterviewerQuestions(snapshot) {
+  const rows = buildRequirementEvidenceRows(snapshot).slice(0, 6);
+  return `| 面试官视角 | 对应 JD 职责 | 候选人项目锚点 | 可选追问 |
+| --- | --- | --- | --- |
+${rows.map((row, index) => `| ${interviewerLens(index)} | ${row.jdEvidence} | ${row.resumeEvidence} | 你简历里哪一个项目最能证明“${row.capability}”？请说明真实角色、关键取舍、指标口径和失败细节。 |`).join("\n")}`;
+}
+
+function buildRequirementEvidenceRows(snapshot) {
+  const jd = snapshot.job_description || "";
+  const resume = snapshot.resume || "";
+  const requirements = [
+    { capability: "行业场景理解", keywords: ["智慧矿山", "GIS", "矿山", "冶金", "矿产", "行业"] },
+    { capability: "产品规划与生命周期管理", keywords: ["产品规划", "生命周期", "0-1", "0 到 1", "设计", "规划"] },
+    { capability: "客户需求分析与方案设计", keywords: ["客户", "需求分析", "技术交流", "方案设计", "咨询", "调研"] },
+    { capability: "技术架构与研发协同", keywords: ["架构", "研发", "C++", "Java", "JavaScript", "数据库", "操作系统", "前后端"] },
+    { capability: "技术选型与创新探索", keywords: ["前瞻", "技术选型", "新功能", "专利", "技术探索"] },
+    { capability: "成本、进度、质量控制", keywords: ["成本", "进度", "质量", "风险控制", "协调", "推进"] },
+  ];
+  return requirements.map((requirement) => ({
+    capability: requirement.capability,
+    jdEvidence: findEvidence(jd, requirement.keywords) || "JD 未提供明确原文",
+    resumeEvidence: findEvidence(resume, requirement.keywords) || "简历未体现明确证据",
+  }));
+}
+
+function findEvidence(text, keywords) {
+  if (!text) return "";
+  const parts = text
+    .split(/[。；;\n]/)
+    .map((item) => item.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+  const hit = parts.find((part) => keywords.some((keyword) => part.toLowerCase().includes(keyword.toLowerCase())));
+  return hit ? clip(hit) : "";
+}
+
+function interviewerLens(index) {
+  return ["业务负责人", "产品负责人", "项目推进", "技术架构", "客户方案", "反包装验证"][index % 6];
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function escapeHtml(value) {

@@ -727,6 +727,24 @@ button:disabled {
   font-weight: 850;
 }
 
+.report .tone-good {
+  background: rgba(142, 230, 176, 0.14);
+  color: #8ee6b0;
+  font-weight: 900;
+}
+
+.report .tone-warn {
+  background: rgba(242, 166, 90, 0.15);
+  color: #ffd6aa;
+  font-weight: 900;
+}
+
+.report .tone-risk {
+  background: rgba(255, 138, 128, 0.14);
+  color: #ffb4ad;
+  font-weight: 900;
+}
+
 .report code,
 code {
   border: 1px solid rgba(154, 168, 188, 0.2);

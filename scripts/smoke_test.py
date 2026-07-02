@@ -59,9 +59,35 @@ def static_checks():
             term in content["app"]
             for term in ["## 项目匹配闸口", "## 候选人准备重点", "## 面试官候选问题库", "## 面试官视角库", "## 证据链"]
         ),
-        "html_download_exists": all(
-            term in content["app"] for term in ["text/html", ".html`", "reportToStaticHtmlDocument"]
+        "anti_packaging_questions_exist": "高匹配反包装追问" in content["app"] and "过度包装" in content["prompt"],
+        "questions_link_jd_and_projects": "岗位职责与项目经历" in content["readme"]
+        and "对应的 JD 职责" in content["prompt"]
+        and "项目经历锚点" in content["app"],
+        "conclusions_have_evidence": "每一个结论都必须给出证据" in content["app"]
+        and "招聘岗位分析" in content["app"]
+        and "结论证据化" in content["readme"],
+        "direct_mismatch_conclusion_exists": "当前简历与 JD 全部为待验证 / 缺证，视同不匹配" in content["app"]
+        and "当前简历与 JD 部分匹配" in content["app"]
+        and "不匹配 / 缺证" in content["app"]
+        and "不列追问问题，先要求补充项目证据" in content["app"],
+        "audience_reports_branch_on_mismatch": "当前不列举追问问题" in content["app"]
+        and "简历修改意见与重点准备" in content["app"]
+        and "buildCandidateRevisionAdvice" in content["app"]
+        and "blockQuestions" in content["app"],
+        "markdown_artifacts_cleaned": all(
+            term in content["app"] for term in ["裸露表格分隔线", "代码围栏", "replace(/```", "replace(/^\\s{0,3}>\\s?/gm", "<ol>"]
         ),
+        "match_degree_colors_exist": all(
+            term in content["app"] + content["css"] for term in ["tone-good", "tone-warn", "tone-risk", "cellToneClass"]
+        ),
+        "no_raw_backticks_in_system_prompt": "例如 **、---、```" not in content["app"],
+        "html_download_exists": all(
+            term in content["app"] for term in ["text/html", ".html`", "reportToStaticHtmlDocument", "candidate-report", "interviewer-report"]
+        ),
+        "two_report_modules_exist": "downloadInterviewerBtn" in content["app"] + content["index"]
+        and "下载候选人报告" in content["index"]
+        and "下载面试官报告" in content["index"]
+        and "buildAudienceMarkdown" in content["app"],
         "json_download_removed": "downloadJsonBtn" not in content["app"] + content["index"],
         "feedback_loop_exists": all(
             term in content["app"] for term in ["appendFeedbackToReport", "collectFeedback", "human_feedback"]
@@ -74,11 +100,11 @@ def static_checks():
         "secret_file_ignored": bool(re.search(r"(?m)^1\.md$", content["gitignore"])),
         "docs_reflect_current_features": all(
             term in content["readme"]
-            for term in ["辅助候选人", "项目匹配闸口", "面试官视角库", "候选人追问题库", "报告分块流式输出", "HTML 报告本地下载"]
+            for term in ["辅助候选人", "项目匹配闸口", "面试官视角库", "候选人追问题库", "双模块 HTML 下载", "报告分块流式输出"]
         ),
         "prompt_reflects_current_features": all(
             term in content["prompt"]
-            for term in ["辅助候选人", "项目匹配闸口", "面试官候选问题库", "候选人准备重点", "面试官视角库", "虚拟生成"]
+            for term in ["辅助候选人", "项目匹配闸口", "面试官候选问题库", "候选人准备重点", "面试官视角库", "虚拟生成", "过度包装"]
         ),
         "schema_reflects_current_features": all(
             term in content["schema_run"]
