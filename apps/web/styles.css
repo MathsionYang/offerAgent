@@ -154,35 +154,6 @@ h1 {
   font-size: clamp(16px, 2vw, 19px);
 }
 
-.hero-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 26px;
-}
-
-.hero-link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-  border: 1px solid rgba(79, 179, 216, 0.42);
-  border-radius: 8px;
-  background: linear-gradient(135deg, #2a8fb1, #126782);
-  color: #fff;
-  padding: 0 18px;
-  font-weight: 900;
-  text-decoration: none;
-  box-shadow: 0 16px 38px rgba(18, 103, 130, 0.28);
-}
-
-.hero-link.secondary {
-  border: 1px solid var(--line);
-  background: rgba(17, 26, 40, 0.78);
-  color: #e6edf7;
-  box-shadow: none;
-}
-
 .hero-summary {
   display: grid;
   gap: 12px;
@@ -381,6 +352,22 @@ textarea:focus {
   font-size: 13px;
 }
 
+.mode-indicator {
+  border: 1px solid rgba(242, 166, 90, 0.34);
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: #ffd6aa;
+  padding: 11px 12px;
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.mode-indicator.active {
+  border-color: rgba(142, 230, 176, 0.38);
+  background: rgba(142, 230, 176, 0.12);
+  color: var(--success);
+}
+
 .notice {
   border: 1px solid rgba(79, 179, 216, 0.28);
   border-left: 4px solid var(--brand);
@@ -453,6 +440,72 @@ button:disabled {
   margin-top: 12px;
 }
 
+.sub-panel {
+  border: 1px solid rgba(154, 168, 188, 0.2);
+  border-radius: 10px;
+  background: rgba(8, 14, 23, 0.46);
+  margin: 16px 0;
+  padding: 15px;
+}
+
+.sub-panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.sub-panel-head span {
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.sub-panel-head small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.skill-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.skill-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  min-height: 94px;
+  border: 1px solid rgba(154, 168, 188, 0.24);
+  border-radius: 8px;
+  background: rgba(15, 23, 36, 0.78);
+  margin: 0;
+  padding: 12px;
+  cursor: pointer;
+}
+
+.skill-card input {
+  width: 16px;
+  height: 16px;
+  margin-top: 3px;
+  accent-color: var(--brand);
+}
+
+.skill-card strong {
+  display: block;
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.skill-card small {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .report {
   height: calc(100vh - 158px);
   min-height: 660px;
@@ -470,6 +523,119 @@ button:disabled {
   place-items: center;
   color: var(--muted);
   text-align: center;
+}
+
+.report.streaming {
+  padding: 18px;
+}
+
+.stream-progress {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  border: 1px solid rgba(79, 179, 216, 0.24);
+  border-radius: 9px;
+  background: rgba(10, 16, 26, 0.96);
+  margin-bottom: 18px;
+  padding: 13px;
+  backdrop-filter: blur(14px);
+}
+
+.stream-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.stream-title span {
+  color: #f7fbff;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.stream-title small {
+  color: var(--brand-dark);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.stream-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.stream-step {
+  border: 1px solid rgba(154, 168, 188, 0.2);
+  border-radius: 8px;
+  background: rgba(15, 23, 36, 0.72);
+  padding: 9px;
+}
+
+.stream-step span {
+  display: inline-grid;
+  place-items: center;
+  width: 21px;
+  height: 21px;
+  border-radius: 999px;
+  background: rgba(154, 168, 188, 0.16);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.stream-step strong {
+  display: block;
+  margin-top: 6px;
+  color: #c8d3e3;
+  font-size: 12px;
+}
+
+.stream-step small {
+  display: block;
+  margin-top: 2px;
+  color: #79879a;
+  font-size: 11px;
+}
+
+.stream-step.active {
+  border-color: rgba(79, 179, 216, 0.48);
+  background: rgba(79, 179, 216, 0.12);
+}
+
+.stream-step.active span {
+  background: var(--brand);
+  color: #06101a;
+}
+
+.stream-step.done {
+  border-color: rgba(142, 230, 176, 0.32);
+}
+
+.stream-step.done span {
+  background: rgba(142, 230, 176, 0.16);
+  color: var(--success);
+}
+
+.stream-content {
+  animation: streamFadeIn 0.18s ease;
+}
+
+.stream-placeholder {
+  color: var(--muted);
+}
+
+.stream-cursor {
+  display: inline-block;
+  width: 8px;
+  height: 1.1em;
+  margin-left: 3px;
+  border-radius: 999px;
+  background: var(--brand-dark);
+  vertical-align: -0.2em;
+  animation: blink 0.92s infinite;
 }
 
 .empty-state {
@@ -561,6 +727,10 @@ pre {
   .report {
     height: auto;
   }
+
+  .stream-steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 680px) {
@@ -572,14 +742,15 @@ pre {
   }
 
   .nav,
-  .hero-actions,
   .panel-head {
     align-items: flex-start;
     flex-direction: column;
   }
 
   .workflow,
-  .grid.two {
+  .grid.two,
+  .skill-grid,
+  .stream-steps {
     grid-template-columns: 1fr;
   }
 
@@ -587,8 +758,29 @@ pre {
     padding: 16px;
   }
 
-  .actions button,
-  .hero-link {
+  .actions button {
     width: 100%;
+  }
+}
+
+@keyframes blink {
+  0%,
+  45% {
+    opacity: 1;
+  }
+
+  46%,
+  100% {
+    opacity: 0.25;
+  }
+}
+
+@keyframes streamFadeIn {
+  from {
+    opacity: 0.72;
+  }
+
+  to {
+    opacity: 1;
   }
 }

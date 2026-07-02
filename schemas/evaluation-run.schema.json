@@ -9,12 +9,27 @@
     "created_at": { "type": "string" },
     "provider": { "type": "string" },
     "model": { "type": "string" },
+    "mode": { "type": "string", "enum": ["mock", "llm"] },
     "input_snapshot": {
       "type": "object",
       "properties": {
         "resume": { "type": "string" },
         "job_description": { "type": "string" },
-        "company_context": { "type": "string" }
+        "company_context": { "type": "string" },
+        "candidate_stage": { "type": "string" },
+        "target_level": { "type": "string" },
+        "offer_constraints": { "type": "string" },
+        "selected_skills": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "offer_sandbox": {
+      "type": "object",
+      "properties": {
+        "stage": { "type": "string" },
+        "target_level": { "type": "string" },
+        "readiness": { "type": "string" },
+        "risks": { "type": "array", "items": { "type": "string" } },
+        "next_actions": { "type": "array", "items": { "type": "string" } }
       }
     },
     "report": { "type": "string" },
@@ -32,4 +47,3 @@
     }
   }
 }
-

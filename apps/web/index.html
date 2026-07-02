@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>OfferAgent | 产品经理面试准备助手</title>
+    <title>面试准备助手</title>
     <meta
       name="description"
-      content="OfferAgent 开源 Web MVP：用户临时配置大模型 Key，生成产品经理面试准备报告并下载到本地。"
+      content="面试准备助手开源 Web MVP：辅助候选人准备面试，并生成面试官可选问题库。"
     />
     <link rel="stylesheet" href="./styles.css" />
   </head>
@@ -16,8 +16,8 @@
         <div class="brand">
           <span class="brand-mark">OA</span>
           <div>
-            <strong>OfferAgent</strong>
-            <span>Offer 沙盘 + 面试官 Skill 库</span>
+            <strong>面试准备助手</strong>
+            <span>Offer 沙盘 + 面试官视角库</span>
           </div>
         </div>
       </nav>
@@ -25,28 +25,25 @@
       <div class="hero-content">
         <div class="hero-copy">
           <p class="eyebrow">Open Source Web MVP</p>
-          <h1>产品经理面试准备助手</h1>
-          <p class="hero-subtitle">生成面试前可用的岗位匹配分析、证据链、追问清单、可选问题库与人工反馈报告。</p>
-          <div class="hero-actions">
-            <a class="hero-link" href="#workspace">开始生成报告</a>
-          </div>
+          <h1>面试准备助手</h1>
+          <p class="hero-subtitle">辅助候选人更好准备面试，并生成可供面试官挑选的候选人追问题库。</p>
         </div>
 
         <aside class="hero-summary" aria-label="核心能力">
           <div>
             <span>01</span>
             <strong>岗位匹配</strong>
-            <p>对齐 JD 核心职责、必备能力和加分项。</p>
+            <p>帮助候选人对齐 JD 核心职责、必备能力和加分项。</p>
           </div>
           <div>
             <span>02</span>
             <strong>证据链优先</strong>
-            <p>关键判断绑定简历、JD 或上下文证据。</p>
+            <p>把项目讲述、指标口径和个人贡献绑定到证据。</p>
           </div>
           <div>
             <span>03</span>
-            <strong>问题库</strong>
-            <p>覆盖岗位要求、项目经历和项目推进视角。</p>
+            <strong>视角库</strong>
+            <p>生成面试官可挑选的问题，也帮助候选人提前演练。</p>
           </div>
         </aside>
       </div>
@@ -66,12 +63,12 @@
         </article>
         <article class="step-card">
           <span>Step 3</span>
-          <strong>生成报告</strong>
-          <p>输出分析结果、证据链、追问清单与可选问题库。</p>
+          <strong>准备报告</strong>
+          <p>输出候选人准备重点、Offer 风险与追问策略。</p>
         </article>
         <article class="step-card">
           <span>Step 4</span>
-          <strong>补充反馈</strong>
+          <strong>反馈校准</strong>
           <p>把人工判断写回报告并下载保存。</p>
         </article>
       </section>
@@ -96,7 +93,7 @@
                   <option value="deepseek">DeepSeek</option>
                   <option value="qwen">通义千问 / DashScope</option>
                   <option value="kimi">Kimi / Moonshot</option>
-                  <option value="custom">OpenAI-Compatible 自定义接口</option>
+                  <option value="custom">OpenAI-Compatible 代理 / 自定义接口</option>
                 </select>
               </label>
 
@@ -119,15 +116,19 @@
               </label>
 
               <label>
-                <span>自定义 Base URL（可选）</span>
+                <span>代理 / 自定义 Base URL（可选）</span>
                 <input
                   id="baseUrl"
                   type="url"
-                  placeholder="例如 https://api.openai.com/v1"
+                  placeholder="例如 https://your-worker.workers.dev"
                   autocomplete="off"
                   spellcheck="false"
                 />
               </label>
+            </div>
+
+            <div class="mode-indicator" id="modelMode">
+              当前模式：Mock Demo
             </div>
 
           </section>
@@ -164,10 +165,81 @@
               ></textarea>
             </label>
 
+            <section class="sub-panel" aria-labelledby="sandbox-title">
+              <div class="sub-panel-head">
+                <span>Offer 沙盘</span>
+                <small>用于模拟面试推进、录用风险和谈薪约束</small>
+              </div>
+
+              <div class="grid two">
+                <label>
+                  <span>候选人阶段</span>
+                  <select id="candidateStage">
+                    <option value="初筛">初筛</option>
+                    <option value="业务一面">业务一面</option>
+                    <option value="业务终面">业务终面</option>
+                    <option value="Offer 前">Offer 前</option>
+                  </select>
+                </label>
+
+                <label>
+                  <span>目标职级</span>
+                  <input id="targetLevel" type="text" placeholder="例如 P6 / 中级产品经理" autocomplete="off" />
+                </label>
+              </div>
+
+              <label>
+                <span>Offer / 谈薪约束（可选）</span>
+                <textarea
+                  id="offerConstraints"
+                  rows="4"
+                  placeholder="例如预算范围、候选人期望、竞品 Offer、到岗时间、团队紧急程度。"
+                ></textarea>
+              </label>
+            </section>
+
+            <section class="sub-panel" aria-labelledby="skill-title">
+              <div class="sub-panel-head">
+                <span>面试官视角库</span>
+                <small>不同面试角色的问题视角，供候选人准备和面试官挑选</small>
+              </div>
+
+              <div class="skill-grid">
+                <label class="skill-card">
+                  <input class="skill-toggle" type="checkbox" value="hr" checked />
+                  <span>
+                    <strong>虚拟 HR 面试官</strong>
+                    <small>深挖动机、岗位偏好、到岗约束和风险边界。</small>
+                  </span>
+                </label>
+                <label class="skill-card">
+                  <input class="skill-toggle" type="checkbox" value="business" checked />
+                  <span>
+                    <strong>虚拟业务负责人</strong>
+                    <small>结合 JD 职责深挖业务判断、指标口径和结果归因。</small>
+                  </span>
+                </label>
+                <label class="skill-card">
+                  <input class="skill-toggle" type="checkbox" value="project" checked />
+                  <span>
+                    <strong>虚拟项目推进面试官</strong>
+                    <small>结合项目经历深挖里程碑、资源协调和复盘机制。</small>
+                  </span>
+                </label>
+                <label class="skill-card">
+                  <input class="skill-toggle" type="checkbox" value="negotiation" />
+                  <span>
+                    <strong>虚拟谈薪顾问</strong>
+                    <small>深挖机会选择标准、竞争 Offer、入职概率和谈薪策略。</small>
+                  </span>
+                </label>
+              </div>
+            </section>
+
             <div class="actions">
               <button id="generateBtn" class="primary-btn" type="button">生成面试准备报告</button>
               <button id="downloadMdBtn" class="secondary-btn" type="button" disabled>
-                下载 Markdown
+                下载 HTML 报告
               </button>
               <button id="downloadJsonBtn" class="secondary-btn" type="button" disabled>
                 下载 JSON
@@ -234,12 +306,12 @@
             <span id="runBadge" class="run-badge">尚未生成</span>
           </div>
 
-          <article id="report" class="report empty">
+          <article id="report" class="report empty" aria-live="polite">
             <div class="empty-state">
               <span class="empty-mark">OA</span>
               <h3>等待生成报告</h3>
               <p>
-                报告会覆盖岗位匹配、项目亮点、风险与待验证、必问追问、面试问题库、证据链和人工反馈建议。
+                报告会覆盖候选人准备重点、岗位匹配、Offer 沙盘推演、面试官候选问题库、证据链和人工反馈建议。
               </p>
             </div>
           </article>
@@ -248,7 +320,7 @@
     </main>
 
     <footer class="footer">
-      <p>OfferAgent 第一版只做面试准备辅助，不输出自动录用或淘汰结论。</p>
+      <p>面试准备助手第一版只做面试准备辅助，不输出自动录用或淘汰结论。</p>
     </footer>
 
     <script src="./app.js"></script>
