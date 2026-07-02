@@ -120,8 +120,8 @@ p {
 
 .hero-content {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
-  gap: 24px;
+  grid-template-columns: 1fr;
+  gap: 18px;
   align-items: stretch;
 }
 
@@ -156,6 +156,7 @@ h1 {
 
 .hero-summary {
   display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -710,7 +711,6 @@ pre {
 }
 
 @media (max-width: 1080px) {
-  .hero-content,
   .layout {
     grid-template-columns: 1fr;
   }
@@ -750,6 +750,7 @@ pre {
   .workflow,
   .grid.two,
   .skill-grid,
+  .hero-summary,
   .stream-steps {
     grid-template-columns: 1fr;
   }
