@@ -686,6 +686,47 @@ button:disabled {
   margin: 6px 0;
 }
 
+.report .table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  margin: 12px 0 18px;
+}
+
+.report table {
+  width: 100%;
+  border-collapse: collapse;
+  background: rgba(12, 18, 29, 0.92);
+  font-size: 13px;
+}
+
+.report thead {
+  background: linear-gradient(135deg, #1d526d, #126782);
+  color: #f7fbff;
+}
+
+.report th,
+.report td {
+  border-bottom: 1px solid rgba(154, 168, 188, 0.18);
+  padding: 10px 12px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.report th {
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.report tbody tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.report td:first-child {
+  color: #edf3fb;
+  font-weight: 850;
+}
+
 .report code,
 code {
   border: 1px solid rgba(154, 168, 188, 0.2);

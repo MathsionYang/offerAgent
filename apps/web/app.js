@@ -16,7 +16,6 @@ const modelModeEl = $("modelMode");
 const runBadgeEl = $("runBadge");
 const generateBtn = $("generateBtn");
 const downloadMdBtn = $("downloadMdBtn");
-const downloadJsonBtn = $("downloadJsonBtn");
 const feedbackAgreementEl = $("feedbackAgreement");
 const feedbackQuestionUseEl = $("feedbackQuestionUse");
 const feedbackNotesEl = $("feedbackNotes");
@@ -50,7 +49,8 @@ const systemPrompt = `你是面试准备助手。
 请基于用户提供的简历、JD、Offer 沙盘上下文和已选择的虚拟面试官视角，生成中文 Markdown 面试准备报告。报告的核心用途是帮助候选人更好准备面试，同时生成可供面试官挑选使用的候选人追问题库。
 
 必须遵守：
-- 不输出自动录用或淘汰结论。
+- 可以输出“项目匹配闸口”的推进建议：项目经历明显不匹配 JD 职责时，建议不进入下一轮沙盘；匹配或待验证时，建议进入下一轮沙盘验证。
+- 不输出无证据的自动录用或淘汰结论，所有“淘汰 / 不推进”建议必须基于 JD 职责和候选人项目经历证据。
 - 不使用年龄、性别、婚育、照片、籍贯等敏感信息作为判断依据。
 - 缺少证据时只能标注为待验证。
 - 每个关键判断必须引用简历或 JD 的具体证据。
@@ -60,6 +60,7 @@ const systemPrompt = `你是面试准备助手。
 
 请使用以下标题：
 ## 一页摘要
+## 项目匹配闸口
 ## 岗位匹配
 ## 项目亮点
 ## 风险与待验证
@@ -70,6 +71,17 @@ const systemPrompt = `你是面试准备助手。
 ## 面试官视角库
 ## 证据链
 ## 人工反馈建议
+
+排版要求：
+- 不要输出大段纯文本。优先使用 Markdown 表格、分层列表和短句。
+- “一页摘要”“项目匹配闸口”“岗位匹配”“候选人准备重点”“面试官候选问题库”“面试官视角库”建议使用 Markdown 表格呈现。
+- 表格控制在 3 到 4 列，列名必须清晰，单元格内容保持短句。
+
+其中“项目匹配闸口”是第一步，必须先输出：
+- 根据 JD 岗位职责拆出核心项目证据要求。
+- 对照候选人项目经历，判断“匹配 / 部分匹配 / 不匹配 / 待验证”。
+- 如果核心项目经历不匹配，明确建议“不进入下一轮沙盘”，并说明候选人需要补充哪些项目证据。
+- 如果匹配或部分匹配，明确建议“进入下一轮沙盘”，再展开 Offer 沙盘推演。
 
 其中“候选人准备重点”必须包含：
 - 候选人应准备的项目故事：背景、目标、约束、动作、结果、复盘。
@@ -141,7 +153,8 @@ const skillLibrary = {
 
 const reportStages = [
   { title: "证据解析", marker: "## 一页摘要", detail: "读取简历、JD 与上下文" },
-  { title: "岗位匹配", marker: "## 岗位匹配", detail: "校准硬性要求与差距" },
+  { title: "匹配闸口", marker: "## 项目匹配闸口", detail: "判断是否进入下一轮沙盘" },
+  { title: "岗位匹配", marker: "## 岗位匹配", detail: "校准职责要求与项目证据" },
   { title: "风险校准", marker: "## 风险与待验证", detail: "区分事实、推断和待验证项" },
   { title: "沙盘推演", marker: "## Offer 沙盘推演", detail: "评估推进路径与 Offer 风险" },
   { title: "问题库生成", marker: "## 面试官候选问题库", detail: "生成候选人准备与面试官提问题库" },
@@ -185,7 +198,6 @@ $("clearBtn").addEventListener("click", () => {
   reportEl.innerHTML = '<div class="empty-state"><span class="empty-mark">OA</span><h3>等待生成报告</h3><p>报告会覆盖候选人准备重点、岗位匹配、Offer 沙盘推演、面试官候选问题库、证据链和人工反馈建议。</p></div>';
   runBadgeEl.textContent = "尚未生成";
   downloadMdBtn.disabled = true;
-  downloadJsonBtn.disabled = true;
   appendFeedbackBtn.disabled = true;
   feedbackAgreementEl.value = "未反馈";
   feedbackQuestionUseEl.value = "未反馈";
@@ -202,7 +214,6 @@ generateBtn.addEventListener("click", async () => {
 
   generateBtn.disabled = true;
   downloadMdBtn.disabled = true;
-  downloadJsonBtn.disabled = true;
   appendFeedbackBtn.disabled = true;
   runBadgeEl.textContent = "生成中...";
   renderStreamingReport("", input.useRealModel ? "真实模型流式生成中" : "Mock 分块生成中");
@@ -237,7 +248,6 @@ generateBtn.addEventListener("click", async () => {
     renderStreamingReport(cleanedReport, input.useRealModel ? "真实模型生成完成" : "Mock 分块生成完成", true);
     runBadgeEl.textContent = currentRun.id;
     downloadMdBtn.disabled = false;
-    downloadJsonBtn.disabled = false;
     appendFeedbackBtn.disabled = false;
     setStatus(input.useRealModel ? "真实模型报告已生成。请下载到本地保存。" : "Mock 沙盘报告已生成。请下载到本地保存。");
   } catch (error) {
@@ -249,20 +259,11 @@ generateBtn.addEventListener("click", async () => {
 
 downloadMdBtn.addEventListener("click", () => {
   if (!currentRun) return;
+  currentRun.human_feedback = collectFeedback();
   downloadFile(
     `offeragent-${currentRun.id}.html`,
     reportToStaticHtmlDocument(currentRun),
     "text/html;charset=utf-8",
-  );
-});
-
-downloadJsonBtn.addEventListener("click", () => {
-  if (!currentRun) return;
-  currentRun.human_feedback = collectFeedback();
-  downloadFile(
-    `offeragent-${currentRun.id}.json`,
-    JSON.stringify(currentRun, null, 2),
-    "application/json;charset=utf-8",
   );
 });
 
@@ -277,7 +278,6 @@ appendFeedbackBtn.addEventListener("click", () => {
   currentRun.report = appendFeedbackToReport(currentRun.report, feedback);
   renderReport(currentRun.report);
   downloadMdBtn.disabled = false;
-  downloadJsonBtn.disabled = false;
   setStatus("人工反馈已写入当前报告。请下载保存，刷新页面后不会保留。");
 });
 
@@ -440,18 +440,23 @@ function generateMockReport(input) {
   );
   const skillQuestions = buildSkillQuestionMarkdown(input.selectedSkills, input);
 
-  const match = hasB2B && hasMetrics && hasCollab ? "基本匹配，建议进入业务面试前重点验证" : "部分匹配，需要补充关键证据";
+  const canEnterSandbox = hasB2B && hasMetrics && hasCollab;
+  const gateDecision = canEnterSandbox ? "进入下一轮沙盘" : "暂不进入下一轮沙盘";
+  const match = canEnterSandbox ? "基本匹配，建议进入下一轮沙盘验证" : "项目证据不足，建议先补充关键项目经历";
   const offerReadiness = hasB2B && hasMetrics && hasCollab && !hasOfferRisk ? "可继续推进面试验证" : "需要先补齐关键证据与动机信息";
 
   return `# 面试准备报告
 
 ## 一页摘要
 
-- 岗位匹配倾向：${match}。
-- 最大亮点：候选人简历中出现与 B 端产品、跨团队推进或指标结果相关的经历。
-- 最大风险：简历中的“负责 / 主导 / 推动”仍需要还原真实角色、决策过程和结果归因。
-- Offer 沙盘结论：候选人当前处于“${input.candidateStage}”阶段，${offerReadiness}。
-- 必问重点：需求判断、指标口径、优先级取舍、跨团队推进、项目复盘和入职动机。
+| 模块 | 结论 | 候选人准备动作 |
+| --- | --- | --- |
+| 岗位匹配倾向 | ${match} | 用 2 个项目证明 JD 核心职责 |
+| 项目匹配闸口 | ${gateDecision} | ${canEnterSandbox ? "准备下一轮沙盘中的项目细节和风险预案" : "先补齐项目、指标、协作和个人贡献证据"} |
+| 最大亮点 | 简历中出现与 B 端产品、跨团队推进或指标结果相关的经历 | 准备项目背景、目标、动作、结果 |
+| 最大风险 | “负责 / 主导 / 推动”仍需还原真实角色、决策过程和结果归因 | 准备个人贡献证据和关键决策过程 |
+| Offer 沙盘 | 候选人当前处于“${input.candidateStage}”阶段，${offerReadiness} | 提前梳理动机、期望和到岗约束 |
+| 必问重点 | 需求判断、指标口径、优先级取舍、跨团队推进、项目复盘和入职动机 | 按问题库做模拟面试 |
 
 ## 分析结果
 
@@ -459,11 +464,26 @@ function generateMockReport(input) {
 - 系统判断依据来自简历、JD 和上下文中的岗位相关证据。
 - 关键不确定性集中在个人贡献、指标口径和项目复盘深度。
 
+## 项目匹配闸口
+
+| JD 职责证据要求 | 候选人项目证据 | 闸口判断 | 下一步 |
+| --- | --- | --- | --- |
+| 行业 / 业务场景经验 | ${hasB2B ? "有行业或 B 端场景线索" : "缺少明确行业场景证据"} | ${hasB2B ? "匹配" : "待验证"} | ${hasB2B ? "进入项目深挖" : "补充最接近 JD 的项目案例"} |
+| 0-1 / 产品规划 / 生命周期 | ${/0\s*到\s*1|规划|生命周期|从零|产品设计/.test(input.resume) ? "有规划或 0-1 线索" : "缺少完整产品闭环证据"} | ${/0\s*到\s*1|规划|生命周期|从零|产品设计/.test(input.resume) ? "部分匹配" : "待验证"} | 准备从需求到上线再到复盘的完整案例 |
+| 客户需求 / 方案设计 / 技术交流 | ${/客户|方案|技术|架构|交流|咨询|需求分析/.test(input.resume) ? "有客户或方案线索" : "证据不足"} | ${/客户|方案|技术|架构|交流|咨询|需求分析/.test(input.resume) ? "部分匹配" : "不匹配风险"} | 补充客户沟通、方案取舍、技术风险控制案例 |
+| 研发协同 / 项目推进 | ${hasCollab ? "有跨团队推进线索" : "缺少研发协同证据"} | ${hasCollab ? "匹配" : "待验证"} | 准备研发一线协同、里程碑和风险处理证据 |
+
+| 闸口结论 | 说明 |
+| --- | --- |
+| ${gateDecision} | ${canEnterSandbox ? "候选人项目经历与 JD 职责有初步交集，可进入下一轮沙盘验证细节。" : "候选人当前材料不足以支撑核心职责匹配，建议先补充项目证据；若面试中仍无法补齐，则建议淘汰 / 不推进。"} |
+
 ## 岗位匹配
 
-- B 端 / SaaS 经验：${hasB2B ? "有相关证据" : "证据不足，需追问"}。
-- 数据意识：${hasMetrics ? "有初步证据，但需确认指标口径" : "证据不足，需追问"}。
-- 跨团队推动：${hasCollab ? "有初步证据，但需确认候选人真实贡献" : "证据不足，需追问"}。
+| JD 能力要求 | 当前证据 | 候选人准备重点 | 面试官追问方向 |
+| --- | --- | --- | --- |
+| B 端 / SaaS 经验 | ${hasB2B ? "有相关证据" : "证据不足"} | 准备最接近 JD 场景的项目 | 业务对象、用户角色、场景复杂度 |
+| 数据意识 | ${hasMetrics ? "有初步证据" : "证据不足"} | 准备指标口径、统计周期、归因说明 | 指标定义、上线前后对比、个人动作 |
+| 跨团队推动 | ${hasCollab ? "有初步证据" : "证据不足"} | 准备协作对象、冲突、取舍过程 | 资源协调、优先级冲突、推进机制 |
 
 ## 项目亮点
 
@@ -481,7 +501,8 @@ function generateMockReport(input) {
 
 - 当前阶段：${input.candidateStage}。
 - 目标职级：${input.targetLevel || "未提供，建议面试前明确职级锚点。"}
-- 推进建议：先完成岗位硬性匹配验证，再进入动机、薪资和到岗可行性确认。
+- 沙盘进入条件：${canEnterSandbox ? "项目匹配闸口已通过，可进入下一轮沙盘。" : "项目匹配闸口未通过，沙盘仅作为候选人补证准备，不建议直接推进。"}
+- 推进建议：先完成项目匹配闸口，再进入动机、薪资和到岗可行性确认。
 - 录用前关键门槛：个人贡献证据、指标口径、跨团队推动案例、岗位动机和期望匹配。
 - 谈薪 / Offer 约束：${input.offerConstraints || "未提供，建议补充预算范围、候选人期望、竞争 Offer 和到岗时间。"}
 - 沙盘下一步：根据面试回答更新“岗位匹配、项目可信度、入职概率、谈薪风险”四个状态。
@@ -496,19 +517,23 @@ function generateMockReport(input) {
 
 ## 候选人准备重点
 
-- 项目讲述：准备每个核心项目的“背景、目标、约束、动作、结果、复盘”，避免只讲职责名称。
-- 证据补齐：对简历中的数字结果，准备指标口径、统计周期、对照组和个人动作。
-- 表达演练：围绕 JD 中的核心职责，准备 2 到 3 个最能证明匹配度的项目故事。
-- 风险预案：对个人贡献、项目失败、跨团队冲突、Offer 动机等高频追问提前准备真实回答。
+| 准备模块 | 候选人要准备什么 | 输出形式 |
+| --- | --- | --- |
+| 项目讲述 | 每个核心项目的背景、目标、约束、动作、结果、复盘 | 2 分钟 STAR 版本 + 5 分钟展开版本 |
+| 证据补齐 | 数字结果的指标口径、统计周期、对照组和个人动作 | 指标说明卡 |
+| 表达演练 | 围绕 JD 核心职责准备 2 到 3 个证明匹配度的项目故事 | 模拟问答稿 |
+| 风险预案 | 个人贡献、项目失败、跨团队冲突、Offer 动机等高频追问 | 真实回答要点 |
 
 ## 面试官候选问题库（供挑选）
 
 ### A. 岗位要求验证问题
 
-1. JD 要求你具备的核心能力中，哪一项你认为自己证据最强？请用一个项目说明。
-2. 这个岗位强调 ${hasB2B ? "B 端 / SaaS 场景" : "目标业务场景"}，你过去最相似的项目是什么？相似点和差异点分别是什么？
-3. 如果入职后第一个月只能完成一件最关键的事，你会如何判断优先级？
-4. 请举例说明你如何把岗位目标拆成可衡量指标，并推动团队围绕指标行动。
+| 问题 | 考察点 | 候选人准备提示 |
+| --- | --- | --- |
+| JD 要求你具备的核心能力中，哪一项证据最强？请用一个项目说明。 | 岗位核心能力匹配 | 选择与 JD 最贴近的项目 |
+| 这个岗位强调 ${hasB2B ? "B 端 / SaaS 场景" : "目标业务场景"}，你过去最相似的项目是什么？ | 场景迁移能力 | 对比相似点与差异点 |
+| 如果入职后第一个月只能完成一件最关键的事，你会如何判断优先级？ | 优先级判断 | 说明判断标准和取舍逻辑 |
+| 请举例说明你如何把岗位目标拆成可衡量指标。 | 指标意识 | 准备指标口径和推动动作 |
 
 ### B. 项目经历追问
 
@@ -734,44 +759,93 @@ function markdownToHtml(markdown) {
   const lines = escaped.split("\n");
   const html = [];
   let inList = false;
+  let inTable = false;
+  let tableRowIndex = 0;
+
+  const closeList = () => {
+    if (inList) {
+      html.push("</ul>");
+      inList = false;
+    }
+  };
+
+  const closeTable = () => {
+    if (inTable) {
+      html.push("</tbody></table></div>");
+      inTable = false;
+      tableRowIndex = 0;
+    }
+  };
 
   for (const line of lines) {
     if (/^# /.test(line)) {
-      if (inList) html.push("</ul>");
-      inList = false;
+      closeList();
+      closeTable();
       html.push(`<h2>${line.replace(/^# /, "")}</h2>`);
     } else if (/^## /.test(line)) {
-      if (inList) html.push("</ul>");
-      inList = false;
+      closeList();
+      closeTable();
       html.push(`<h3>${line.replace(/^## /, "")}</h3>`);
     } else if (/^### /.test(line)) {
-      if (inList) html.push("</ul>");
-      inList = false;
+      closeList();
+      closeTable();
       html.push(`<h4>${line.replace(/^### /, "")}</h4>`);
+    } else if (isMarkdownTableLine(line)) {
+      closeList();
+      if (isMarkdownTableDivider(line)) continue;
+      const cells = parseMarkdownTableCells(line);
+      if (!inTable) {
+        html.push('<div class="table-wrap"><table>');
+        inTable = true;
+        tableRowIndex = 0;
+      }
+      if (tableRowIndex === 0) {
+        html.push(`<thead><tr>${cells.map((cell) => `<th>${cell}</th>`).join("")}</tr></thead><tbody>`);
+      } else {
+        html.push(`<tr>${cells.map((cell) => `<td>${cell}</td>`).join("")}</tr>`);
+      }
+      tableRowIndex += 1;
     } else if (/^- /.test(line)) {
+      closeTable();
       if (!inList) html.push("<ul>");
       inList = true;
       html.push(`<li>${line.replace(/^- /, "")}</li>`);
     } else if (/^\d+\. /.test(line)) {
+      closeTable();
       if (!inList) html.push("<ul>");
       inList = true;
       html.push(`<li>${line.replace(/^\d+\. /, "")}</li>`);
     } else if (line.trim() === "") {
-      if (inList) {
-        html.push("</ul>");
-        inList = false;
-      }
+      closeList();
+      closeTable();
     } else {
-      if (inList) {
-        html.push("</ul>");
-        inList = false;
-      }
+      closeList();
+      closeTable();
       html.push(`<p>${line}</p>`);
     }
   }
 
-  if (inList) html.push("</ul>");
+  closeList();
+  closeTable();
   return html.join("");
+}
+
+function isMarkdownTableLine(line) {
+  const trimmed = line.trim();
+  return trimmed.startsWith("|") && trimmed.endsWith("|") && trimmed.split("|").length > 2;
+}
+
+function isMarkdownTableDivider(line) {
+  return /^\|\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$/.test(line.trim());
+}
+
+function parseMarkdownTableCells(line) {
+  return line
+    .trim()
+    .replace(/^\|/, "")
+    .replace(/\|$/, "")
+    .split("|")
+    .map((cell) => cell.trim());
 }
 
 function reportToStaticHtmlDocument(run) {
@@ -789,10 +863,13 @@ function reportToStaticHtmlDocument(run) {
         --ink: #111827;
         --muted: #64748b;
         --line: #d8e0ea;
+        --line-strong: #b8c6d8;
         --panel: #ffffff;
         --bg: #f4f7fb;
         --brand: #126782;
+        --brand-soft: #e8f5f9;
         --accent: #b45309;
+        --accent-soft: #fff4e6;
       }
 
       * {
@@ -800,7 +877,9 @@ function reportToStaticHtmlDocument(run) {
       }
 
       body {
-        background: var(--bg);
+        background:
+          radial-gradient(circle at 14% -12%, rgba(18, 103, 130, 0.16), transparent 28rem),
+          linear-gradient(180deg, #f7fbff 0%, var(--bg) 46%, #eef3f8 100%);
         color: var(--ink);
         font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
         line-height: 1.7;
@@ -808,17 +887,20 @@ function reportToStaticHtmlDocument(run) {
       }
 
       .page {
-        max-width: 980px;
+        max-width: 1080px;
         margin: 0 auto;
-        padding: 36px 24px 56px;
+        padding: 34px 24px 58px;
       }
 
       .cover {
         border: 1px solid var(--line);
-        border-radius: 14px;
-        background: linear-gradient(135deg, #ffffff, #eef7fb);
-        margin-bottom: 20px;
-        padding: 28px;
+        border-radius: 18px;
+        background:
+          linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(232, 245, 249, 0.96)),
+          #ffffff;
+        box-shadow: 0 18px 50px rgba(15, 23, 42, 0.08);
+        margin-bottom: 18px;
+        padding: 30px;
       }
 
       .eyebrow {
@@ -830,7 +912,8 @@ function reportToStaticHtmlDocument(run) {
       }
 
       h1 {
-        font-size: 30px;
+        color: #0f172a;
+        font-size: 34px;
         line-height: 1.22;
         margin: 0;
       }
@@ -844,9 +927,9 @@ function reportToStaticHtmlDocument(run) {
 
       .meta div {
         border: 1px solid var(--line);
-        border-radius: 10px;
-        background: rgba(255, 255, 255, 0.72);
-        padding: 10px 12px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.82);
+        padding: 12px 14px;
       }
 
       .meta span {
@@ -863,30 +946,36 @@ function reportToStaticHtmlDocument(run) {
 
       .report-body {
         border: 1px solid var(--line);
-        border-radius: 14px;
+        border-radius: 18px;
         background: var(--panel);
-        padding: 28px;
+        box-shadow: 0 14px 44px rgba(15, 23, 42, 0.07);
+        padding: 30px;
       }
 
       h2 {
-        border-bottom: 2px solid var(--ink);
+        border-bottom: 0;
+        color: #0f172a;
         font-size: 24px;
-        margin: 0 0 22px;
-        padding-bottom: 10px;
+        margin: 0 0 18px;
+        padding: 0 0 10px;
       }
 
       h3 {
         border-top: 1px solid var(--line);
         color: #0f172a;
-        font-size: 18px;
-        margin: 28px 0 10px;
-        padding-top: 18px;
+        font-size: 20px;
+        margin: 30px 0 12px;
+        padding-top: 22px;
       }
 
       h4 {
+        border-left: 4px solid var(--brand);
+        background: var(--brand-soft);
+        border-radius: 10px;
         color: var(--brand);
         font-size: 15px;
-        margin: 18px 0 8px;
+        margin: 20px 0 10px;
+        padding: 8px 12px;
       }
 
       p,
@@ -894,9 +983,59 @@ function reportToStaticHtmlDocument(run) {
         font-size: 12pt;
       }
 
+      p {
+        margin: 8px 0 12px;
+      }
+
       ul {
         margin: 8px 0 14px 20px;
         padding: 0;
+      }
+
+      .table-wrap {
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        margin: 12px 0 22px;
+        box-shadow: 0 8px 22px rgba(15, 23, 42, 0.05);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: #ffffff;
+        font-size: 11pt;
+      }
+
+      thead {
+        background: linear-gradient(135deg, #123047, #126782);
+        color: #ffffff;
+      }
+
+      th,
+      td {
+        border-bottom: 1px solid var(--line);
+        padding: 12px 14px;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th {
+        font-weight: 800;
+        white-space: nowrap;
+      }
+
+      tbody tr:nth-child(even) {
+        background: #f8fbfd;
+      }
+
+      tbody tr:hover {
+        background: var(--accent-soft);
+      }
+
+      td:first-child {
+        color: #0f172a;
+        font-weight: 700;
       }
 
       @media print {
@@ -913,6 +1052,11 @@ function reportToStaticHtmlDocument(run) {
         .report-body {
           border: 0;
           border-radius: 0;
+          box-shadow: none;
+        }
+
+        .table-wrap {
+          break-inside: avoid;
         }
       }
     </style>

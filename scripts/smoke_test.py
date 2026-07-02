@@ -57,11 +57,12 @@ def static_checks():
         ),
         "mock_report_has_final_sections": all(
             term in content["app"]
-            for term in ["## 候选人准备重点", "## 面试官候选问题库", "## 面试官视角库", "## 证据链"]
+            for term in ["## 项目匹配闸口", "## 候选人准备重点", "## 面试官候选问题库", "## 面试官视角库", "## 证据链"]
         ),
-        "html_and_json_downloads_exist": all(
-            term in content["app"] for term in ["text/html", ".html`", "application/json", ".json`"]
+        "html_download_exists": all(
+            term in content["app"] for term in ["text/html", ".html`", "reportToStaticHtmlDocument"]
         ),
+        "json_download_removed": "downloadJsonBtn" not in content["app"] + content["index"],
         "feedback_loop_exists": all(
             term in content["app"] for term in ["appendFeedbackToReport", "collectFeedback", "human_feedback"]
         ),
@@ -73,11 +74,11 @@ def static_checks():
         "secret_file_ignored": bool(re.search(r"(?m)^1\.md$", content["gitignore"])),
         "docs_reflect_current_features": all(
             term in content["readme"]
-            for term in ["辅助候选人", "面试官视角库", "候选人追问题库", "报告分块流式输出", "HTML 报告 / JSON"]
+            for term in ["辅助候选人", "项目匹配闸口", "面试官视角库", "候选人追问题库", "报告分块流式输出", "HTML 报告本地下载"]
         ),
         "prompt_reflects_current_features": all(
             term in content["prompt"]
-            for term in ["辅助候选人", "面试官候选问题库", "候选人准备重点", "面试官视角库", "虚拟生成"]
+            for term in ["辅助候选人", "项目匹配闸口", "面试官候选问题库", "候选人准备重点", "面试官视角库", "虚拟生成"]
         ),
         "schema_reflects_current_features": all(
             term in content["schema_run"]
