@@ -38,7 +38,19 @@ const sample = {
   resume:
     "候选人：张三，5 年 B 端 SaaS 产品经验。曾负责客户成功平台、工单系统和数据看板。主导过从 0 到 1 的功能规划，推动研发、设计、运营协作，上线后工单平均响应时长下降 28%。在另一个项目中负责数据看板需求梳理，但简历未说明指标口径和业务复盘方式。候选人期望负责更完整的产品模块，并希望团队业务增长确定性更强。",
   job:
-    "招聘中级产品经理，负责企业服务产品的需求分析、产品规划、跨团队推进和指标复盘。要求具备 B 端 SaaS 经验、数据意识、复杂项目推进能力和良好的沟通表达。加分项：有客户成功、工单、CRM 或数据产品经验。",
+    `1、负责智慧矿山行业产品规划、设计和产品生命周期管理，包括不限于行业市场与竞争分析；
+2、负责智慧矿山业务咨询，智慧矿山行业调研、产品调研以及项目调研等，包括客户需求分析、技术交流引导和项目方案设计，指导项目技术架构设计与技术风险控制；
+3、负责前瞻性技术探索，对核心技术选型、新功能研发、新专利布局负责；
+4、对技术转化负责，深入用户场景研究需求，并推动方案实施；
+5、能够深入研发一线，参与和指导研发工作。
+
+任职要求：
+1、计算机相关专业，统招本科及以上学历，5年以上产品研发经验，有系统设计与开发经验优先；
+2、精通Axure、Figma等产品设计软件，熟悉C++、Java、Java script等编程语言及常用的前后端框架，熟悉常用的数据库和操作系统；
+3、优秀的解决问题能力，良好的沟通协调能力和团队精神，较强学习能力和抗压能力；
+4、5年以上智慧矿山产品研发工作经验，负责过完整矿山或GIS平台产品的0-1开发工作，以及丰富的客户交流及内部协调经验；
+5、有产品意识，熟悉产品生命周期管理，具有敏锐的产品嗅觉和较强的创新能力，思路清晰，良好的产品开发成本、进度和质量控制能力；
+6、有3年以上软件研发经验者优先。`,
   context:
     "公司为成长期 B 端 SaaS 团队，希望候选人能独立负责客户成功相关产品模块。面试重点：需求判断、指标意识、跨团队推动、复盘能力。",
   offerConstraints:
@@ -945,17 +957,23 @@ function reportToStaticHtmlDocument(run, audience = "full") {
     <title>${reportTitle}</title>
     <style>
       :root {
-        color-scheme: light;
-        --ink: #111827;
-        --muted: #64748b;
-        --line: #d8e0ea;
-        --line-strong: #b8c6d8;
-        --panel: #ffffff;
-        --bg: #f4f7fb;
-        --brand: #126782;
-        --brand-soft: #e8f5f9;
-        --accent: #b45309;
-        --accent-soft: #fff4e6;
+        color-scheme: dark;
+        --bg: #0b0f19;
+        --panel: rgba(23, 32, 53, 0.65);
+        --panel-border: rgba(255, 255, 255, 0.08);
+        --ink: #e2e8f0;
+        --muted: #94a3b8;
+        --brand: #00f2fe;
+        --brand-glow: rgba(0, 242, 254, 0.15);
+        --brand-grad: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+        --accent: #ff9f43;
+        --accent-soft: rgba(255, 159, 67, 0.1);
+        --good-bg: rgba(16, 185, 129, 0.15);
+        --good-color: #10b981;
+        --warn-bg: rgba(245, 158, 11, 0.15);
+        --warn-color: #f59e0b;
+        --risk-bg: rgba(239, 68, 68, 0.15);
+        --risk-color: #ef4444;
       }
 
       * {
@@ -963,188 +981,291 @@ function reportToStaticHtmlDocument(run, audience = "full") {
       }
 
       body {
-        background:
-          radial-gradient(circle at 14% -12%, rgba(18, 103, 130, 0.16), transparent 28rem),
-          linear-gradient(180deg, #f7fbff 0%, var(--bg) 46%, #eef3f8 100%);
+        background-color: var(--bg);
+        background-image:
+          radial-gradient(circle at 80% 20%, rgba(79, 172, 254, 0.15), transparent 40rem),
+          radial-gradient(circle at 10% 80%, rgba(255, 159, 67, 0.08), transparent 35rem),
+          linear-gradient(rgba(255, 255, 255, 0.005) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255, 255, 255, 0.005) 1px, transparent 1px);
+        background-size: 100% 100%, 100% 100%, 30px 30px, 30px 30px;
         color: var(--ink);
-        font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
-        line-height: 1.7;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+        line-height: 1.8;
         margin: 0;
       }
 
       .page {
-        max-width: 1080px;
+        max-width: 1200px;
         margin: 0 auto;
-        padding: 34px 24px 58px;
+        padding: 40px 24px 60px;
       }
 
       .cover {
-        border: 1px solid var(--line);
-        border-radius: 18px;
-        background:
-          linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(232, 245, 249, 0.96)),
-          #ffffff;
-        box-shadow: 0 18px 50px rgba(15, 23, 42, 0.08);
-        margin-bottom: 18px;
-        padding: 30px;
+        position: relative;
+        border: 1px solid var(--panel-border);
+        border-radius: 24px;
+        background: linear-gradient(135deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.8));
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        margin-bottom: 24px;
+        padding: 40px;
+        overflow: hidden;
+      }
+
+      .cover::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 4px;
+        background: var(--brand-grad);
       }
 
       .eyebrow {
-        color: var(--accent);
-        font-size: 12px;
-        font-weight: 800;
-        letter-spacing: 0;
-        margin: 0 0 8px;
+        color: var(--brand);
+        font-size: 13px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        margin: 0 0 12px;
+        display: inline-block;
+        background: rgba(0, 242, 254, 0.1);
+        padding: 4px 12px;
+        border-radius: 30px;
+        border: 1px solid rgba(0, 242, 254, 0.2);
       }
 
       h1 {
-        color: #0f172a;
-        font-size: 34px;
+        color: #ffffff;
+        font-size: 38px;
+        font-weight: 800;
         line-height: 1.22;
         margin: 0;
+        letter-spacing: 1px;
+        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
       }
 
       .meta {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 10px;
-        margin-top: 20px;
+        gap: 16px;
+        margin-top: 30px;
       }
 
       .meta div {
-        border: 1px solid var(--line);
-        border-radius: 12px;
-        background: rgba(255, 255, 255, 0.82);
-        padding: 12px 14px;
+        border: 1px solid var(--panel-border);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.02);
+        padding: 16px 20px;
+        transition: all 0.3s ease;
+      }
+
+      .meta div:hover {
+        background: rgba(255, 255, 255, 0.05);
+        border-color: rgba(0, 242, 254, 0.3);
+        transform: translateY(-2px);
       }
 
       .meta span {
         display: block;
         color: var(--muted);
         font-size: 12px;
+        font-weight: 500;
+        margin-bottom: 4px;
       }
 
       .meta strong {
         display: block;
-        margin-top: 3px;
-        font-size: 13px;
+        color: #ffffff;
+        font-size: 15px;
+        font-weight: 600;
       }
 
       .report-body {
-        border: 1px solid var(--line);
-        border-radius: 18px;
+        border: 1px solid var(--panel-border);
+        border-radius: 24px;
         background: var(--panel);
-        box-shadow: 0 14px 44px rgba(15, 23, 42, 0.07);
-        padding: 30px;
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        box-shadow: 0 30px 60px rgba(0, 0, 0, 0.3);
+        padding: 40px;
       }
 
       h2 {
-        border-bottom: 0;
-        color: #0f172a;
-        font-size: 24px;
-        margin: 0 0 18px;
-        padding: 0 0 10px;
+        display: none;
       }
 
       h3 {
-        border-top: 1px solid var(--line);
-        color: #0f172a;
-        font-size: 20px;
-        margin: 30px 0 12px;
-        padding-top: 22px;
+        color: #ffffff;
+        font-size: 22px;
+        font-weight: 700;
+        margin: 45px 0 20px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        display: flex;
+        align-items: center;
+      }
+
+      h3::before {
+        content: "";
+        display: inline-block;
+        width: 6px;
+        height: 22px;
+        background: var(--brand-grad);
+        margin-right: 12px;
+        border-radius: 4px;
+        box-shadow: 0 0 10px var(--brand);
       }
 
       h4 {
-        border-left: 4px solid var(--brand);
-        background: var(--brand-soft);
-        border-radius: 10px;
+        border-left: 0;
+        background: linear-gradient(90deg, rgba(79, 172, 254, 0.15), transparent);
+        border-radius: 8px;
         color: var(--brand);
         font-size: 15px;
-        margin: 20px 0 10px;
-        padding: 8px 12px;
+        font-weight: 600;
+        margin: 20px 0 12px;
+        padding: 10px 16px;
+        border: 1px solid rgba(79, 172, 254, 0.2);
       }
 
       p,
       li {
-        font-size: 12pt;
+        color: #cbd5e1;
+        font-size: 14px;
       }
 
       p {
-        margin: 8px 0 12px;
+        margin: 10px 0 16px;
       }
 
       ul {
-        margin: 8px 0 14px 20px;
+        margin: 10px 0 16px 20px;
         padding: 0;
+      }
+
+      li {
+        margin-bottom: 6px;
       }
 
       .table-wrap {
         overflow-x: auto;
-        border: 1px solid var(--line);
-        border-radius: 14px;
-        margin: 12px 0 22px;
-        box-shadow: 0 8px 22px rgba(15, 23, 42, 0.05);
+        border: 1px solid var(--panel-border);
+        border-radius: 16px;
+        margin: 18px 0 30px;
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+        background: rgba(15, 23, 42, 0.4);
       }
 
       table {
         width: 100%;
-        border-collapse: collapse;
-        background: #ffffff;
-        font-size: 11pt;
+        border-collapse: separate;
+        border-spacing: 0;
+        font-size: 14px;
+        text-align: left;
       }
 
       thead {
-        background: linear-gradient(135deg, #123047, #126782);
+        background: linear-gradient(90deg, #1e293b 0%, #0f172a 100%);
         color: #ffffff;
       }
 
       th,
       td {
-        border-bottom: 1px solid var(--line);
-        padding: 12px 14px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        padding: 16px 20px;
         text-align: left;
         vertical-align: top;
       }
 
       th {
-        font-weight: 800;
-        white-space: nowrap;
+        color: #ffffff;
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
       }
 
       tbody tr:nth-child(even) {
-        background: #f8fbfd;
+        background: rgba(255, 255, 255, 0.01);
       }
 
       tbody tr:hover {
-        background: var(--accent-soft);
+        background: rgba(0, 242, 254, 0.04) !important;
       }
 
       td:first-child {
-        color: #0f172a;
-        font-weight: 700;
+        color: #ffffff;
+        font-weight: 600;
+        background: rgba(255, 255, 255, 0.01);
+      }
+
+      .tone-good,
+      .tone-warn,
+      .tone-risk {
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        display: inline-block;
+        line-height: 1.4;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+      }
+
+      td.tone-good,
+      td.tone-warn,
+      td.tone-risk {
+        display: table-cell;
+        border-radius: 0;
+        box-shadow: none;
       }
 
       .tone-good {
-        background: #ecfdf3;
-        color: #166534;
-        font-weight: 700;
+        background-color: var(--good-bg) !important;
+        color: var(--good-color) !important;
+        border-left: 4px solid var(--good-color);
       }
 
       .tone-warn {
-        background: #fff7ed;
-        color: #9a3412;
-        font-weight: 700;
+        background-color: var(--warn-bg) !important;
+        color: var(--warn-color) !important;
+        border-left: 4px solid var(--warn-color);
       }
 
       .tone-risk {
-        background: #fef2f2;
-        color: #b42318;
-        font-weight: 700;
+        background-color: var(--risk-bg) !important;
+        color: var(--risk-color) !important;
+        border-left: 4px solid var(--risk-color);
+      }
+
+      .table-wrap::-webkit-scrollbar {
+        height: 8px;
+      }
+
+      .table-wrap::-webkit-scrollbar-track {
+        background: rgba(0, 0, 0, 0.1);
+      }
+
+      .table-wrap::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 4px;
+      }
+
+      .table-wrap::-webkit-scrollbar-thumb:hover {
+        background: rgba(0, 242, 254, 0.3);
       }
 
       @media print {
         body {
           background: #ffffff;
+          color: #000000;
+        }
+
+        :root {
+          color-scheme: light;
         }
 
         .page {
@@ -1157,10 +1278,18 @@ function reportToStaticHtmlDocument(run, audience = "full") {
           border: 0;
           border-radius: 0;
           box-shadow: none;
+          background: none;
+          padding: 20px 0;
+        }
+
+        th {
+          background: #f1f5f9 !important;
+          color: #000000 !important;
         }
 
         .table-wrap {
           break-inside: avoid;
+          border: 1px solid #cbd5e1;
         }
       }
     </style>
@@ -1270,6 +1399,10 @@ ${body}`;
 | --- | --- | --- | --- |
 | ${directConclusion.label} | JD 证据：${jdEvidence}；简历证据：${resumeEvidence} | ${directConclusion.points} | ${directConclusion.interviewerNextStep} |
 
+## 简历初评
+
+${buildInterviewerResumeBrief(snapshot)}
+
 ## 简历与 JD 不匹配点
 
 ${buildConcreteGapTable(snapshot)}
@@ -1300,6 +1433,42 @@ function extractSection(markdown, heading) {
 function hasSubstantiveSection(section) {
   const body = section.replace(/^## .+$/m, "").replace(/\s+/g, "");
   return body.length > 30;
+}
+
+function buildInterviewerResumeBrief(snapshot) {
+  const rows = buildRequirementEvidenceRows(snapshot);
+  const missingRows = rows.filter((row) => row.resumeEvidence === "简历未体现明确证据");
+  const matchedRows = rows.filter((row) => row.resumeEvidence !== "简历未体现明确证据");
+  const resume = snapshot.resume || "";
+  const hasProjectSignal = /项目|平台|系统|上线|交付|落地|架构|研发|主导|负责/.test(resume);
+  const hasEngineeringSignal = /工程化|架构|系统设计|前后端|数据库|部署|测试|上线|交付|性能|稳定性/.test(resume);
+  const hasScatteredTechSignal = /学习|了解|熟悉|掌握|C\+\+|Java|JavaScript|数据库|操作系统|算法|框架/.test(resume) && !hasProjectSignal;
+  const missingText = missingRows
+    .slice(0, 3)
+    .map((row) => `“${row.capability}”`)
+    .join("、");
+  const matchedText = matchedRows
+    .slice(0, 2)
+    .map((row) => `“${row.capability}”`)
+    .join("、");
+
+  let brief = "";
+  if (matchedRows.length === 0) {
+    brief = hasScatteredTechSignal
+      ? `仅从简历看，候选人提到的技术更像单点学习或技能罗列，尚未看到一个完整的工程化项目闭环，因此无法体现 JD 中 ${missingText || "核心职责"} 的要求。`
+      : `仅从简历看，候选人暂未提供能支撑 JD 核心职责的明确项目证据，无法判断其是否具备 ${missingText || "岗位要求能力"}。`;
+  } else if (!hasEngineeringSignal && missingRows.length) {
+    brief = `仅从简历看，候选人已有 ${matchedText || "部分能力"} 线索，但项目描述仍偏结果或职责陈述，未充分体现完整工程化交付过程，因此对 JD 中 ${missingText || "关键能力"} 仍需重点验证。`;
+  } else if (missingRows.length) {
+    brief = `仅从简历看，候选人与 JD 有部分交集，但仍有 ${missingText || "若干关键能力"} 未见明确证据，面试中应要求候选人补充具体项目、个人贡献、技术取舍和交付结果。`;
+  } else {
+    brief = "仅从简历看，候选人与 JD 表面匹配度较高，但仍需通过追问验证真实角色、项目复杂度、关键决策、技术取舍和结果归因，避免只停留在职责描述层面。";
+  }
+
+  return `| 初评维度 | 简短评价 |
+| --- | --- |
+| 简历初评 | ${brief} |
+| 面试验证重点 | 优先追问是否有完整项目闭环、本人真实角色、工程化交付细节、技术方案取舍和风险控制过程。 |`;
 }
 
 function buildDirectConclusion(snapshot) {
