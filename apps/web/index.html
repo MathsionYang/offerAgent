@@ -3,53 +3,58 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>面试准备助手</title>
+    <title>面试助手</title>
     <meta
       name="description"
-      content="面试准备助手开源 Web MVP：辅助候选人准备面试，并生成面试官可选问题库。"
+      content="面试助手开源 Web MVP：辅助候选人准备面试，并生成面试官可选问题库。"
     />
-    <link rel="stylesheet" href="./styles.css?v=20260702-7" />
+    <link rel="stylesheet" href="./styles.css?v=20260704-assistant-layout" />
   </head>
   <body>
-    <header class="hero">
+    <div class="page">
       <nav class="nav">
         <div class="brand">
           <span class="brand-mark">OA</span>
           <div>
-            <strong>面试准备助手</strong>
+            <strong>面试助手</strong>
             <span>Offer 沙盘 + 面试官视角库</span>
           </div>
         </div>
       </nav>
 
-      <div class="hero-content">
+      <header class="hero">
         <div class="hero-copy">
-          <p class="eyebrow">Open Source Web MVP</p>
-          <h1>面试准备助手</h1>
+      
+          <h1>面试助手</h1>
           <p class="hero-subtitle">辅助候选人更好准备面试，并生成可供面试官挑选的候选人追问题库。</p>
         </div>
 
         <aside class="hero-summary" aria-label="核心能力">
-          <div>
-            <span>01</span>
-            <strong>岗位匹配</strong>
-            <p>先判断项目经历是否匹配 JD 职责，再决定是否进入沙盘。</p>
-          </div>
-          <div>
-            <span>02</span>
-            <strong>证据链优先</strong>
-            <p>把项目讲述、指标口径和个人贡献绑定到证据。</p>
-          </div>
-          <div>
-            <span>03</span>
-            <strong>视角库</strong>
-            <p>生成面试官可挑选的问题，也帮助候选人提前演练。</p>
-          </div>
+          <article class="cap-card">
+            <span class="cap-card-num">01</span>
+            <div class="cap-card-body">
+              <strong>岗位匹配</strong>
+              <p>先判断项目经历是否匹配 JD 职责，再决定是否进入沙盘。</p>
+            </div>
+          </article>
+          <article class="cap-card">
+            <span class="cap-card-num">02</span>
+            <div class="cap-card-body">
+              <strong>证据链优先</strong>
+              <p>把项目讲述、指标口径和个人贡献绑定到证据。</p>
+            </div>
+          </article>
+          <article class="cap-card">
+            <span class="cap-card-num">03</span>
+            <div class="cap-card-body">
+              <strong>视角库</strong>
+              <p>生成面试官可挑选的问题，也帮助候选人提前演练。</p>
+            </div>
+          </article>
         </aside>
-      </div>
-    </header>
+      </header>
 
-    <main id="workspace" class="workspace">
+      <main id="workspace" class="workspace">
       <section class="workflow">
         <article class="step-card">
           <span>Step 1</span>
@@ -233,17 +238,18 @@
                     <small>深挖机会选择标准、竞争 Offer、入职概率和谈薪策略。</small>
                   </span>
                 </label>
+                <label class="skill-card">
+                  <input class="skill-toggle" type="checkbox" value="decision" checked />
+                  <span>
+                    <strong>决策层压力官</strong>
+                    <small>用预算削减、战略取舍和 ROI 压力测试候选人的判断依据。</small>
+                  </span>
+                </label>
               </div>
             </section>
 
-            <div class="actions">
+            <div class="actions generate-actions">
               <button id="generateBtn" class="primary-btn" type="button">生成面试准备报告</button>
-              <button id="downloadMdBtn" class="secondary-btn" type="button" disabled>
-                下载候选人报告
-              </button>
-              <button id="downloadInterviewerBtn" class="secondary-btn" type="button" disabled>
-                下载面试官报告
-              </button>
             </div>
 
             <p id="status" class="status" role="status">准备就绪。未配置 Key 时会使用 Mock Demo。</p>
@@ -306,23 +312,38 @@
             <span id="runBadge" class="run-badge">尚未生成</span>
           </div>
 
+          <div id="reportProgress" class="stream-progress report-progress" aria-label="报告生成进度"></div>
+
           <article id="report" class="report empty" aria-live="polite">
             <div class="empty-state">
               <span class="empty-mark">OA</span>
               <h3>等待生成报告</h3>
               <p>
-                报告会覆盖项目匹配闸口、候选人准备重点、岗位匹配、Offer 沙盘推演、面试官候选问题库、证据链和人工反馈建议。
+                报告会覆盖项目匹配闸口、候选人准备重点、岗位匹配、Offer 沙盘推演、面试官候选问题库、证据链和人工反馈建议，并支持导出 PDF。
               </p>
             </div>
           </article>
+
+          <div class="report-export-bar" aria-label="PDF 导出">
+            <button id="downloadMdBtn" class="secondary-btn" type="button" disabled>
+              导出候选人 PDF
+            </button>
+            <button id="downloadInterviewerBtn" class="secondary-btn" type="button" disabled>
+              导出面试官 PDF
+            </button>
+            <button id="downloadOfferBtn" class="secondary-btn" type="button" disabled>
+              导出 Offer 推演 PDF
+            </button>
+          </div>
         </section>
       </div>
-    </main>
+      </main>
 
-    <footer class="footer">
-      <p>面试准备助手第一版只做面试准备辅助，不输出自动录用或淘汰结论。</p>
-    </footer>
+      <footer class="footer">
+        <p>面试准备助手第一版只做面试准备辅助，不输出自动录用或淘汰结论。</p>
+      </footer>
+    </div>
 
-    <script src="./app.js?v=20260702-7"></script>
+    <script src="./app.js?v=20260704-assistant-layout"></script>
   </body>
 </html>

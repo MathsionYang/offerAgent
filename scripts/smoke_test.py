@@ -81,12 +81,13 @@ def static_checks():
             term in content["app"] + content["css"] for term in ["tone-good", "tone-warn", "tone-risk", "cellToneClass"]
         ),
         "no_raw_backticks_in_system_prompt": "例如 **、---、```" not in content["app"],
-        "html_download_exists": all(
-            term in content["app"] for term in ["text/html", ".html`", "reportToStaticHtmlDocument", "candidate-report", "interviewer-report"]
+        "pdf_export_exists": all(
+            term in content["app"]
+            for term in ["downloadPdfReport", "createPdfBlobFromJpegs", ".pdf", "application/pdf", "candidate-report", "interviewer-report"]
         ),
         "two_report_modules_exist": "downloadInterviewerBtn" in content["app"] + content["index"]
-        and "下载候选人报告" in content["index"]
-        and "下载面试官报告" in content["index"]
+        and "导出候选人 PDF" in content["index"]
+        and "导出面试官 PDF" in content["index"]
         and "buildAudienceMarkdown" in content["app"],
         "json_download_removed": "downloadJsonBtn" not in content["app"] + content["index"],
         "feedback_loop_exists": all(
@@ -100,7 +101,7 @@ def static_checks():
         "secret_file_ignored": bool(re.search(r"(?m)^1\.md$", content["gitignore"])),
         "docs_reflect_current_features": all(
             term in content["readme"]
-            for term in ["辅助候选人", "项目匹配闸口", "面试官视角库", "候选人追问题库", "双模块 HTML 下载", "报告分块流式输出"]
+            for term in ["辅助候选人", "项目匹配闸口", "面试官视角库", "候选人追问题库", "双模块 PDF 导出", "报告分块流式输出"]
         ),
         "prompt_reflects_current_features": all(
             term in content["prompt"]

@@ -11,12 +11,14 @@ const candidateStageEl = $("candidateStage");
 const targetLevelEl = $("targetLevel");
 const offerConstraintsEl = $("offerConstraints");
 const reportEl = $("report");
+const reportProgressEl = $("reportProgress");
 const statusEl = $("status");
 const modelModeEl = $("modelMode");
 const runBadgeEl = $("runBadge");
 const generateBtn = $("generateBtn");
 const downloadMdBtn = $("downloadMdBtn");
 const downloadInterviewerBtn = $("downloadInterviewerBtn");
+const downloadOfferBtn = $("downloadOfferBtn");
 const feedbackAgreementEl = $("feedbackAgreement");
 const feedbackQuestionUseEl = $("feedbackQuestionUse");
 const feedbackNotesEl = $("feedbackNotes");
@@ -171,6 +173,18 @@ const skillLibrary = {
       "在入职时间、薪资结构或职责范围上，哪些条件最影响你的决定？",
     ],
   },
+  decision: {
+    name: "决策层压力官",
+    focus: "战略取舍、预算削减、资源约束、投入产出、极端压力判断",
+    evidence: "从 JD 的战略职责、资源约束、项目复杂度和 Offer 上下文中生成，固定用于压力测试。",
+    proof: "候选人能用业务指标、用户价值、风险等级和投入产出解释取舍，而不是只表达主观偏好。",
+    risk: "无法解释判断依据，遇到预算缩减或方向冲突时只做被动执行。",
+    questions: [
+      "如果上级要求砍掉你负责模块一半预算，你如何重新排定需求优先级？请用具体指标说服我。",
+      "如果你判断一个战略方向值得做，但短期 ROI 不好看，你会如何争取资源？",
+      "如果项目投入三个月后效果不达预期，你会继续、收缩还是停止？依据是什么？",
+    ],
+  },
 };
 
 const reportStages = [
@@ -182,6 +196,8 @@ const reportStages = [
   { title: "问题库生成", marker: "## 面试官候选问题库", detail: "生成候选人准备与面试官提问题库" },
   { title: "证据链收束", marker: "## 证据链", detail: "整理可追溯判断依据" },
 ];
+
+renderStreamProgress("", "等待生成报告", false);
 
 providerEl.addEventListener("change", () => {
   const defaults = providerDefaults[providerEl.value] || providerDefaults.mock;
@@ -218,9 +234,11 @@ bindClick("clearBtn", () => {
   currentRun = null;
   reportEl.className = "report empty";
   reportEl.innerHTML = '<div class="empty-state"><span class="empty-mark">OA</span><h3>等待生成报告</h3><p>报告会覆盖候选人准备重点、岗位匹配、Offer 沙盘推演、面试官候选问题库、证据链和人工反馈建议。</p></div>';
+  renderStreamProgress("", "等待生成报告", false);
   runBadgeEl.textContent = "尚未生成";
   downloadMdBtn.disabled = true;
   setInterviewerDownloadDisabled(true);
+  setOfferDownloadDisabled(true);
   appendFeedbackBtn.disabled = true;
   feedbackAgreementEl.value = "未反馈";
   feedbackQuestionUseEl.value = "未反馈";
@@ -238,6 +256,7 @@ generateBtn.addEventListener("click", async () => {
   generateBtn.disabled = true;
   downloadMdBtn.disabled = true;
   setInterviewerDownloadDisabled(true);
+  setOfferDownloadDisabled(true);
   appendFeedbackBtn.disabled = true;
   runBadgeEl.textContent = "生成中...";
   renderStreamingReport("", input.useRealModel ? "真实模型流式生成中" : "Mock 分块生成中");
@@ -273,6 +292,7 @@ generateBtn.addEventListener("click", async () => {
     runBadgeEl.textContent = currentRun.id;
     downloadMdBtn.disabled = false;
     setInterviewerDownloadDisabled(false);
+    setOfferDownloadDisabled(false);
     appendFeedbackBtn.disabled = false;
     setStatus(input.useRealModel ? "真实模型报告已生成。请下载到本地保存。" : "Mock 沙盘报告已生成。请下载到本地保存。");
   } catch (error) {
@@ -285,22 +305,22 @@ generateBtn.addEventListener("click", async () => {
 downloadMdBtn.addEventListener("click", () => {
   if (!currentRun) return;
   currentRun.human_feedback = collectFeedback();
-  downloadFile(
-    `candidate-report-${currentRun.id}.html`,
-    reportToStaticHtmlDocument(currentRun, "candidate"),
-    "text/html;charset=utf-8",
-  );
+  downloadPdfReport(currentRun, "candidate", `candidate-report-${currentRun.id}.pdf`);
 });
 
 if (downloadInterviewerBtn) {
   downloadInterviewerBtn.addEventListener("click", () => {
     if (!currentRun) return;
     currentRun.human_feedback = collectFeedback();
-    downloadFile(
-      `interviewer-report-${currentRun.id}.html`,
-      reportToStaticHtmlDocument(currentRun, "interviewer"),
-      "text/html;charset=utf-8",
-    );
+    downloadPdfReport(currentRun, "interviewer", `interviewer-report-${currentRun.id}.pdf`);
+  });
+}
+
+if (downloadOfferBtn) {
+  downloadOfferBtn.addEventListener("click", () => {
+    if (!currentRun) return;
+    currentRun.human_feedback = collectFeedback();
+    downloadPdfReport(currentRun, "offer", `offer-sandbox-${currentRun.id}.pdf`);
   });
 }
 
@@ -316,6 +336,7 @@ appendFeedbackBtn.addEventListener("click", () => {
   renderReport(buildPreviewMarkdown(currentRun));
   downloadMdBtn.disabled = false;
   setInterviewerDownloadDisabled(false);
+  setOfferDownloadDisabled(false);
   setStatus("人工反馈已写入当前报告。请下载保存，刷新页面后不会保留。");
 });
 
@@ -345,6 +366,10 @@ function setInterviewerDownloadDisabled(disabled) {
   if (downloadInterviewerBtn) downloadInterviewerBtn.disabled = disabled;
 }
 
+function setOfferDownloadDisabled(disabled) {
+  if (downloadOfferBtn) downloadOfferBtn.disabled = disabled;
+}
+
 function collectFeedback() {
   return {
     agreement: feedbackAgreementEl.value,
@@ -362,6 +387,12 @@ function appendFeedbackToReport(report, feedback) {
 - 追问是否可采用：${feedback.question_use}
 - 人工补充意见：${feedback.notes || "未填写"}
 - 记录时间：${feedback.updated_at}
+
+### 建议回填到题库
+
+- 将实际被问到但报告遗漏的问题，回填到“面试官候选问题库”。
+- 将被证实或被推翻的证据，更新到证据可信度等级。
+- 将新暴露的失败复盘、冲突处理、指标口径问题，更新到“风险与待验证”。
 `;
 
   if (report.includes(marker)) {
@@ -479,23 +510,23 @@ function resolveBaseUrl(input) {
 }
 
 function generateMockReport(input) {
-  const hasB2B = /B\s*端|SaaS|企业|客户|工单|CRM/i.test(input.resume + input.jobDescription);
-  const hasMetrics = /指标|数据|提升|下降|转化|留存|响应|成本|营收|%|\d+/.test(input.resume);
-  const hasCollab = /推动|协作|研发|设计|运营|销售|客户/.test(input.resume);
+  const snapshot = normalizeSnapshot(input);
+  const rows = buildRequirementEvidenceRows(snapshot);
+  const gate = buildGateAssessment(snapshot, rows);
+  const offerLeverage = buildOfferLeverage(snapshot);
+  const hiddenPains = buildJdHiddenPainRows(snapshot);
   const hasOfferRisk = /薪|预算|竞品|offer|Offer|到岗|期望|涨幅|入职|稳定/i.test(
-    `${input.resume} ${input.companyContext} ${input.offerConstraints}`,
+    `${snapshot.resume} ${snapshot.company_context} ${snapshot.offer_constraints}`,
   );
   const skillQuestions = buildSkillQuestionMarkdown(input.selectedSkills, input);
-
-  const canEnterSandbox = hasB2B && hasMetrics && hasCollab;
-  const gateDecision = canEnterSandbox ? "进入下一轮沙盘" : "暂不进入下一轮沙盘";
-  const packagingRisk = canEnterSandbox
-    ? "简历与 JD 匹配度较高，需要提高追问深度，验证是否存在过度包装。"
-    : "当前材料尚未达到高匹配状态，优先补齐项目证据。";
-  const match = canEnterSandbox ? "基本匹配，建议进入下一轮沙盘验证" : "项目证据不足，建议先补充关键项目经历";
-  const offerReadiness = hasB2B && hasMetrics && hasCollab && !hasOfferRisk ? "可继续推进面试验证" : "需要先补齐关键证据与动机信息";
-  const matchScore = [hasB2B, hasMetrics, hasCollab].filter(Boolean).length;
-  const matchLevel = matchScore === 3 ? "高匹配" : matchScore === 2 ? "中等匹配" : "低匹配";
+  const matchLevel = gate.matchedCount >= 5 ? "高匹配" : gate.matchedCount >= 3 ? "中等匹配" : gate.matchedCount >= 1 ? "低匹配但可转岗验证" : "低匹配";
+  const hasB2B = /B\s*端|SaaS|企业|客户|工单|CRM|行业|平台|系统/i.test(`${snapshot.resume} ${snapshot.job_description}`);
+  const match = `${gate.result}：${gate.summary}`;
+  const canEnterSandbox = gate.enterSandbox;
+  const offerReadiness = canEnterSandbox && !hasOfferRisk ? "可继续推进面试验证" : "需要先补齐关键证据与动机信息";
+  const packagingRisk = gate.matchedCount >= 4
+    ? "简历与 JD 表面匹配度较高，需要提高反包装追问强度，验证真实角色、失败细节和指标口径。"
+    : "当前材料尚未形成高匹配闭环，优先补齐项目证据和能力迁移证据。";
 
   return `# 面试准备报告
 
@@ -504,10 +535,12 @@ function generateMockReport(input) {
 | 模块 | 结论 | 候选人准备动作 |
 | --- | --- | --- |
 | 岗位匹配倾向 | ${match} | 用 2 个项目证明 JD 核心职责 |
-| 项目匹配闸口 | ${gateDecision} | ${canEnterSandbox ? "准备下一轮沙盘中的项目细节和风险预案" : "先补齐项目、指标、协作和个人贡献证据"} |
-| 最大亮点 | 简历中出现与 B 端产品、跨团队推进或指标结果相关的经历 | 准备项目背景、目标、动作、结果 |
+| 项目匹配闸口 | ${gate.result} | ${gate.nextStep} |
+| 证据可信度 | ${buildEvidenceSummary(rows)} | 面试中优先补一级证据和可复核口径 |
+| 最大亮点 | ${gate.bestEvidence} | 准备项目背景、目标、动作、结果 |
 | 最大风险 | “负责 / 主导 / 推动”仍需还原真实角色、决策过程和结果归因 | 准备个人贡献证据和关键决策过程 |
 | Offer 沙盘 | 候选人当前处于“${input.candidateStage}”阶段，${offerReadiness} | 提前梳理动机、期望和到岗约束 |
+| 谈判杠杆 | ${offerLeverage.rating}：${offerLeverage.summary} | 准备可量化溢价依据 |
 | 过度包装风险 | ${packagingRisk} | 准备可被追溯的细节证据、失败案例和现场推演回答 |
 | 必问重点 | 需求判断、指标口径、优先级取舍、跨团队推进、项目复盘和入职动机 | 按问题库做模拟面试 |
 
@@ -519,6 +552,12 @@ function generateMockReport(input) {
 | 企业需要候选人具备项目闭环能力 | JD 中出现产品规划、推进、复盘或生命周期相关要求 | 仅说“参与/负责”不够，需要讲清从需求到上线复盘的闭环 | 准备完整项目链路 |
 | 当前简历与岗位职责匹配程度：${matchLevel} | 简历证据：${clip(input.resume)} | 当前匹配度来自行业线索、指标线索和跨团队推进线索三类证据 | 补齐缺失证据并准备追问 |
 
+## JD 隐性痛点解码
+
+| JD 软性表达 | 可能对应的业务压力源 | 候选人应准备的证明 |
+| --- | --- | --- |
+${hiddenPains.map((row) => `| ${row.phrase} | ${row.pressure} | ${row.prep} |`).join("\n")}
+
 ## 分析结果
 
 | 结论 | 证据 | 详细说明 |
@@ -528,29 +567,31 @@ function generateMockReport(input) {
 
 ## 项目匹配闸口
 
-| JD 职责证据要求 | 候选人项目证据 | 闸口判断 | 下一步 |
+| JD 职责证据要求 | 候选人项目证据 | 证据等级 | 闸口判断 |
 | --- | --- | --- | --- |
-| 行业 / 业务场景经验 | ${hasB2B ? "有行业或 B 端场景线索" : "缺少明确行业场景证据"} | ${hasB2B ? "匹配" : "待验证"} | ${hasB2B ? "进入项目深挖" : "补充最接近 JD 的项目案例"} |
-| 0-1 / 产品规划 / 生命周期 | ${/0\s*到\s*1|规划|生命周期|从零|产品设计/.test(input.resume) ? "有规划或 0-1 线索" : "缺少完整产品闭环证据"} | ${/0\s*到\s*1|规划|生命周期|从零|产品设计/.test(input.resume) ? "部分匹配" : "待验证"} | 准备从需求到上线再到复盘的完整案例 |
-| 客户需求 / 方案设计 / 技术交流 | ${/客户|方案|技术|架构|交流|咨询|需求分析/.test(input.resume) ? "有客户或方案线索" : "证据不足"} | ${/客户|方案|技术|架构|交流|咨询|需求分析/.test(input.resume) ? "部分匹配" : "不匹配风险"} | 补充客户沟通、方案取舍、技术风险控制案例 |
-| 研发协同 / 项目推进 | ${hasCollab ? "有跨团队推进线索" : "缺少研发协同证据"} | ${hasCollab ? "匹配" : "待验证"} | 准备研发一线协同、里程碑和风险处理证据 |
+${rows.map((row) => `| ${row.capability} | ${row.resumeEvidence} | ${row.evidenceLevelLabel}：${row.evidenceReason} | ${row.matchStatus} |`).join("\n")}
 
-| 闸口结论 | 说明 |
-| --- | --- |
-| ${gateDecision} | ${canEnterSandbox ? "候选人项目经历与 JD 职责有初步交集，可进入下一轮沙盘验证细节。" : "候选人当前材料不足以支撑核心职责匹配，建议先补充项目证据；若面试中仍无法补齐，则建议淘汰 / 不推进。"} |
+| 闸口结论 | 说明 | 下一步 |
+| --- | --- | --- |
+| ${gate.result} | ${gate.summary} | ${gate.nextStep} |
+
+${gate.result.includes("条件性进入") ? `### 条件性进入与能力迁移论证
+
+| 使用场景 | 能力迁移话术 | 面试验证重点 |
+| --- | --- | --- |
+| 转岗适配开场 | ${gate.transferPitch} | 要求候选人用一个真实项目证明复杂场景、项目推进和技术/业务取舍可以迁移到 JD 场景 |` : ""}
 
 ## 岗位匹配
 
-| JD 能力要求 | 当前证据 | 候选人准备重点 | 面试官追问方向 |
+| JD 能力要求 | 当前证据 | 证据可信度 | 面试官追问方向 |
 | --- | --- | --- | --- |
-| B 端 / SaaS 经验 | ${hasB2B ? "有相关证据" : "证据不足"} | 准备最接近 JD 场景的项目 | 业务对象、用户角色、场景复杂度 |
-| 数据意识 | ${hasMetrics ? "有初步证据" : "证据不足"} | 准备指标口径、统计周期、归因说明 | 指标定义、上线前后对比、个人动作 |
-| 跨团队推动 | ${hasCollab ? "有初步证据" : "证据不足"} | 准备协作对象、冲突、取舍过程 | 资源协调、优先级冲突、推进机制 |
+${rows.map((row) => `| ${row.capability} | ${row.jdEvidence} | ${row.evidenceLevelLabel} | ${row.verificationQuestion} |`).join("\n")}
 
 ## 项目亮点
 
-- 简历中包含与目标岗位相关的项目描述，可作为业务面试的核心切入点。
-- 若候选人确实主导需求判断、方案设计和跨团队落地，具备较高岗位相关性。
+- ${gate.bestEvidence}
+- 若候选人确实主导需求判断、方案设计和跨团队落地，需要用一级证据补齐指标口径和个人贡献。
+- 对于跨行业候选人，重点包装“复杂场景需求分析、技术方案取舍、研发协同、客户沟通”这些可迁移能力。
 
 ## 风险与待验证
 
@@ -564,10 +605,11 @@ function generateMockReport(input) {
 
 - 当前阶段：${input.candidateStage}。
 - 目标职级：${input.targetLevel || "未提供，建议面试前明确职级锚点。"}
-- 沙盘进入条件：${canEnterSandbox ? "项目匹配闸口已通过，可进入下一轮沙盘。" : "项目匹配闸口未通过，沙盘仅作为候选人补证准备，不建议直接推进。"}
+- 沙盘进入条件：${gate.result}，${canEnterSandbox ? "可进入下一轮沙盘验证细节。" : "沙盘仅作为候选人补证准备，不建议直接推进。"}
 - 推进建议：先完成项目匹配闸口，再进入动机、薪资和到岗可行性确认。
 - 录用前关键门槛：个人贡献证据、指标口径、跨团队推动案例、岗位动机和期望匹配。
 - 谈薪 / Offer 约束：${input.offerConstraints || "未提供，建议补充预算范围、候选人期望、竞争 Offer 和到岗时间。"}
+- 候选人谈判杠杆识别：${offerLeverage.rating}。${offerLeverage.detail}
 - 沙盘下一步：根据面试回答更新“岗位匹配、项目可信度、入职概率、谈薪风险”四个状态。
 
 ## 必问追问
@@ -576,7 +618,8 @@ function generateMockReport(input) {
 2. 你提到的结果指标具体口径是什么？上线前后的对比周期如何定义？
 3. 如果研发资源不足，你当时砍掉或延后的需求是什么？依据是什么？
 4. 项目推进中最大的跨团队阻力是什么？你具体做了哪些推动动作？
-5. 复盘这个项目，如果重新做一次，你会改变哪个关键决策？
+5. 请复盘一次项目延期或线上故障，按时间线说明故障发现、止血决策、根因分析、影响范围、长线整改，以及后续项目中具体改变了什么机制。
+6. 复盘这个项目，如果重新做一次，你会改变哪个关键决策？
 
 ## 候选人准备重点
 
@@ -597,6 +640,7 @@ function generateMockReport(input) {
 | ${hasB2B ? "B 端 / SaaS 场景" : "目标业务场景"} | 相似业务项目 | 你过去最相似的项目是什么？相似点和差异点分别是什么？ | 验证场景迁移能力 |
 | 入职后优先级判断 | 过往项目取舍案例 | 如果入职后第一个月只能完成一件最关键的事，你会如何判断优先级？ | 验证职责落地能力 |
 | 指标拆解与推进 | 指标项目或复盘案例 | 请举例说明你如何把岗位目标拆成可衡量指标。 | 验证指标意识和推动动作 |
+| 失败复盘与机制沉淀 | 延期、线上故障或冲突项目 | 请按时间线还原一次真实事故或延期，并说明后续机制如何改变。 | 验证真实性、抗压能力和复盘深度 |
 
 ### B. 项目经历追问
 
@@ -604,6 +648,7 @@ function generateMockReport(input) {
 2. 项目开始时的业务目标、用户问题和约束条件分别是什么？
 3. 项目过程中最大的风险是什么？你是提前识别的，还是问题发生后处理的？
 4. 项目结果中哪些是你个人动作直接带来的，哪些更依赖团队或外部条件？
+5. 请选择一次项目延期或线上故障，按发现、止血、根因、整改、机制变化五步复盘。
 
 ### C. 项目经理 / 推进视角问题
 
@@ -634,10 +679,7 @@ ${skillQuestions}
 
 ## 证据链
 
-- 简历证据：${clip(input.resume)}
-- JD 证据：${clip(input.jobDescription)}
-- 上下文证据：${input.companyContext ? clip(input.companyContext) : "未提供额外上下文。"}
-- Offer 沙盘证据：${input.offerConstraints ? clip(input.offerConstraints) : "未提供 Offer / 谈薪约束。"}
+${buildEvidenceChainTable(snapshot)}
 
 ## 人工反馈建议
 
@@ -645,6 +687,15 @@ ${skillQuestions}
 - 系统生成问题是否被采用：采用 / 改写采用 / 未采用。
 - 风险点是否在面试中被验证：已验证 / 部分验证 / 未验证。
 - 需要补充的岗位标准或公司偏好：请人工填写。
+
+## 动态校准指令
+
+| 回填字段 | 记录内容 | 迭代动作 |
+| --- | --- | --- |
+| 实际被问问题 | 记录面试中出现但报告遗漏的高频问题 | 回填到面试官候选问题库，形成该岗位专属题库 |
+| 证据验证结果 | 标记哪些简历证据被证实、被推翻或仍待验证 | 更新证据等级和闸口判断 |
+| 新暴露风险 | 记录候选人在故障复盘、冲突处理、指标口径上的卡点 | 加入风险与待验证、候选人准备重点 |
+| Offer 变化 | 记录薪资期望、竞对 Offer、到岗时间、职级偏好变化 | 更新谈判杠杆评级和沙盘推进建议 |
 `;
 }
 
@@ -696,7 +747,8 @@ function clip(text) {
 
 function collectSelectedSkills() {
   const selected = skillToggleEls.filter((item) => item.checked).map((item) => item.value);
-  return selected.length ? selected : ["hr", "business", "project"];
+  const defaults = selected.length ? selected : ["hr", "business", "project"];
+  return Array.from(new Set([...defaults, "decision"]));
 }
 
 function formatSelectedSkills(selectedSkills) {
@@ -775,6 +827,12 @@ function buildDeepQuestions(id, skill, evidence) {
       `你如何比较这个机会和其他机会？请给出可排序的决策标准。`,
       `到岗时间、薪资结构、职级定位中，哪一项最需要提前确认？为什么？`,
     ],
+    decision: [
+      `如果上级要求砍掉“${evidence.project}”一半预算，你如何重排优先级？请用指标说明保留和放弃的依据。`,
+      `JD 强调“${evidence.jd}”，如果短期 ROI 不好看但你认为战略上必须做，你会如何争取资源？`,
+      `如果项目投入三个月后效果不达预期，你会继续、收缩还是停止？请说明判断阈值和止损机制。`,
+      `请讲一次你做过的高风险取舍：当时放弃了什么、保护了什么、最终结果如何复盘？`,
+    ],
   };
   return common[id] || skill.questions;
 }
@@ -788,6 +846,7 @@ function updateModelMode() {
 function renderReport(markdown) {
   reportEl.className = "report";
   reportEl.innerHTML = markdownToHtml(markdown);
+  renderStreamProgress(markdown, "报告已更新", true);
 }
 
 function renderStreamingReport(markdown, label = "分块生成中", isDone = false) {
@@ -797,8 +856,14 @@ function renderStreamingReport(markdown, label = "分块生成中", isDone = fal
     : '<p class="stream-placeholder">正在建立候选人、岗位、沙盘与面试官视角证据索引...</p>';
   const cursor = isDone ? "" : '<span class="stream-cursor" aria-hidden="true"></span>';
 
-  reportEl.innerHTML = `${buildStreamProgress(markdown, label, isDone)}<div class="stream-content">${content}${cursor}</div>`;
+  renderStreamProgress(markdown, label, isDone);
+  reportEl.innerHTML = `<div class="stream-content">${content}${cursor}</div>`;
   reportEl.scrollTop = reportEl.scrollHeight;
+}
+
+function renderStreamProgress(markdown, label, isDone) {
+  if (!reportProgressEl) return;
+  reportProgressEl.innerHTML = buildStreamProgress(markdown, label, isDone);
 }
 
 function buildStreamProgress(markdown, label, isDone) {
@@ -814,13 +879,11 @@ function buildStreamProgress(markdown, label, isDone) {
     })
     .join("");
 
-  return `<div class="stream-progress">
-    <div class="stream-title">
+  return `<div class="stream-title">
       <span>${escapeHtml(label)}</span>
       <small>${isDone ? "已完成" : "分块输出中"}</small>
     </div>
-    <div class="stream-steps">${steps}</div>
-  </div>`;
+    <div class="stream-steps">${steps}</div>`;
 }
 
 function inferStageIndex(markdown, isDone) {
@@ -944,11 +1007,34 @@ function cellToneClass(value) {
   return "";
 }
 
-function reportToStaticHtmlDocument(run, audience = "full") {
+function reportToStaticHtmlDocument(run, audience = "full", options = {}) {
   const markdown = buildAudienceMarkdown(run, audience);
   const createdAt = new Date(run.created_at).toLocaleString("zh-CN");
-  const reportTitle = audience === "candidate" ? "候选人面试准备报告" : audience === "interviewer" ? "面试官提问辅助报告" : "面试准备报告";
-  const reportEyebrow = audience === "candidate" ? "候选人模块" : audience === "interviewer" ? "面试官模块" : "Offer 沙盘 + 面试官视角库";
+  const reportTitle =
+    audience === "candidate"
+      ? "候选人面试准备报告"
+      : audience === "interviewer"
+        ? "面试官提问辅助报告"
+        : audience === "offer"
+          ? "Offer 沙盘推演报告"
+          : "面试准备报告";
+  const reportEyebrow =
+    audience === "candidate"
+      ? "候选人模块"
+      : audience === "interviewer"
+        ? "面试官模块"
+        : audience === "offer"
+          ? "Offer 推演模块"
+          : "Offer 沙盘 + 面试官视角库";
+  const printFilename = options.printFilename || `${reportTitle}.pdf`;
+  const autoPrintScript = options.autoPrint
+    ? `<script>
+      window.addEventListener("load", () => {
+        document.title = ${JSON.stringify(printFilename.replace(/\.pdf$/i, ""))};
+        window.setTimeout(() => window.print(), 400);
+      });
+    </script>`
+    : "";
   return `<!doctype html>
 <html lang="zh-CN">
   <head>
@@ -1258,7 +1344,443 @@ function reportToStaticHtmlDocument(run, audience = "full") {
         background: rgba(0, 242, 254, 0.3);
       }
 
+      :root {
+        color-scheme: light;
+        --bg: #f3f6fa;
+        --panel: #ffffff;
+        --panel-border: #d8e0ea;
+        --ink: #1e293b;
+        --muted: #64748b;
+        --brand: #2a8fb1;
+        --brand-glow: rgba(42, 143, 177, 0.12);
+        --brand-grad: linear-gradient(135deg, #2a8fb1 0%, #0f6f8f 100%);
+        --accent: #b7791f;
+        --accent-soft: #fff7e6;
+        --good-bg: #eaf8f0;
+        --good-color: #166534;
+        --warn-bg: #fff7e6;
+        --warn-color: #92400e;
+        --risk-bg: #fff1f2;
+        --risk-color: #b42318;
+      }
+
+      body {
+        background: #f3f6fa;
+        color: var(--ink);
+      }
+
+      .page {
+        max-width: 1100px;
+        padding: 28px 20px 44px;
+      }
+
+      .cover {
+        border-color: var(--panel-border);
+        border-radius: 12px;
+        background: #ffffff;
+        box-shadow: 0 14px 40px rgba(15, 23, 42, 0.08);
+        padding: 28px 30px;
+      }
+
+      .cover::before {
+        height: 5px;
+      }
+
+      .eyebrow {
+        border-color: #d7edf5;
+        border-radius: 999px;
+        background: #eef9fc;
+        color: var(--brand);
+      }
+
+      h1 {
+        color: #0f172a;
+        font-size: 31px;
+        letter-spacing: 0;
+        text-shadow: none;
+      }
+
+      .meta {
+        gap: 12px;
+        margin-top: 22px;
+      }
+
+      .meta div {
+        border-color: #d8e0ea;
+        border-radius: 8px;
+        background: #f8fafc;
+        padding: 12px 14px;
+      }
+
+      .meta div:hover {
+        background: #f8fafc;
+        border-color: #d8e0ea;
+        transform: none;
+      }
+
+      .meta strong {
+        color: #0f172a;
+      }
+
+      .report-body {
+        border-color: var(--panel-border);
+        border-radius: 12px;
+        background: #ffffff;
+        box-shadow: 0 14px 40px rgba(15, 23, 42, 0.08);
+        padding: 30px;
+      }
+
+      h3 {
+        border-bottom-color: #dbe4ef;
+        color: #0f172a;
+        font-size: 19px;
+        margin: 30px 0 14px;
+        padding-bottom: 9px;
+      }
+
+      h3::before {
+        width: 4px;
+        height: 18px;
+        background: var(--brand-grad);
+        box-shadow: none;
+      }
+
+      h4 {
+        border-color: #d7edf5;
+        background: #eef9fc;
+        color: #0f6f8f;
+      }
+
+      p,
+      li {
+        color: #334155;
+      }
+
+      .table-wrap {
+        border-color: #d8e0ea;
+        border-radius: 8px;
+        background: #ffffff;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+      }
+
+      table {
+        border-collapse: collapse;
+        background: #ffffff;
+        color: #1e293b;
+      }
+
+      thead {
+        background: #eaf2f7;
+        color: #0f172a;
+      }
+
+      th,
+      td {
+        border-bottom-color: #e5edf5;
+        padding: 11px 13px;
+      }
+
+      th {
+        color: #0f172a;
+        letter-spacing: 0;
+        text-transform: none;
+      }
+
+      tbody tr:nth-child(even) {
+        background: #f8fafc;
+      }
+
+      tbody tr:hover {
+        background: #eef8fb !important;
+      }
+
+      td:first-child {
+        background: transparent;
+        color: #0f172a;
+      }
+
+      .tone-good,
+      .tone-warn,
+      .tone-risk {
+        box-shadow: none;
+      }
+
+      :root {
+        --report-brand-h: 255;
+        --report-brand: oklch(48% 0.14 var(--report-brand-h));
+        --report-brand-strong: oklch(36% 0.16 var(--report-brand-h));
+        --report-brand-subtle: oklch(93% 0.025 var(--report-brand-h));
+        --report-accent: oklch(65% 0.18 75);
+        --report-surface: #ffffff;
+        --report-bg: oklch(95.5% 0.01 var(--report-brand-h));
+        --report-border: oklch(87% 0.015 var(--report-brand-h));
+        --report-text: oklch(16% 0.012 var(--report-brand-h));
+        --report-secondary: oklch(38% 0.018 var(--report-brand-h));
+        --report-muted: oklch(55% 0.015 var(--report-brand-h));
+        --report-good: oklch(52% 0.15 160);
+        --report-warn: oklch(55% 0.17 80);
+        --report-risk: oklch(48% 0.18 28);
+      }
+
+      body {
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        background:
+          radial-gradient(ellipse 80% 50% at 85% 10%, oklch(48% 0.14 var(--report-brand-h) / 0.035), transparent 50rem),
+          radial-gradient(ellipse 60% 40% at 15% 90%, oklch(65% 0.18 75 / 0.025), transparent 45rem),
+          var(--report-bg);
+        color: var(--report-text);
+        font-size: 15px;
+        line-height: 1.7;
+        min-height: 100vh;
+        padding: 32px 20px;
+      }
+
+      .page {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        max-width: 1280px;
+        width: 100%;
+        padding: 0;
+      }
+
+      .cover {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid var(--report-border);
+        border-radius: 20px;
+        background: var(--report-surface);
+        box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06), 0 2px 6px rgba(15, 23, 42, 0.04);
+        padding: 40px 40px 32px;
+      }
+
+      .cover::before {
+        content: "";
+        position: absolute;
+        inset: 0 0 auto;
+        height: 4px;
+        background: linear-gradient(90deg, var(--report-brand), oklch(52% 0.16 calc(var(--report-brand-h) + 20)), var(--report-accent));
+        border-radius: 20px 20px 0 0;
+      }
+
+      .cover::after {
+        content: "";
+        position: absolute;
+        top: -80px;
+        right: -80px;
+        width: 200px;
+        height: 200px;
+        border-radius: 999px;
+        background: radial-gradient(circle, oklch(48% 0.14 var(--report-brand-h) / 0.12), transparent 70%);
+        pointer-events: none;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid oklch(48% 0.14 var(--report-brand-h) / 0.12);
+        border-radius: 999px;
+        background: var(--report-brand-subtle);
+        color: var(--report-brand);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        margin: 0 0 16px;
+        padding: 4px 12px;
+        text-transform: uppercase;
+      }
+
+      .eyebrow::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        border-radius: 999px;
+        background: var(--report-brand);
+        box-shadow: 0 0 8px oklch(48% 0.14 var(--report-brand-h) / 0.12);
+      }
+
+      h1 {
+        color: var(--report-text);
+        font-size: clamp(28px, 3.5vw, 36px);
+        font-weight: 760;
+        letter-spacing: -0.02em;
+        line-height: 1.15;
+        margin: 0;
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 24px;
+        border-top: 1px solid var(--report-border);
+        margin-top: 20px;
+        padding-top: 20px;
+      }
+
+      .meta div {
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        padding: 0;
+      }
+
+      .meta span {
+        display: inline;
+        color: var(--report-muted);
+        font-size: 13px;
+        margin-right: 8px;
+      }
+
+      .meta strong {
+        display: inline;
+        color: var(--report-text);
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .report-body {
+        counter-reset: report-section;
+        border: 1px solid var(--report-border);
+        border-radius: 20px;
+        background: var(--report-surface);
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04), 0 1px 2px rgba(15, 23, 42, 0.03);
+        padding: 40px 40px 48px;
+      }
+
+      h3 {
+        counter-increment: report-section;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        border: 0;
+        color: var(--report-text);
+        font-size: 22px;
+        font-weight: 720;
+        letter-spacing: -0.01em;
+        line-height: 1.3;
+        margin: 32px 0 12px;
+        padding: 0;
+      }
+
+      h3::before {
+        content: counter(report-section);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 auto;
+        width: 32px;
+        height: 32px;
+        border-radius: 10px;
+        background: var(--report-brand);
+        color: #ffffff;
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      h4 {
+        display: inline-flex;
+        border: 1px solid var(--report-border);
+        border-radius: 999px;
+        background: var(--report-brand-subtle);
+        color: var(--report-brand-strong);
+        font-size: 13px;
+        font-weight: 650;
+        margin: 18px 0 10px;
+        padding: 5px 12px;
+      }
+
+      p,
+      li {
+        color: var(--report-secondary);
+        font-size: 14px;
+        line-height: 1.72;
+      }
+
+      .table-wrap {
+        overflow-x: auto;
+        border: 1px solid var(--report-border);
+        border-radius: 14px;
+        background: var(--report-surface);
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04), 0 1px 2px rgba(15, 23, 42, 0.03);
+        margin: 10px 0 22px;
+      }
+
+      table {
+        min-width: 640px;
+        border-collapse: separate;
+        border-spacing: 0;
+        background: var(--report-surface);
+        color: var(--report-text);
+        font-size: 13px;
+      }
+
+      thead {
+        background: transparent;
+      }
+
+      th {
+        border-bottom: 1.5px solid var(--report-border);
+        background: oklch(97% 0.012 var(--report-brand-h));
+        color: var(--report-secondary);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+
+      th,
+      td {
+        border-bottom: 1px solid var(--report-border);
+        padding: 12px 16px;
+      }
+
+      td {
+        color: var(--report-text);
+        line-height: 1.65;
+      }
+
+      tbody tr:last-child td {
+        border-bottom: 0;
+      }
+
+      tbody tr:nth-child(even) {
+        background: oklch(48% 0.14 var(--report-brand-h) / 0.015);
+      }
+
+      td:first-child {
+        background: oklch(97% 0.012 var(--report-brand-h));
+        color: var(--report-text);
+        font-weight: 650;
+      }
+
+      .tone-good {
+        background-color: oklch(52% 0.15 160 / 0.09) !important;
+        color: var(--report-good) !important;
+        border-left: 3px solid var(--report-good);
+      }
+
+      .tone-warn {
+        background-color: oklch(55% 0.17 80 / 0.09) !important;
+        color: var(--report-warn) !important;
+        border-left: 3px solid var(--report-warn);
+      }
+
+      .tone-risk {
+        background-color: oklch(48% 0.18 28 / 0.09) !important;
+        color: var(--report-risk) !important;
+        border-left: 3px solid var(--report-risk);
+      }
+
       @media print {
+        @page {
+          size: A4;
+          margin: 12mm;
+        }
+
         body {
           background: #ffffff;
           color: #000000;
@@ -1282,6 +1804,16 @@ function reportToStaticHtmlDocument(run, audience = "full") {
           padding: 20px 0;
         }
 
+        .cover {
+          break-after: avoid;
+        }
+
+        h3,
+        h4,
+        tr {
+          break-inside: avoid;
+        }
+
         th {
           background: #f1f5f9 !important;
           color: #000000 !important;
@@ -1290,9 +1822,11 @@ function reportToStaticHtmlDocument(run, audience = "full") {
         .table-wrap {
           break-inside: avoid;
           border: 1px solid #cbd5e1;
+          overflow: visible;
         }
       }
     </style>
+    ${autoPrintScript}
   </head>
   <body>
     <main class="page">
@@ -1325,7 +1859,9 @@ function reportToStaticHtmlDocument(run, audience = "full") {
 function buildPreviewMarkdown(run) {
   return `${buildAudienceMarkdown(run, "candidate")}
 
-${buildAudienceMarkdown(run, "interviewer")}`;
+${buildAudienceMarkdown(run, "interviewer")}
+
+${buildAudienceMarkdown(run, "offer")}`;
 }
 
 function buildAudienceMarkdown(run, audience) {
@@ -1334,13 +1870,17 @@ function buildAudienceMarkdown(run, audience) {
   const resumeEvidence = snapshot.resume ? clip(snapshot.resume) : "未提供简历快照";
   const jdEvidence = snapshot.job_description ? clip(snapshot.job_description) : "未提供 JD 快照";
   const directConclusion = buildDirectConclusion(snapshot);
+  const gate = buildGateAssessment(snapshot);
+  const offerLeverage = buildOfferLeverage(snapshot);
   if (audience === "candidate") {
     const body = [
       extractSection(report, "项目匹配闸口"),
+      extractSection(report, "JD 隐性痛点解码"),
       extractSection(report, "岗位匹配"),
       extractSection(report, "风险与待验证"),
       extractSection(report, "候选人准备重点"),
       extractSection(report, "必问追问"),
+      extractSection(report, "动态校准指令"),
       extractSection(report, "证据链"),
     ]
       .filter(hasSubstantiveSection)
@@ -1352,6 +1892,8 @@ function buildAudienceMarkdown(run, audience) {
 | 结论 | 证据 | 不匹配 / 待验证点 | 下一步 |
 | --- | --- | --- | --- |
 | ${directConclusion.label} | JD 证据：${jdEvidence}；简历证据：${resumeEvidence} | ${directConclusion.points} | ${directConclusion.nextStep} |
+| 项目匹配闸口 | ${gate.summary} | ${gate.result} | ${gate.nextStep} |
+| 谈判杠杆 | ${offerLeverage.detail} | ${offerLeverage.rating} | 准备可量化溢价依据和约束说明 |
 
 ## 招聘岗位分析
 
@@ -1383,10 +1925,12 @@ ${body}`;
           .join("\n\n")
       : [
           extractSection(report, "项目匹配闸口"),
+          extractSection(report, "JD 隐性痛点解码"),
           extractSection(report, "岗位匹配"),
           extractSection(report, "风险与待验证"),
           extractSection(report, "面试官候选问题库（供挑选）"),
           extractSection(report, "面试官视角库"),
+          extractSection(report, "动态校准指令"),
           extractSection(report, "证据链"),
         ]
           .filter(hasSubstantiveSection)
@@ -1398,6 +1942,8 @@ ${body}`;
 | 结论 | 证据 | 不匹配 / 待验证点 | 下一步 |
 | --- | --- | --- | --- |
 | ${directConclusion.label} | JD 证据：${jdEvidence}；简历证据：${resumeEvidence} | ${directConclusion.points} | ${directConclusion.interviewerNextStep} |
+| 项目匹配闸口 | ${gate.summary} | ${gate.result} | ${gate.nextStep} |
+| 谈判杠杆 | ${offerLeverage.detail} | ${offerLeverage.rating} | 面试后更新薪资期望、竞对 Offer、到岗时间和职级偏好 |
 
 ## 简历初评
 
@@ -1421,7 +1967,44 @@ ${buildConcreteInterviewerQuestions(snapshot)}
 ${body}`;
   }
 
+  if (audience === "offer") {
+    return buildOfferSandboxMarkdown(run);
+  }
+
   return report;
+}
+
+function buildOfferSandboxMarkdown(run) {
+  const report = run.report;
+  const snapshot = run.input_snapshot || {};
+  const gate = buildGateAssessment(snapshot);
+  const offerLeverage = buildOfferLeverage(snapshot);
+  const offerSection = extractSection(report, "Offer 沙盘推演");
+  const dynamicSection = extractSection(report, "动态校准指令");
+  const evidenceSection = extractSection(report, "证据链");
+  const body = [offerSection, dynamicSection, evidenceSection].filter(hasSubstantiveSection).join("\n\n");
+
+  return `# Offer 沙盘推演报告
+
+## 沙盘结论
+
+| 模块 | 当前判断 | 推进动作 |
+| --- | --- | --- |
+| 项目闸口 | ${gate.result}：${gate.summary} | ${gate.nextStep} |
+| 候选人阶段 | ${snapshot.candidate_stage || "未提供"} | 根据面试轮次决定是补证、深挖还是进入谈薪验证 |
+| 目标职级 | ${snapshot.target_level || "未提供"} | 面试前明确职级锚点、职责边界和评估标准 |
+| 谈判杠杆 | ${offerLeverage.rating}：${offerLeverage.summary} | ${offerLeverage.detail} |
+| Offer 约束 | ${snapshot.offer_constraints ? clip(snapshot.offer_constraints) : "未提供 Offer / 谈薪约束"} | 补充预算范围、候选人期望、竞对 Offer、到岗时间和团队紧急程度 |
+
+## 推进建议
+
+| 场景 | 建议动作 | 风险信号 |
+| --- | --- | --- |
+| ${gate.enterSandbox ? "可进入下一轮沙盘" : "暂不建议推进"} | ${gate.enterSandbox ? "围绕项目证据、失败复盘、指标口径和动机约束继续验证" : "先要求候选人补齐项目闭环、个人贡献和岗位匹配证据"} | 候选人无法解释真实角色、指标分母、资源取舍或失败复盘 |
+| 谈薪前 | 明确职级、薪资结构、到岗时间、竞对机会和候选人选择标准 | 关键约束后置暴露，导致 Offer 成功率下降 |
+| 面试后 | 根据实际回答更新岗位匹配、证据可信度、入职概率和谈薪风险 | 面试反馈未回填，题库和判断无法迭代 |
+
+${body}`;
 }
 
 function extractSection(markdown, heading) {
@@ -1437,8 +2020,8 @@ function hasSubstantiveSection(section) {
 
 function buildInterviewerResumeBrief(snapshot) {
   const rows = buildRequirementEvidenceRows(snapshot);
-  const missingRows = rows.filter((row) => row.resumeEvidence === "简历未体现明确证据");
-  const matchedRows = rows.filter((row) => row.resumeEvidence !== "简历未体现明确证据");
+  const missingRows = rows.filter((row) => row.isMissing);
+  const matchedRows = rows.filter((row) => !row.isMissing);
   const resume = snapshot.resume || "";
   const hasProjectSignal = /项目|平台|系统|上线|交付|落地|架构|研发|主导|负责/.test(resume);
   const hasEngineeringSignal = /工程化|架构|系统设计|前后端|数据库|部署|测试|上线|交付|性能|稳定性/.test(resume);
@@ -1473,11 +2056,12 @@ function buildInterviewerResumeBrief(snapshot) {
 
 function buildDirectConclusion(snapshot) {
   const rows = buildRequirementEvidenceRows(snapshot);
-  const missingRows = rows.filter((row) => row.resumeEvidence === "简历未体现明确证据");
-  const matchedRows = rows.filter((row) => row.resumeEvidence !== "简历未体现明确证据");
+  const gate = buildGateAssessment(snapshot, rows);
+  const missingRows = rows.filter((row) => row.isMissing);
+  const matchedRows = rows.filter((row) => !row.isMissing);
   const points = (missingRows.length ? missingRows : rows)
     .slice(0, 4)
-    .map((row) => `${row.capability}：${row.resumeEvidence === "简历未体现明确证据" ? "简历未提供可支撑证据" : "已有线索但需验证真实贡献"}`)
+    .map((row) => `${row.capability}：${row.isMissing ? "简历未提供可支撑证据" : `${row.evidenceLevelLabel}，需验证真实贡献`}`)
     .join("；");
 
   if (matchedRows.length === 0) {
@@ -1488,6 +2072,17 @@ function buildDirectConclusion(snapshot) {
       interviewerNextStep: "不列追问问题，先要求补充项目证据",
       hasMissing: true,
       blockQuestions: true,
+    };
+  }
+
+  if (gate.result.includes("条件性进入")) {
+    return {
+      label: "当前简历与 JD 存在可迁移能力，但行业 / 场景仍需验证",
+      points,
+      nextStep: "用能力迁移话术建立连接，并补齐目标行业、客户场景和方案设计证据",
+      interviewerNextStep: "围绕相似复杂度项目追问迁移边界、真实角色和场景理解",
+      hasMissing: true,
+      blockQuestions: false,
     };
   }
 
@@ -1514,23 +2109,23 @@ function buildDirectConclusion(snapshot) {
 
 function buildConcreteJobAnalysis(snapshot) {
   const rows = buildRequirementEvidenceRows(snapshot);
-  const matchCount = rows.filter((row) => row.resumeEvidence !== "简历未体现明确证据").length;
+  const matchCount = rows.filter((row) => !row.isMissing).length;
   const matchLevel = matchCount >= 4 ? "高匹配" : matchCount >= 2 ? "中等匹配" : "低匹配";
-  return `| 企业需要的能力 | JD 证据 | 当前简历证据 | 匹配判断 |
+  return `| 企业需要的能力 | JD 证据 | 当前简历证据 | 证据等级 / 匹配判断 |
 | --- | --- | --- | --- |
-${rows.map((row) => `| ${row.capability} | ${row.jdEvidence} | ${row.resumeEvidence} | ${row.resumeEvidence === "简历未体现明确证据" ? "不匹配 / 待补证" : "有项目证据，仍需深挖"} |`).join("\n")}
+${rows.map((row) => `| ${row.capability} | ${row.jdEvidence} | ${row.resumeEvidence} | ${row.evidenceLevelLabel}；${row.matchStatus} |`).join("\n")}
 | 综合匹配程度 | 基于 JD 职责与简历项目证据逐项对照 | 已匹配 ${matchCount}/${rows.length} 项能力证据 | ${matchLevel} |`;
 }
 
 function buildConcreteGapTable(snapshot) {
   const allRows = buildRequirementEvidenceRows(snapshot);
-  const rows = allRows.filter((row) => row.resumeEvidence === "简历未体现明确证据");
+  const rows = allRows.filter((row) => row.isMissing);
   const gapRows = rows.length ? rows : allRows.slice(0, 3);
-  return `| 不匹配 / 待验证点 | JD 证据 | 简历当前证据 | 建议补充 |
+  return `| 不匹配 / 待验证点 | JD 证据 | 简历当前证据 | 证据等级与建议补充 |
 | --- | --- | --- | --- |
 ${gapRows.map((row) => {
-  const status = row.resumeEvidence === "简历未体现明确证据" ? "不匹配 / 缺证" : "待验证";
-  return `| ${status}：${row.capability} | ${row.jdEvidence} | ${row.resumeEvidence} | 准备一个能证明“${row.capability}”的具体项目，说明背景、个人动作、结果和复盘 |`;
+  const status = row.isMissing ? "不匹配 / 缺证" : "待验证";
+  return `| ${status}：${row.capability} | ${row.jdEvidence} | ${row.resumeEvidence} | ${row.evidenceLevelLabel}；准备一个能证明“${row.capability}”的具体项目，说明背景、个人动作、结果和复盘 |`;
 }).join("\n")}`;
 }
 
@@ -1538,17 +2133,18 @@ function buildConcreteCandidateQuestions(snapshot) {
   const rows = buildRequirementEvidenceRows(snapshot).slice(0, 6);
   return `| 准备问题 | 对应岗位职责 | 当前项目锚点 | 回答要点 |
 | --- | --- | --- | --- |
-${rows.map((row) => `| 请用一个项目证明你具备“${row.capability}”，你当时的真实角色和关键决策是什么？ | ${row.jdEvidence} | ${row.resumeEvidence} | 讲清背景、目标、约束、个人动作、结果指标和复盘 |`).join("\n")}`;
+${rows.map((row) => `| 请用一个项目证明你具备“${row.capability}”，你当时的真实角色和关键决策是什么？ | ${row.jdEvidence} | ${row.resumeEvidence} | 讲清背景、目标、约束、个人动作、结果指标和复盘；当前证据等级：${row.evidenceLevelLabel} |`).join("\n")}
+| 请复盘一次项目延期或线上故障，你如何发现、止血、定位根因并做长期整改？ | 成本、进度、质量控制 | 失败、延期、事故或冲突项目 | 必须讲出时间线、影响范围、根因、整改机制和后续项目中的机制变化 |`;
 }
 
 function buildCandidateRevisionAdvice(snapshot) {
   const rows = buildRequirementEvidenceRows(snapshot);
-  const missingRows = rows.filter((row) => row.resumeEvidence === "简历未体现明确证据");
+  const missingRows = rows.filter((row) => row.isMissing);
   const targetRows = missingRows.length ? missingRows : rows.slice(0, 4);
   return `| 需要修改 / 准备的点 | 当前问题 | 修改建议 | 面试准备材料 |
 | --- | --- | --- | --- |
 ${targetRows.map((row) => {
-  const problem = row.resumeEvidence === "简历未体现明确证据" ? `简历没有体现“${row.capability}”的项目证据` : `简历已有“${row.capability}”线索，但缺少细节支撑`;
+  const problem = row.isMissing ? `简历没有体现“${row.capability}”的项目证据` : `简历已有“${row.capability}”线索，但当前仅为${row.evidenceLevelLabel}`;
   return `| ${row.capability} | ${problem} | 在简历中补充一个对应项目，写清你的真实角色、关键动作、结果指标和复盘 | 准备项目背景、目标、约束、个人贡献、指标口径、失败或取舍案例 |`;
 }).join("\n")}`;
 }
@@ -1557,25 +2153,213 @@ function buildConcreteInterviewerQuestions(snapshot) {
   const rows = buildRequirementEvidenceRows(snapshot).slice(0, 6);
   return `| 面试官视角 | 对应 JD 职责 | 候选人项目锚点 | 可选追问 |
 | --- | --- | --- | --- |
-${rows.map((row, index) => `| ${interviewerLens(index)} | ${row.jdEvidence} | ${row.resumeEvidence} | 你简历里哪一个项目最能证明“${row.capability}”？请说明真实角色、关键取舍、指标口径和失败细节。 |`).join("\n")}`;
+${rows.map((row, index) => `| ${interviewerLens(index)} | ${row.jdEvidence} | ${row.resumeEvidence} | ${row.verificationQuestion} |`).join("\n")}
+| 反包装验证 | 成本、进度、质量控制 | 项目延期、线上故障或失败复盘 | 请按时间线还原一次真实线上故障或延期，说明发现、止血、根因、整改和后续机制变化。 |
+| 决策层压力官 | 战略取舍、预算削减、资源约束 | 最核心项目或模块 | 如果上级砍掉一半预算，你如何用指标重排优先级并说服我？ |`;
 }
 
 function buildRequirementEvidenceRows(snapshot) {
-  const jd = snapshot.job_description || "";
-  const resume = snapshot.resume || "";
+  const normalized = normalizeSnapshot(snapshot);
+  const jd = normalized.job_description || "";
+  const resume = normalized.resume || "";
   const requirements = [
-    { capability: "行业场景理解", keywords: ["智慧矿山", "GIS", "矿山", "冶金", "矿产", "行业"] },
-    { capability: "产品规划与生命周期管理", keywords: ["产品规划", "生命周期", "0-1", "0 到 1", "设计", "规划"] },
-    { capability: "客户需求分析与方案设计", keywords: ["客户", "需求分析", "技术交流", "方案设计", "咨询", "调研"] },
-    { capability: "技术架构与研发协同", keywords: ["架构", "研发", "C++", "Java", "JavaScript", "数据库", "操作系统", "前后端"] },
-    { capability: "技术选型与创新探索", keywords: ["前瞻", "技术选型", "新功能", "专利", "技术探索"] },
-    { capability: "成本、进度、质量控制", keywords: ["成本", "进度", "质量", "风险控制", "协调", "推进"] },
+    { capability: "行业场景理解", keywords: ["智慧矿山", "GIS", "矿山", "冶金", "矿产", "行业", "B 端", "B端", "SaaS", "企业"] },
+    { capability: "产品规划与生命周期管理", keywords: ["产品规划", "生命周期", "0-1", "0 到 1", "从零", "产品设计", "规划"] },
+    { capability: "客户需求分析与方案设计", keywords: ["客户", "需求分析", "技术交流", "方案设计", "咨询", "调研", "需求梳理"] },
+    { capability: "技术架构与研发协同", keywords: ["架构", "研发", "C++", "Java", "JavaScript", "数据库", "操作系统", "前后端", "技术"] },
+    { capability: "技术选型与创新探索", keywords: ["前瞻", "技术选型", "新功能", "专利", "技术探索", "创新", "开源"] },
+    { capability: "成本、进度、质量控制", keywords: ["成本", "进度", "质量", "风险控制", "协调", "推进", "延期", "里程碑", "复盘"] },
   ];
-  return requirements.map((requirement) => ({
-    capability: requirement.capability,
-    jdEvidence: findEvidence(jd, requirement.keywords) || "JD 未提供明确原文",
-    resumeEvidence: findEvidence(resume, requirement.keywords) || "简历未体现明确证据",
-  }));
+  return requirements.map((requirement) => {
+    const resumeEvidence = findEvidence(resume, requirement.keywords) || "简历未体现明确证据";
+    const evidenceLevel = classifyEvidenceLevel(resumeEvidence);
+    const isMissing = resumeEvidence === "简历未体现明确证据";
+    return {
+      capability: requirement.capability,
+      jdEvidence: findEvidence(jd, requirement.keywords) || "JD 未提供明确原文",
+      resumeEvidence,
+      isMissing,
+      evidenceLevel,
+      evidenceLevelLabel: evidenceLevelLabel(evidenceLevel),
+      evidenceReason: evidenceLevelReason(evidenceLevel, resumeEvidence),
+      matchStatus: isMissing ? "不匹配 / 待补证" : evidenceLevel === 1 ? "匹配但仍需复核口径" : "部分匹配 / 需追问验证",
+      verificationQuestion: buildVerificationQuestion(requirement.capability, resumeEvidence, evidenceLevel),
+    };
+  });
+}
+
+function normalizeSnapshot(input) {
+  return {
+    resume: input.resume || "",
+    job_description: input.job_description || input.jobDescription || "",
+    company_context: input.company_context || input.companyContext || "",
+    candidate_stage: input.candidate_stage || input.candidateStage || "",
+    target_level: input.target_level || input.targetLevel || "",
+    offer_constraints: input.offer_constraints || input.offerConstraints || "",
+    selected_skills: input.selected_skills || input.selectedSkills || [],
+  };
+}
+
+function classifyEvidenceLevel(evidenceText) {
+  if (!evidenceText || evidenceText === "简历未体现明确证据") return 3;
+  const hasQuant = /(\d+(\.\d+)?\s*%|\d+\s*(万|千|个|人|家|天|周|月|年|次|单|小时|分钟|ms|元|万元|亿)|上线|版本|v\d|ROI|DAU|MAU|GMV|SLA)/i.test(evidenceText);
+  const hasSpecificRole = /主导|负责|Owner|牵头|独立|设计|上线|落地|交付|专利|开源/i.test(evidenceText);
+  const hasVagueTeam = /我们|参与|协助|支持|熟悉|了解|学习|接触|团队/i.test(evidenceText);
+  if (hasQuant && hasSpecificRole) return 1;
+  if (hasSpecificRole || hasQuant) return 2;
+  if (hasVagueTeam) return 3;
+  return 2;
+}
+
+function evidenceLevelLabel(level) {
+  if (level === 1) return "一级证据（高可信）";
+  if (level === 2) return "二级证据（中可信）";
+  return "三级证据（低可信 / 待验证）";
+}
+
+function evidenceLevelReason(level, evidenceText) {
+  if (level === 1) return "包含量化结果、上线/版本或明确个人动作，可优先复核口径";
+  if (level === 2) return "包含负责、主导、上线或定性职责描述，需要面试追问验证";
+  if (!evidenceText || evidenceText === "简历未体现明确证据") return "没有可引用的简历证据";
+  return "表达较模糊或偏团队成果，个人贡献边界不清";
+}
+
+function buildVerificationQuestion(capability, evidenceText, level) {
+  if (!evidenceText || evidenceText === "简历未体现明确证据") {
+    return `请补充一个能证明“${capability}”的项目，说明背景、目标、个人动作、结果和复盘。`;
+  }
+  if (level === 1) {
+    return `围绕“${capability}”说明指标分母、统计周期、上线前后对比和你的直接贡献。`;
+  }
+  if (level === 2) {
+    return `你提到“${clip(evidenceText)}”，请拆解真实角色、关键决策、协作对象和结果归因。`;
+  }
+  return `这段经历更像模糊团队成果，请说明你个人做了什么、为什么由你负责、失败点是什么。`;
+}
+
+function buildEvidenceSummary(rows) {
+  const counts = rows.reduce(
+    (acc, row) => {
+      acc[row.evidenceLevel] += 1;
+      return acc;
+    },
+    { 1: 0, 2: 0, 3: 0 },
+  );
+  return `一级 ${counts[1]} 项，二级 ${counts[2]} 项，三级/缺证 ${counts[3]} 项`;
+}
+
+function buildGateAssessment(snapshot, rows = buildRequirementEvidenceRows(snapshot)) {
+  const normalized = normalizeSnapshot(snapshot);
+  const matchedRows = rows.filter((row) => !row.isMissing);
+  const strongRows = rows.filter((row) => row.evidenceLevel === 1);
+  const resume = normalized.resume || "";
+  const jd = normalized.job_description || "";
+  const hasTargetIndustry = /智慧矿山|矿山|GIS|冶金|矿产/i.test(resume);
+  const jdNeedsTargetIndustry = /智慧矿山|矿山|GIS|冶金|矿产/i.test(jd);
+  const hasTransferableSignals = /B\s*端|B端|SaaS|企业|客户|方案|架构|研发|平台|系统|0-1|0 到 1|上线|交付|推进|数据|指标|项目/i.test(resume);
+  const bestEvidence = matchedRows[0]?.resumeEvidence || "简历尚未提供可直接支撑 JD 的项目证据";
+
+  if (matchedRows.length >= 4 && (!jdNeedsTargetIndustry || hasTargetIndustry || strongRows.length >= 2)) {
+    return {
+      result: "匹配进入",
+      enterSandbox: true,
+      matchedCount: matchedRows.length,
+      bestEvidence,
+      summary: `已看到 ${matchedRows.length}/${rows.length} 项 JD 能力证据，具备进入下一轮沙盘的基础。`,
+      nextStep: "进入下一轮沙盘，重点验证一级证据口径、失败复盘和真实决策权",
+      transferPitch: "",
+    };
+  }
+
+  if (matchedRows.length >= 2 || (hasTransferableSignals && matchedRows.length >= 1)) {
+    return {
+      result: "条件性进入（转岗适配）",
+      enterSandbox: true,
+      matchedCount: matchedRows.length,
+      bestEvidence,
+      summary: `行业或目标场景证据不足，但有 ${matchedRows.length}/${rows.length} 项可迁移能力线索，可进入条件性沙盘验证。`,
+      nextStep: "使用能力迁移话术进入验证，但必须补齐行业场景、客户需求和技术方案证据",
+      transferPitch: buildTransferPitch(normalized, matchedRows),
+    };
+  }
+
+  return {
+    result: "不匹配不推进",
+    enterSandbox: false,
+    matchedCount: matchedRows.length,
+    bestEvidence,
+    summary: `仅看到 ${matchedRows.length}/${rows.length} 项 JD 能力线索，核心项目证据不足。`,
+    nextStep: "暂不进入下一轮沙盘，先补充完整项目闭环、指标口径和个人贡献证据",
+    transferPitch: "",
+  };
+}
+
+function buildTransferPitch(snapshot, matchedRows) {
+  const anchor = matchedRows[0]?.resumeEvidence || clip(snapshot.resume) || "过往复杂项目经历";
+  return `虽然我过往项目未必完全处于 JD 指定行业，但我处理过“${anchor}”这类复杂业务 / 系统问题。其核心能力包括需求拆解、客户沟通、技术方案取舍、研发协同和结果复盘，可迁移到贵司岗位。面试中我会用具体项目说明相似点、差异点和补齐行业认知的计划。`;
+}
+
+function buildOfferLeverage(snapshot) {
+  const normalized = normalizeSnapshot(snapshot);
+  const text = `${normalized.resume} ${normalized.company_context} ${normalized.offer_constraints}`;
+  const levers = [];
+  if (/竞对|竞争|其他 offer|其它 offer|Offer|offer/i.test(text)) levers.push("存在竞争机会 / Offer 线索");
+  if (/S\s*级|A\s*级|绩效|晋升|核心员工|负责人/i.test(text)) levers.push("存在绩效、晋升或核心角色线索");
+  if (/专利|论文|开源|著作权|标准|奖项/i.test(text)) levers.push("存在专利、论文、开源或外部成果");
+  if (/智慧矿山|GIS|矿山|垂直领域|行业资源|客户资源|人脉/i.test(text)) levers.push("存在垂直领域资源或行业经验");
+  if (/0-1|0 到 1|从零|上线|交付|提升|下降|%|\d+/.test(text)) levers.push("存在 0-1、上线交付或量化结果");
+  const rating = levers.length >= 4 ? "强杠杆" : levers.length >= 2 ? "中杠杆" : levers.length >= 1 ? "弱杠杆" : "暂无明确杠杆";
+  const summary = levers.length ? levers.slice(0, 2).join("；") : "材料中未发现竞对 Offer、绩效、专利、开源、垂直资源或明确量化成果";
+  return {
+    rating,
+    summary,
+    detail: levers.length ? `${levers.join("；")}。谈判时应转化为可量化贡献、稀缺经验和到岗确定性。` : "当前缺少可支撑溢价的明确证据，建议先补充竞对机会、绩效结果、垂直行业资源或可复核项目成果。",
+  };
+}
+
+function buildJdHiddenPainRows(snapshot) {
+  const jd = normalizeSnapshot(snapshot).job_description || "";
+  const candidates = [
+    {
+      phrase: "较强学习能力和抗压能力",
+      pattern: /学习能力|抗压能力|压力|快速/i,
+      pressure: "岗位可能存在客户临场需求、紧急版本、跨团队冲突或高频交付压力",
+      prep: "准备一次高压推进、线上事故或客户冲突的复盘案例",
+    },
+    {
+      phrase: "敏锐的产品嗅觉和创新能力",
+      pattern: /产品嗅觉|创新|前瞻|探索|新功能|专利/i,
+      pressure: "业务方希望候选人不只执行需求，还能主动判断机会和技术方向",
+      prep: "准备一次从趋势、客户痛点或数据洞察中提出产品方向的案例",
+    },
+    {
+      phrase: "成本、进度和质量控制",
+      pattern: /成本|进度|质量|风险控制/i,
+      pressure: "项目可能周期长、依赖多，失败成本高，需要强项目治理能力",
+      prep: "准备里程碑、风险清单、降级方案和复盘机制案例",
+    },
+    {
+      phrase: "深入研发一线",
+      pattern: /研发一线|技术架构|技术风险|技术选型|架构/i,
+      pressure: "产品经理需要与研发共同做方案取舍，而不是只写需求文档",
+      prep: "准备一次技术方案取舍、架构约束或技术债治理案例",
+    },
+  ];
+  const matched = candidates.filter((item) => item.pattern.test(jd));
+  return matched.length ? matched : candidates.slice(0, 3);
+}
+
+function buildEvidenceChainTable(snapshot) {
+  const normalized = normalizeSnapshot(snapshot);
+  const rows = [
+    ["简历证据", normalized.resume ? clip(normalized.resume) : "未提供简历快照", "候选人自述，需按证据等级追问"],
+    ["JD 证据", normalized.job_description ? clip(normalized.job_description) : "未提供 JD 快照", "岗位要求来源"],
+    ["上下文证据", normalized.company_context ? clip(normalized.company_context) : "未提供额外上下文", "公司 / 面试偏好来源"],
+    ["Offer 沙盘证据", normalized.offer_constraints ? clip(normalized.offer_constraints) : "未提供 Offer / 谈薪约束", "谈判杠杆与推进风险来源"],
+  ];
+  return `| 证据来源 | 摘要 | 使用方式 |
+| --- | --- | --- |
+${rows.map((row) => `| ${row[0]} | ${row[1]} | ${row[2]} |`).join("\n")}`;
 }
 
 function findEvidence(text, keywords) {
@@ -1589,7 +2373,7 @@ function findEvidence(text, keywords) {
 }
 
 function interviewerLens(index) {
-  return ["业务负责人", "产品负责人", "项目推进", "技术架构", "客户方案", "反包装验证"][index % 6];
+  return ["业务负责人", "产品负责人", "项目推进", "技术架构", "客户方案", "反包装验证", "决策层压力官"][index % 7];
 }
 
 function escapeRegExp(value) {
@@ -1615,6 +2399,258 @@ function downloadFile(filename, content, type) {
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
+}
+
+async function downloadPdfReport(run, audience, filename) {
+  setStatus("正在生成 PDF，请稍候...");
+  try {
+    const html = reportToStaticHtmlDocument(run, audience);
+    const pdfBlob = await renderHtmlDocumentToPdfBlob(html);
+    downloadBlob(filename, pdfBlob);
+    setStatus(`已下载 ${filename}。`);
+  } catch (error) {
+    console.error(error);
+    setStatus("直接下载 PDF 失败，已打开打印窗口作为降级方案。", true);
+    openPdfPrintWindow(reportToStaticHtmlDocument(run, audience), filename);
+  }
+}
+
+async function renderHtmlDocumentToPdfBlob(html) {
+  const iframe = document.createElement("iframe");
+  iframe.setAttribute("aria-hidden", "true");
+  iframe.style.position = "fixed";
+  iframe.style.left = "-10000px";
+  iframe.style.top = "0";
+  iframe.style.width = "920px";
+  iframe.style.height = "1200px";
+  iframe.style.border = "0";
+  iframe.srcdoc = html;
+  document.body.appendChild(iframe);
+
+  try {
+    await waitForIframeLoad(iframe);
+    const doc = iframe.contentDocument;
+    const page = doc?.querySelector(".page");
+    const styleText = Array.from(doc?.querySelectorAll("style") || []).map((style) => style.textContent || "").join("\n");
+    if (!doc || !page) throw new Error("PDF render source is unavailable.");
+
+    await waitForLayout();
+    const widthPx = Math.ceil(page.getBoundingClientRect().width || 920);
+    const pageHeightPx = Math.round(widthPx * 297 / 210);
+    const totalHeightPx = Math.ceil(page.scrollHeight);
+    const pageCount = Math.max(1, Math.ceil(totalHeightPx / pageHeightPx));
+    const serializedPage = new XMLSerializer().serializeToString(page.cloneNode(true));
+    const images = [];
+
+    for (let index = 0; index < pageCount; index += 1) {
+      const offset = index * pageHeightPx;
+      const height = Math.min(pageHeightPx, totalHeightPx - offset);
+      images.push(await renderSvgPageToJpeg({
+        serializedPage,
+        styleText,
+        widthPx,
+        pageHeightPx,
+        contentHeightPx: Math.max(height, 1),
+        offset,
+      }));
+    }
+
+    return createPdfBlobFromJpegs(images);
+  } finally {
+    iframe.remove();
+  }
+}
+
+function waitForIframeLoad(iframe) {
+  return new Promise((resolve, reject) => {
+    const timeout = window.setTimeout(() => reject(new Error("PDF render iframe timed out.")), 8000);
+    iframe.addEventListener("load", () => {
+      window.clearTimeout(timeout);
+      resolve();
+    }, { once: true });
+  });
+}
+
+function waitForLayout() {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(resolve));
+  });
+}
+
+async function renderSvgPageToJpeg({ serializedPage, styleText, widthPx, pageHeightPx, contentHeightPx, offset }) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${widthPx}" height="${pageHeightPx}" viewBox="0 0 ${widthPx} ${pageHeightPx}">
+    <foreignObject width="100%" height="100%">
+      <div xmlns="http://www.w3.org/1999/xhtml" style="width:${widthPx}px;height:${pageHeightPx}px;overflow:hidden;background:#ffffff;">
+        <style>${escapeXml(styleText)}
+          html, body { margin: 0 !important; background: #ffffff !important; }
+          .page { width: ${widthPx}px !important; max-width: ${widthPx}px !important; margin: 0 !important; }
+        </style>
+        <div style="width:${widthPx}px;min-height:${contentHeightPx}px;transform:translateY(-${offset}px);transform-origin:top left;">
+          ${serializedPage}
+        </div>
+      </div>
+    </foreignObject>
+  </svg>`;
+  const svgBlob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+  const svgUrl = URL.createObjectURL(svgBlob);
+  const image = new Image();
+  image.decoding = "async";
+  image.src = svgUrl;
+
+  try {
+    if (image.decode) {
+      await image.decode();
+    } else {
+      await new Promise((resolve, reject) => {
+        image.onload = resolve;
+        image.onerror = reject;
+      });
+    }
+
+    const canvas = document.createElement("canvas");
+    canvas.width = widthPx;
+    canvas.height = pageHeightPx;
+    const context = canvas.getContext("2d");
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(image, 0, 0);
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
+    return {
+      bytes: dataUrlToBytes(dataUrl),
+      width: canvas.width,
+      height: canvas.height,
+    };
+  } finally {
+    URL.revokeObjectURL(svgUrl);
+  }
+}
+
+function createPdfBlobFromJpegs(images) {
+  const encoder = new TextEncoder();
+  const pageWidth = 595.28;
+  const pageHeight = 841.89;
+  const objects = [];
+  objects[1] = { text: "<< /Type /Catalog /Pages 2 0 R >>" };
+  objects[2] = { text: "" };
+  const pageObjectNumbers = [];
+  let nextObjectNumber = 3;
+
+  images.forEach((image, index) => {
+    const imageObjectNumber = nextObjectNumber;
+    objects[nextObjectNumber] = {
+      dict: `<< /Type /XObject /Subtype /Image /Width ${image.width} /Height ${image.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${image.bytes.length} >>`,
+      stream: image.bytes,
+    };
+    nextObjectNumber += 1;
+
+    const content = encoder.encode(`q ${pageWidth} 0 0 ${pageHeight} 0 0 cm /Im${index + 1} Do Q`);
+    const contentObjectNumber = nextObjectNumber;
+    objects[nextObjectNumber] = {
+      dict: `<< /Length ${content.length} >>`,
+      stream: content,
+    };
+    nextObjectNumber += 1;
+
+    const pageObjectNumber = nextObjectNumber;
+    pageObjectNumbers.push(pageObjectNumber);
+    objects[nextObjectNumber] = {
+      text: `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /XObject << /Im${index + 1} ${imageObjectNumber} 0 R >> >> /Contents ${contentObjectNumber} 0 R >>`,
+    };
+    nextObjectNumber += 1;
+  });
+
+  objects[2] = {
+    text: `<< /Type /Pages /Kids [${pageObjectNumbers.map((number) => `${number} 0 R`).join(" ")}] /Count ${pageObjectNumbers.length} >>`,
+  };
+
+  const chunks = [];
+  const offsets = [0];
+  let byteLength = 0;
+  const pushAscii = (text) => {
+    const bytes = encoder.encode(text);
+    chunks.push(bytes);
+    byteLength += bytes.length;
+  };
+  const pushBytes = (bytes) => {
+    chunks.push(bytes);
+    byteLength += bytes.length;
+  };
+
+  pushAscii("%PDF-1.4\n%\xE2\xE3\xCF\xD3\n");
+  for (let objectNumber = 1; objectNumber < objects.length; objectNumber += 1) {
+    const object = objects[objectNumber];
+    offsets[objectNumber] = byteLength;
+    pushAscii(`${objectNumber} 0 obj\n`);
+    if (object.stream) {
+      pushAscii(`${object.dict}\nstream\n`);
+      pushBytes(object.stream);
+      pushAscii("\nendstream\nendobj\n");
+    } else {
+      pushAscii(`${object.text}\nendobj\n`);
+    }
+  }
+
+  const xrefOffset = byteLength;
+  pushAscii(`xref\n0 ${objects.length}\n`);
+  pushAscii("0000000000 65535 f \n");
+  for (let objectNumber = 1; objectNumber < objects.length; objectNumber += 1) {
+    pushAscii(`${String(offsets[objectNumber]).padStart(10, "0")} 00000 n \n`);
+  }
+  pushAscii(`trailer\n<< /Size ${objects.length} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`);
+
+  return new Blob(chunks, { type: "application/pdf" });
+}
+
+function dataUrlToBytes(dataUrl) {
+  const base64 = dataUrl.split(",")[1] || "";
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return bytes;
+}
+
+function escapeXml(value) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
+function downloadBlob(filename, blob) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function openPdfPrintWindow(html, filename) {
+  const pdfHtml = html.replace("</head>", `<script>window.__offerAgentPdfName = ${JSON.stringify(filename)};</script></head>`);
+  const printWindow = window.open("", "_blank", "width=1180,height=900");
+  if (!printWindow) {
+    setStatus("PDF 窗口被浏览器拦截，请允许弹窗后重试。", true);
+    return;
+  }
+
+  printWindow.document.open();
+  printWindow.document.write(
+    pdfHtml.replace(
+      "</body>",
+      `<script>
+        window.addEventListener("load", () => {
+          document.title = (window.__offerAgentPdfName || ${JSON.stringify(filename)}).replace(/\\.pdf$/i, "");
+          setTimeout(() => window.print(), 400);
+        });
+      </script></body>`,
+    ),
+  );
+  printWindow.document.close();
+  setStatus("已打开 PDF 打印窗口，请在打印对话框中选择“保存为 PDF”。");
 }
 
 function setStatus(message, isError = false) {

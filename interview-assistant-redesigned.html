@@ -1,0 +1,1564 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>面试助手 — Offer 沙盘 + 面试官视角库</title>
+    <meta name="description" content="面试助手开源 Web MVP：辅助候选人准备面试，并生成面试官可选问题库。" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet" />
+
+    <style>
+        /* ===================================================================
+           Design System — OKLCH tokens, Instrument Sans + system CJK
+           =================================================================== */
+        :root {
+            color-scheme: light;
+
+            --brand-h: 265;
+            --brand:      oklch(48% 0.14 var(--brand-h));
+            --brand-600:  oklch(40% 0.15 var(--brand-h));
+            --brand-700:  oklch(33% 0.14 var(--brand-h));
+            --brand-100:  oklch(93% 0.028 var(--brand-h));
+            --brand-50:   oklch(96% 0.015 var(--brand-h));
+            --brand-glow: oklch(48% 0.14 var(--brand-h) / 0.15);
+
+            --accent-h: 75;
+            --accent:      oklch(62% 0.18 var(--accent-h));
+            --accent-100: oklch(91% 0.045 var(--accent-h));
+            --accent-tag:  oklch(62% 0.18 var(--accent-h) / 0.12);
+
+            --text-primary:   oklch(15% 0.012 var(--brand-h));
+            --text-secondary: oklch(36% 0.018 var(--brand-h));
+            --text-muted:     oklch(52% 0.015 var(--brand-h));
+            --text-inverse:   oklch(98% 0.005 var(--brand-h));
+
+            --surface:        oklch(100% 0 0);
+            --surface-hover:  oklch(97% 0.012 var(--brand-h));
+            --surface-soft:   oklch(96% 0.01 var(--brand-h));
+            --bg:             oklch(94.5% 0.008 var(--brand-h));
+            --border:         oklch(86% 0.015 var(--brand-h));
+            --border-strong:  oklch(75% 0.02 var(--brand-h));
+            --border-input:   oklch(78% 0.018 var(--brand-h));
+
+            --danger:   oklch(48% 0.18 28);
+            --danger-soft: oklch(48% 0.18 28 / 0.09);
+            --success:  oklch(50% 0.16 155);
+            --success-soft: oklch(50% 0.16 155 / 0.09);
+
+            --shadow-sm:  0 1px 3px oklch(0% 0 0 / 0.04), 0 1px 2px oklch(0% 0 0 / 0.03);
+            --shadow-md:  0 4px 16px oklch(0% 0 0 / 0.05), 0 2px 6px oklch(0% 0 0 / 0.04);
+            --shadow-lg:  0 12px 40px oklch(0% 0 0 / 0.07), 0 4px 12px oklch(0% 0 0 / 0.05);
+            --shadow-btn: 0 6px 20px oklch(48% 0.14 var(--brand-h) / 0.20);
+
+            --font-display: 'Instrument Sans', system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            --font-body:     system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', sans-serif;
+
+            --text-xs:   0.6875rem;
+            --text-sm:   0.8125rem;
+            --text-base: 0.9375rem;
+            --text-lg:   1.0625rem;
+            --text-xl:   1.25rem;
+            --text-2xl:  1.5rem;
+            --text-3xl:  clamp(1.75rem, 4vw, 2.25rem);
+
+            --space-1:  0.25rem;
+            --space-2:  0.5rem;
+            --space-3:  0.75rem;
+            --space-4:  1rem;
+            --space-5:  1.25rem;
+            --space-6:  1.5rem;
+            --space-8:  2rem;
+            --space-10: 2.5rem;
+            --space-12: 3rem;
+
+            --radius-sm:  8px;
+            --radius-md:  12px;
+            --radius-lg:  16px;
+            --radius-xl:  20px;
+
+            --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+            --ease-out-expo:  cubic-bezier(0.16, 1, 0.3, 1);
+            --duration-f:  150ms;
+            --duration-n:  300ms;
+            --duration-s:  500ms;
+        }
+
+        /* ===== Reset ===== */
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            background: var(--bg);
+            background-image:
+                radial-gradient(ellipse 70% 45% at 85% 5%, oklch(48% 0.14 var(--brand-h) / 0.04), transparent 50rem),
+                radial-gradient(ellipse 50% 35% at 15% 95%, oklch(62% 0.18 var(--accent-h) / 0.025), transparent 45rem);
+            color: var(--text-primary);
+            font-family: var(--font-body);
+            font-size: var(--text-base);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            min-height: 100vh;
+        }
+
+        button, input, select, textarea {
+            font: inherit;
+        }
+        h1, h2, h3, h4, p {
+            margin: 0;
+        }
+
+        /* ===== Page container ===== */
+        .page {
+            max-width: 1340px;
+            margin: 0 auto;
+            padding: 0 var(--space-5);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        /* ===================================================================
+           NAV
+           =================================================================== */
+        .nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--space-4) 0;
+            margin-bottom: var(--space-5);
+            position: relative;
+            z-index: 10;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .brand-mark {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            border-radius: var(--radius-sm);
+            background: linear-gradient(135deg, var(--brand) 0%, var(--brand-700) 100%);
+            color: var(--text-inverse);
+            font-family: var(--font-display);
+            font-size: var(--text-sm);
+            font-weight: 700;
+            flex-shrink: 0;
+            box-shadow: 0 4px 12px var(--brand-glow);
+            transition: transform var(--duration-f) var(--ease-out-quart);
+        }
+
+        .brand:hover .brand-mark {
+            transform: scale(1.05) rotate(-2deg);
+        }
+
+        .brand-info strong {
+            display: block;
+            font-family: var(--font-display);
+            font-size: var(--text-base);
+            font-weight: 650;
+            color: var(--text-primary);
+            letter-spacing: -0.01em;
+        }
+
+        .brand-info span {
+            display: block;
+            font-size: var(--text-xs);
+            color: var(--text-muted);
+        }
+
+        .brand-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-1);
+            padding: var(--space-1) var(--space-3);
+            border-radius: 100px;
+            background: var(--brand-100);
+            color: var(--brand);
+            font-family: var(--font-display);
+            font-size: 11px;
+            font-weight: 600;
+            border: 1px solid oklch(48% 0.14 var(--brand-h) / 0.12);
+        }
+
+        /* ===================================================================
+           HERO
+           =================================================================== */
+        .hero {
+            display: grid;
+            grid-template-columns: 1fr minmax(340px, 0.78fr);
+            gap: var(--space-5);
+            align-items: stretch;
+            margin-bottom: var(--space-6);
+        }
+
+        .hero-copy {
+            position: relative;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-md);
+            padding: var(--space-8) var(--space-8);
+            overflow: hidden;
+            transition: box-shadow var(--duration-n) var(--ease-out-quart);
+        }
+
+        .hero-copy::before {
+            content: '';
+            position: absolute;
+            inset: 0 0 auto 0;
+            height: 4px;
+            background: linear-gradient(90deg,
+                var(--brand) 0%,
+                oklch(50% 0.16 calc(var(--brand-h) + 15)) 50%,
+                var(--accent) 100%);
+            border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+        }
+
+        .hero-copy:hover {
+            box-shadow: var(--shadow-lg);
+        }
+
+        .hero-eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-2);
+            color: var(--accent);
+            font-family: var(--font-display);
+            font-size: var(--text-xs);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            background: var(--accent-100);
+            padding: var(--space-1) var(--space-3);
+            border-radius: 100px;
+            border: 1px solid var(--accent-tag);
+            margin-bottom: var(--space-4);
+        }
+
+        h1 {
+            font-family: var(--font-display);
+            font-size: var(--text-3xl);
+            font-weight: 700;
+            line-height: 1.1;
+            letter-spacing: -0.025em;
+            color: var(--text-primary);
+        }
+
+        .hero-subtitle {
+            margin-top: var(--space-4);
+            font-size: var(--text-lg);
+            color: var(--text-secondary);
+            max-width: 640px;
+            line-height: 1.6;
+        }
+
+        /* ---- Capability cards ---- */
+        .hero-summary {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-2);
+        }
+
+        .cap-card {
+            flex: 1;
+            display: flex;
+            align-items: flex-start;
+            gap: var(--space-3);
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm);
+            padding: var(--space-4) var(--space-5);
+            cursor: default;
+            transition: all var(--duration-n) var(--ease-out-quart);
+        }
+
+        .cap-card:hover {
+            border-color: var(--border-strong);
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
+        }
+
+        .cap-card-num {
+            flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: var(--radius-sm);
+            background: var(--brand-100);
+            color: var(--brand);
+            font-family: var(--font-display);
+            font-size: var(--text-xs);
+            font-weight: 700;
+            transition: all var(--duration-f) var(--ease-out-quart);
+        }
+
+        .cap-card:hover .cap-card-num {
+            background: var(--brand);
+            color: var(--text-inverse);
+        }
+
+        .cap-card-body strong {
+            display: block;
+            font-family: var(--font-display);
+            font-size: var(--text-sm);
+            font-weight: 650;
+            color: var(--text-primary);
+            margin-bottom: var(--space-1);
+        }
+
+        .cap-card-body p {
+            font-size: var(--text-xs);
+            color: var(--text-muted);
+            line-height: 1.55;
+        }
+
+        /* ===================================================================
+           WORKFLOW STEPS
+           =================================================================== */
+        .workflow {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: var(--space-3);
+            margin-bottom: var(--space-5);
+        }
+
+        .step-card {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-2);
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm);
+            padding: var(--space-4) var(--space-5);
+            position: relative;
+            overflow: hidden;
+            transition: all var(--duration-n) var(--ease-out-quart);
+        }
+
+        .step-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: 3px;
+            background: linear-gradient(180deg, var(--brand) 0%, var(--accent) 100%);
+            border-radius: 0 2px 2px 0;
+            opacity: 0.5;
+            transition: opacity var(--duration-n) var(--ease-out-quart);
+        }
+
+        .step-card:hover {
+            border-color: var(--border-strong);
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
+        }
+
+        .step-card:hover::before {
+            opacity: 1;
+        }
+
+        .step-label {
+            font-family: var(--font-display);
+            font-size: var(--text-xs);
+            font-weight: 600;
+            color: var(--brand);
+            letter-spacing: 0.03em;
+        }
+
+        .step-card strong {
+            font-family: var(--font-display);
+            font-size: var(--text-base);
+            font-weight: 650;
+            color: var(--text-primary);
+            line-height: 1.3;
+        }
+
+        .step-card p {
+            font-size: var(--text-xs);
+            color: var(--text-muted);
+            line-height: 1.55;
+        }
+
+        /* ===================================================================
+           TOP / BOTTOM layout
+           =================================================================== */
+        .section-top {
+            flex-shrink: 0;
+        }
+
+        .section-bottom {
+            display: grid;
+            grid-template-columns: minmax(0, 0.9fr) minmax(420px, 1.1fr);
+            gap: var(--space-5);
+            align-items: start;
+            flex: 1;
+            padding-bottom: var(--space-8);
+        }
+
+        .left-stack {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-5);
+        }
+
+        .right-stack {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-5);
+        }
+
+        /* ===== Panel base ===== */
+        .panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+            padding: var(--space-6) var(--space-6);
+            transition: box-shadow var(--duration-n) var(--ease-out-quart);
+        }
+
+        .panel:hover {
+            box-shadow: var(--shadow-md);
+        }
+
+        .panel-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: var(--space-4);
+            margin-bottom: var(--space-5);
+        }
+
+        .panel-head-left {
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+        }
+
+        .panel-step {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 26px;
+            height: 26px;
+            border-radius: 7px;
+            background: var(--brand-100);
+            color: var(--brand);
+            font-family: var(--font-display);
+            font-size: 11px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        .panel-eyebrow {
+            font-family: var(--font-display);
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        h2 {
+            font-family: var(--font-display);
+            font-size: var(--text-xl);
+            font-weight: 650;
+            color: var(--text-primary);
+            letter-spacing: -0.01em;
+            line-height: 1.3;
+        }
+
+        /* ===================================================================
+           FORM ELEMENTS
+           =================================================================== */
+        label {
+            display: block;
+            margin-bottom: var(--space-4);
+        }
+
+        label:last-child {
+            margin-bottom: 0;
+        }
+
+        label > .label-text {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+            margin-bottom: var(--space-2);
+            color: var(--text-secondary);
+            font-family: var(--font-display);
+            font-size: var(--text-sm);
+            font-weight: 600;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            border: 1.5px solid var(--border-input);
+            border-radius: var(--radius-sm);
+            background: var(--surface);
+            color: var(--text-primary);
+            padding: 11px 13px;
+            outline: none;
+            transition: all var(--duration-f) var(--ease-out-quart);
+            font-size: var(--text-sm);
+        }
+
+        textarea {
+            min-height: 110px;
+            resize: vertical;
+            line-height: 1.6;
+        }
+
+        input::placeholder,
+        textarea::placeholder {
+            color: oklch(65% 0.015 var(--brand-h));
+        }
+
+        select {
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23556677' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 36px;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
+            border-color: var(--brand);
+            box-shadow: 0 0 0 3px oklch(48% 0.14 var(--brand-h) / 0.10);
+            background: var(--brand-50);
+        }
+
+        .grid {
+            display: grid;
+            gap: var(--space-4);
+        }
+
+        .grid-two {
+            grid-template-columns: repeat(2, 1fr);
+            margin-bottom: var(--space-4);
+        }
+
+        /* ===================================================================
+           MODE INDICATOR
+           =================================================================== */
+        .mode-indicator {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+            border-radius: var(--radius-sm);
+            background: var(--accent-100);
+            color: oklch(45% 0.15 var(--accent-h));
+            padding: var(--space-3) var(--space-4);
+            font-family: var(--font-display);
+            font-size: var(--text-xs);
+            font-weight: 600;
+            margin-top: var(--space-1);
+            border: 1px solid var(--accent-tag);
+        }
+
+        .mode-indicator::before {
+            content: '';
+            display: inline-block;
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--accent);
+            flex-shrink: 0;
+        }
+
+        .mode-indicator.active {
+            background: var(--success-soft);
+            color: var(--success);
+            border-color: oklch(50% 0.16 155 / 0.2);
+        }
+
+        .mode-indicator.active::before {
+            background: var(--success);
+        }
+
+        /* ===================================================================
+           SUB PANEL
+           =================================================================== */
+        .sub-panel {
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            background: var(--surface-soft);
+            padding: var(--space-5);
+            margin: var(--space-5) 0;
+        }
+
+        .sub-panel-head {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: var(--space-3);
+            margin-bottom: var(--space-4);
+        }
+
+        .sub-panel-head span {
+            font-family: var(--font-display);
+            font-size: var(--text-sm);
+            font-weight: 650;
+            color: var(--text-primary);
+        }
+
+        .sub-panel-head small {
+            font-size: var(--text-xs);
+            color: var(--text-muted);
+        }
+
+        /* ===================================================================
+           SKILL CARDS (interviewer perspectives)
+           =================================================================== */
+        .skill-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: var(--space-3);
+        }
+
+        .skill-card {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: var(--space-3);
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: var(--surface);
+            padding: var(--space-3) var(--space-4);
+            cursor: pointer;
+            margin: 0;
+            transition: all var(--duration-f) var(--ease-out-quart);
+            min-height: 82px;
+        }
+
+        .skill-card:hover {
+            border-color: var(--border-strong);
+            background: var(--surface-hover);
+        }
+
+        .skill-card:has(input:checked) {
+            border-color: var(--brand);
+            background: var(--brand-50);
+            box-shadow: 0 0 0 2px oklch(48% 0.14 var(--brand-h) / 0.08);
+        }
+
+        .skill-card .check-box {
+            width: 18px;
+            height: 18px;
+            margin-top: 2px;
+            border: 2px solid var(--border-strong);
+            border-radius: 5px;
+            background: var(--surface);
+            flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: all var(--duration-f) var(--ease-out-quart);
+        }
+
+        .skill-card:has(input:checked) .check-box {
+            background: var(--brand);
+            border-color: var(--brand);
+        }
+
+        .skill-card .check-box::after {
+            content: '';
+            width: 5px;
+            height: 8px;
+            border: solid var(--text-inverse);
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg) scale(0);
+            transition: transform var(--duration-f) var(--ease-out-quart);
+            margin-top: -1px;
+        }
+
+        .skill-card:has(input:checked) .check-box::after {
+            transform: rotate(45deg) scale(1);
+        }
+
+        .skill-card input {
+            display: none;
+        }
+
+        .skill-card-body strong {
+            display: block;
+            font-family: var(--font-display);
+            font-size: var(--text-sm);
+            font-weight: 650;
+            color: var(--text-primary);
+            margin-bottom: 3px;
+        }
+
+        .skill-card-body small {
+            display: block;
+            font-size: var(--text-xs);
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        /* ===================================================================
+           BUTTONS
+           =================================================================== */
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--space-3);
+            margin-top: var(--space-4);
+        }
+
+        button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--space-2);
+            min-height: 44px;
+            border: 0;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-family: var(--font-display);
+            font-size: var(--text-sm);
+            font-weight: 600;
+            padding: 0 var(--space-5);
+            transition: all var(--duration-f) var(--ease-out-quart);
+            white-space: nowrap;
+            position: relative;
+            overflow: hidden;
+        }
+
+        button:active:not(:disabled) {
+            transform: scale(0.97);
+        }
+
+        button:disabled {
+            cursor: not-allowed;
+            opacity: 0.45;
+        }
+
+        /* Primary */
+        .btn-primary {
+            background: linear-gradient(135deg, var(--brand) 0%, var(--brand-600) 100%);
+            color: var(--text-inverse);
+            box-shadow: var(--shadow-btn);
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 28px oklch(48% 0.14 var(--brand-h) / 0.28);
+        }
+
+        /* Secondary */
+        .btn-secondary {
+            border: 1.5px solid var(--border);
+            background: var(--surface);
+            color: var(--text-primary);
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            border-color: var(--border-strong);
+            background: var(--surface-hover);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-sm);
+        }
+
+        /* Ghost */
+        .btn-ghost {
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1.5px solid transparent;
+            min-height: 38px;
+            padding: 0 var(--space-3);
+        }
+
+        .btn-ghost:hover:not(:disabled) {
+            background: var(--surface-hover);
+            color: var(--text-primary);
+        }
+
+        .btn-ghost.danger {
+            color: var(--danger);
+        }
+
+        .btn-ghost.danger:hover:not(:disabled) {
+            background: var(--danger-soft);
+            color: var(--danger);
+        }
+
+        /* Report action buttons grid */
+        .report-actions {
+            display: flex;
+            gap: var(--space-3);
+        }
+
+        .report-actions button {
+            flex: 1;
+        }
+
+        /* ===================================================================
+           STATUS
+           =================================================================== */
+        .status {
+            margin-top: var(--space-4);
+            font-size: var(--text-xs);
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+        }
+
+        .status::before {
+            content: '';
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--success);
+            flex-shrink: 0;
+        }
+
+        /* ===================================================================
+           RIGHT — REPORT PANEL
+           =================================================================== */
+        .report-panel {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .report-panel .panel-head {
+            margin-bottom: var(--space-4);
+        }
+
+        .report-head {
+            align-items: center;
+        }
+
+        .run-badge {
+            flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-1);
+            padding: var(--space-1) var(--space-3);
+            border-radius: 100px;
+            background: var(--surface-soft);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            font-family: var(--font-display);
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .run-badge::before {
+            content: '';
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: var(--text-muted);
+        }
+
+        .report {
+            flex: 1;
+            min-height: 580px;
+            max-height: calc(100vh - 200px);
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            background: var(--surface-soft);
+            padding: var(--space-5);
+        }
+
+        .report.empty {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .empty-state {
+            max-width: 340px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: var(--space-3);
+        }
+
+        .empty-state .empty-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 56px;
+            height: 56px;
+            border-radius: var(--radius-lg);
+            background: var(--brand-100);
+            font-family: var(--font-display);
+            font-size: var(--text-lg);
+            font-weight: 700;
+            color: var(--brand);
+            box-shadow: 0 0 0 4px oklch(48% 0.14 var(--brand-h) / 0.06);
+            animation: pulse-glow 3s ease-in-out infinite;
+        }
+
+        .empty-state h3 {
+            font-family: var(--font-display);
+            font-size: var(--text-lg);
+            font-weight: 650;
+            color: var(--text-primary);
+        }
+
+        .empty-state p {
+            font-size: var(--text-sm);
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+
+        /* ===================================================================
+           EXPORT PANEL (below report preview)
+           =================================================================== */
+        .export-panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+            padding: var(--space-4) var(--space-6);
+            transition: box-shadow var(--duration-n) var(--ease-out-quart);
+        }
+
+        .export-panel:hover {
+            box-shadow: var(--shadow-md);
+        }
+
+        .export-head {
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+            margin-bottom: var(--space-3);
+        }
+
+        .export-head .export-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 7px;
+            background: oklch(93% 0.028 var(--brand-h));
+            color: var(--brand);
+            font-family: var(--font-display);
+            font-size: 13px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        .export-head span {
+            font-family: var(--font-display);
+            font-size: var(--text-sm);
+            font-weight: 650;
+            color: var(--text-primary);
+        }
+
+        .export-head small {
+            font-size: var(--text-xs);
+            color: var(--text-muted);
+            font-weight: 400;
+            margin-left: auto;
+        }
+
+        .export-actions {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: var(--space-3);
+        }
+
+        .export-actions button {
+            width: 100%;
+        }
+
+        /* ===================================================================
+           FOOTER
+           =================================================================== */
+        .footer {
+            padding: var(--space-5) 0 var(--space-6);
+            text-align: center;
+        }
+
+        .footer p {
+            font-size: var(--text-xs);
+            color: var(--text-muted);
+        }
+
+        /* ===================================================================
+           SCROLLBAR (report area)
+           =================================================================== */
+        .report::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .report::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .report::-webkit-scrollbar-thumb {
+            background: oklch(70% 0.015 var(--brand-h));
+            border-radius: 99px;
+        }
+
+        .report::-webkit-scrollbar-thumb:hover {
+            background: oklch(60% 0.02 var(--brand-h));
+        }
+
+        /* ===================================================================
+           KEYFRAMES
+           =================================================================== */
+        @keyframes pulse-glow {
+            0%, 100% {
+                box-shadow: 0 0 0 4px oklch(48% 0.14 var(--brand-h) / 0.06);
+            }
+            50% {
+                box-shadow: 0 0 0 8px oklch(48% 0.14 var(--brand-h) / 0.10);
+            }
+        }
+
+        @keyframes fade-in {
+            from { opacity: 0; transform: translateY(6px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .hero-copy,
+        .hero-summary .cap-card {
+            animation: fade-in 0.6s var(--ease-out-quart) both;
+        }
+
+        .hero-summary .cap-card:nth-child(1) { animation-delay: 0.05s; }
+        .hero-summary .cap-card:nth-child(2) { animation-delay: 0.12s; }
+        .hero-summary .cap-card:nth-child(3) { animation-delay: 0.19s; }
+
+        .step-card {
+            animation: fade-in 0.5s var(--ease-out-quart) both;
+        }
+        .step-card:nth-child(1) { animation-delay: 0.08s; }
+        .step-card:nth-child(2) { animation-delay: 0.14s; }
+        .step-card:nth-child(3) { animation-delay: 0.20s; }
+        .step-card:nth-child(4) { animation-delay: 0.26s; }
+
+        /* ===================================================================
+           RESPONSIVE
+           =================================================================== */
+        @media (max-width: 1080px) {
+            .hero {
+                grid-template-columns: 1fr;
+            }
+            .section-bottom {
+                grid-template-columns: 1fr;
+            }
+            .workflow {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .report-panel {
+                min-height: auto;
+            }
+            .report {
+                max-height: none;
+                min-height: 360px;
+            }
+            .export-actions {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 680px) {
+            .page {
+                padding: 0 var(--space-3);
+            }
+            .nav {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: var(--space-3);
+            }
+            .brand-tag {
+                align-self: flex-start;
+            }
+            .hero-copy {
+                padding: var(--space-5);
+            }
+            .panel {
+                padding: var(--space-4);
+            }
+            .panel-head {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .workflow,
+            .grid-two,
+            .skill-grid {
+                grid-template-columns: 1fr;
+            }
+            .right-stack .report-actions {
+                flex-direction: column;
+            }
+            .right-stack .report-actions button {
+                width: 100%;
+            }
+            .export-actions {
+                grid-template-columns: 1fr;
+            }
+            .actions button {
+                width: 100%;
+            }
+            .sub-panel-head {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+
+        /* ===================================================================
+           REDUCED MOTION
+           =================================================================== */
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+            .cap-card:hover,
+            .step-card:hover,
+            .btn-primary:hover:not(:disabled),
+            .btn-secondary:hover:not(:disabled) {
+                transform: none !important;
+            }
+            .empty-state .empty-icon {
+                animation: none !important;
+            }
+        }
+
+        /* ===================================================================
+           PRINT
+           =================================================================== */
+        @media print {
+            body {
+                background: #fff !important;
+            }
+            .nav,
+            .hero-summary,
+            .left-stack,
+            .footer,
+            .export-panel {
+                display: none !important;
+            }
+            .section-bottom {
+                grid-template-columns: 1fr !important;
+            }
+            .report-panel {
+                position: static !important;
+            }
+            .panel {
+                box-shadow: none !important;
+                border: 1px solid #ccc !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="page">
+
+    <!-- ==================================================================
+         TOP SECTION
+         ================================================================== -->
+    <div class="section-top">
+
+    <!-- ==================================================================
+         NAV
+         ================================================================== -->
+    <nav class="nav">
+        <a class="brand" href="#">
+            <span class="brand-mark">OA</span>
+            <div class="brand-info">
+                <strong>面试助手</strong>
+                <span>Offer 沙盘 + 面试官视角库</span>
+            </div>
+        </a>
+        <span class="brand-tag">Open Source Web MVP</span>
+    </nav>
+
+    <!-- ==================================================================
+         HERO
+         ================================================================== -->
+    <header class="hero">
+        <div class="hero-copy">
+            <span class="hero-eyebrow">Interview Copilot</span>
+            <h1>面试准备助手</h1>
+            <p class="hero-subtitle">辅助候选人更好准备面试，并生成可供面试官挑选的候选人追问题库。</p>
+        </div>
+
+        <aside class="hero-summary" aria-label="核心能力">
+            <div class="cap-card">
+                <span class="cap-card-num">01</span>
+                <div class="cap-card-body">
+                    <strong>岗位匹配</strong>
+                    <p>先判断项目经历是否匹配 JD 职责，再决定是否进入沙盘。</p>
+                </div>
+            </div>
+            <div class="cap-card">
+                <span class="cap-card-num">02</span>
+                <div class="cap-card-body">
+                    <strong>证据链优先</strong>
+                    <p>把项目讲述、指标口径和个人贡献绑定到证据。</p>
+                </div>
+            </div>
+            <div class="cap-card">
+                <span class="cap-card-num">03</span>
+                <div class="cap-card-body">
+                    <strong>视角库</strong>
+                    <p>生成面试官可挑选的问题，也帮助候选人提前演练。</p>
+                </div>
+            </div>
+        </aside>
+    </header>
+
+    <!-- ==================================================================
+         WORKFLOW STEPS
+         ================================================================== -->
+    <section class="workflow" aria-label="工作流程">
+        <article class="step-card">
+            <span class="step-label">Step 1</span>
+            <strong>配置模型</strong>
+            <p>选择模型服务商和本次使用的模型。</p>
+        </article>
+        <article class="step-card">
+            <span class="step-label">Step 2</span>
+            <strong>粘贴材料</strong>
+            <p>输入简历、JD 和可选面试上下文。</p>
+        </article>
+        <article class="step-card">
+            <span class="step-label">Step 3</span>
+            <strong>准备报告</strong>
+            <p>通过项目匹配闸口后，输出候选人准备重点、Offer 风险与追问策略。</p>
+        </article>
+        <article class="step-card">
+            <span class="step-label">Step 4</span>
+            <strong>反馈校准</strong>
+            <p>把人工判断写回报告并下载保存。</p>
+        </article>
+    </section>
+
+    </div>
+    <!-- /section-top -->
+
+    <!-- ==================================================================
+         BOTTOM SECTION (left-right split)
+         ================================================================== -->
+    <div class="section-bottom">
+
+        <!-- ===== LEFT STACK ===== -->
+        <div class="left-stack">
+
+            <!-- Config Panel -->
+            <section class="panel config-panel" aria-labelledby="config-title">
+                <div class="panel-head">
+                    <div class="panel-head-left">
+                        <span class="panel-step">1</span>
+                        <div>
+                            <p class="panel-eyebrow">Step 1</p>
+                            <h2 id="config-title">临时配置模型</h2>
+                        </div>
+                    </div>
+                    <button class="btn-ghost" type="button" id="mockBtn">填充脱敏样例</button>
+                </div>
+
+                <div class="grid grid-two">
+                    <label>
+                        <span class="label-text">模型服务商</span>
+                        <select id="provider">
+                            <option value="mock">Mock Demo（不调用模型）</option>
+                            <option value="openai">OpenAI</option>
+                            <option value="deepseek">DeepSeek</option>
+                            <option value="qwen">通义千问 / DashScope</option>
+                            <option value="kimi">Kimi / Moonshot</option>
+                            <option value="custom">OpenAI-Compatible 代理 / 自定义接口</option>
+                        </select>
+                    </label>
+                    <label>
+                        <span class="label-text">模型名称</span>
+                        <input id="model" type="text" value="gpt-4.1-mini" autocomplete="off" />
+                    </label>
+                </div>
+
+                <div class="grid grid-two">
+                    <label>
+                        <span class="label-text">临时 API Key</span>
+                        <input id="apiKey" type="password" placeholder="输入本次使用的模型 API Key" autocomplete="off" spellcheck="false" />
+                    </label>
+                    <label>
+                        <span class="label-text">代理 / 自定义 Base URL（可选）</span>
+                        <input id="baseUrl" type="url" placeholder="例如 https://your-worker.workers.dev" autocomplete="off" spellcheck="false" />
+                    </label>
+                </div>
+
+                <div class="mode-indicator" id="modelMode">当前模式：Mock Demo</div>
+            </section>
+
+            <!-- Input Panel -->
+            <section class="panel input-panel" aria-labelledby="input-title">
+                <div class="panel-head">
+                    <div class="panel-head-left">
+                        <span class="panel-step">2</span>
+                        <div>
+                            <p class="panel-eyebrow">Step 2</p>
+                            <h2 id="input-title">输入简历与 JD</h2>
+                        </div>
+                    </div>
+                    <button class="btn-ghost danger" type="button" id="clearBtn">清空当前页面</button>
+                </div>
+
+                <label>
+                    <span class="label-text">候选人简历</span>
+                    <textarea id="resume" rows="10" placeholder="粘贴候选人简历文本。不建议在公共设备输入真实敏感信息。"></textarea>
+                </label>
+
+                <label>
+                    <span class="label-text">岗位 JD</span>
+                    <textarea id="jobDescription" rows="8" placeholder="粘贴产品经理岗位 JD。"></textarea>
+                </label>
+
+                <label>
+                    <span class="label-text">公司 / 面试上下文（可选）</span>
+                    <textarea id="companyContext" rows="5" placeholder="例如公司阶段、业务方向、目标职级、面试重点、薪资约束等。"></textarea>
+                </label>
+
+                <!-- Offer Sandbox -->
+                <section class="sub-panel" aria-labelledby="sandbox-title">
+                    <div class="sub-panel-head">
+                        <span>Offer 沙盘</span>
+                        <small>用于模拟面试推进、录用风险和谈薪约束</small>
+                    </div>
+
+                    <div class="grid grid-two">
+                        <label>
+                            <span class="label-text">候选人阶段</span>
+                            <select id="candidateStage">
+                                <option value="初筛">初筛</option>
+                                <option value="业务一面">业务一面</option>
+                                <option value="业务终面">业务终面</option>
+                                <option value="Offer 前">Offer 前</option>
+                            </select>
+                        </label>
+                        <label>
+                            <span class="label-text">目标职级</span>
+                            <input id="targetLevel" type="text" placeholder="例如 P6 / 中级产品经理" autocomplete="off" />
+                        </label>
+                    </div>
+
+                    <label>
+                        <span class="label-text">Offer / 谈薪约束（可选）</span>
+                        <textarea id="offerConstraints" rows="4" placeholder="例如预算范围、候选人期望、竞品 Offer、到岗时间、团队紧急程度。"></textarea>
+                    </label>
+                </section>
+
+                <!-- Interviewer Perspectives -->
+                <section class="sub-panel" aria-labelledby="skill-title">
+                    <div class="sub-panel-head">
+                        <span>面试官视角库</span>
+                        <small>不同面试角色的问题视角，供候选人准备和面试官挑选</small>
+                    </div>
+
+                    <div class="skill-grid">
+                        <label class="skill-card">
+                            <span class="check-box"></span>
+                            <input class="skill-toggle" type="checkbox" value="hr" checked />
+                            <div class="skill-card-body">
+                                <strong>虚拟 HR 面试官</strong>
+                                <small>深挖动机、岗位偏好、到岗约束和风险边界。</small>
+                            </div>
+                        </label>
+                        <label class="skill-card">
+                            <span class="check-box"></span>
+                            <input class="skill-toggle" type="checkbox" value="business" checked />
+                            <div class="skill-card-body">
+                                <strong>虚拟业务负责人</strong>
+                                <small>结合 JD 职责深挖业务判断、指标口径和结果归因。</small>
+                            </div>
+                        </label>
+                        <label class="skill-card">
+                            <span class="check-box"></span>
+                            <input class="skill-toggle" type="checkbox" value="project" checked />
+                            <div class="skill-card-body">
+                                <strong>虚拟项目推进面试官</strong>
+                                <small>结合项目经历深挖里程碑、资源协调和复盘机制。</small>
+                            </div>
+                        </label>
+                        <label class="skill-card">
+                            <span class="check-box"></span>
+                            <input class="skill-toggle" type="checkbox" value="negotiation" />
+                            <div class="skill-card-body">
+                                <strong>虚拟谈薪顾问</strong>
+                                <small>深挖机会选择标准、竞争 Offer、入职概率和谈薪策略。</small>
+                            </div>
+                        </label>
+                        <label class="skill-card">
+                            <span class="check-box"></span>
+                            <input class="skill-toggle" type="checkbox" value="decision" checked />
+                            <div class="skill-card-body">
+                                <strong>决策层压力官</strong>
+                                <small>用预算削减、战略取舍和 ROI 压力测试候选人的判断依据。</small>
+                            </div>
+                        </label>
+                    </div>
+                </section>
+
+                <div class="actions">
+                    <button class="btn-primary" type="button" id="generateBtn" style="flex:1;">生成面试准备报告</button>
+                </div>
+
+                <p id="status" class="status" role="status">准备就绪。未配置 Key 时会使用 Mock Demo。</p>
+            </section>
+
+            <!-- Feedback Panel -->
+            <section class="panel feedback-panel" aria-labelledby="feedback-title">
+                <div class="panel-head">
+                    <div class="panel-head-left">
+                        <span class="panel-step">4</span>
+                        <div>
+                            <p class="panel-eyebrow">Step 4</p>
+                            <h2 id="feedback-title">人工反馈</h2>
+                        </div>
+                    </div>
+                    <span class="run-badge">仅当前页面有效</span>
+                </div>
+
+                <div class="grid grid-two">
+                    <label>
+                        <span class="label-text">是否同意系统判断</span>
+                        <select id="feedbackAgreement">
+                            <option value="未反馈">未反馈</option>
+                            <option value="同意">同意</option>
+                            <option value="部分同意">部分同意</option>
+                            <option value="不同意">不同意</option>
+                        </select>
+                    </label>
+                    <label>
+                        <span class="label-text">追问是否可采用</span>
+                        <select id="feedbackQuestionUse">
+                            <option value="未反馈">未反馈</option>
+                            <option value="采用">采用</option>
+                            <option value="改写采用">改写采用</option>
+                            <option value="未采用">未采用</option>
+                        </select>
+                    </label>
+                </div>
+
+                <label>
+                    <span class="label-text">人工补充意见</span>
+                    <textarea id="feedbackNotes" rows="4" placeholder="例如：哪些结论不准确、哪些问题更适合、还需要验证什么。"></textarea>
+                </label>
+
+                <div class="actions">
+                    <button class="btn-secondary" type="button" id="appendFeedbackBtn" disabled>把反馈写入报告</button>
+                </div>
+            </section>
+        </div>
+        <!-- /left-stack -->
+
+        <!-- ===== RIGHT STACK ===== -->
+        <div class="right-stack">
+
+        <!-- ===== REPORT PANEL ===== -->
+        <section class="panel report-panel" aria-labelledby="report-title">
+            <div class="panel-head report-head">
+                <div class="panel-head-left">
+                    <span class="panel-step">3</span>
+                    <div>
+                        <p class="panel-eyebrow">Step 3</p>
+                        <h2 id="report-title">报告预览</h2>
+                    </div>
+                </div>
+                <span id="runBadge" class="run-badge">尚未生成</span>
+            </div>
+
+            <article id="report" class="report empty" aria-live="polite">
+                <div class="empty-state">
+                    <span class="empty-icon">OA</span>
+                    <h3>等待生成报告</h3>
+                    <p>
+                        报告会覆盖项目匹配闸口、候选人准备重点、岗位匹配、Offer 沙盘推演、面试官候选问题库、证据链和人工反馈建议，并支持导出 PDF。
+                    </p>
+                </div>
+            </article>
+        </section>
+
+        <!-- ===== EXPORT PANEL ===== -->
+        <section class="export-panel" aria-label="导出报告">
+            <div class="export-head">
+                <span class="export-icon">↓</span>
+                <span>导出报告</span>
+                <small>生成后可用</small>
+            </div>
+            <div class="export-actions">
+                <button class="btn-secondary" type="button" id="downloadMdBtn" disabled>导出候选人 PDF</button>
+                <button class="btn-secondary" type="button" id="downloadInterviewerBtn" disabled>导出面试官 PDF</button>
+                <button class="btn-secondary" type="button" id="downloadOfferBtn" disabled>导出 Offer 推演 PDF</button>
+            </div>
+        </section>
+
+        </div>
+        <!-- /right-stack -->
+    </div>
+    <!-- /section-bottom -->
+
+    <!-- ==================================================================
+         FOOTER
+         ================================================================== -->
+    <footer class="footer">
+        <p>面试准备助手第一版只做面试准备辅助，不输出自动录用或淘汰结论。</p>
+    </footer>
+
+</div>
+
+<!-- ==================================================================
+     JS — Minimal interactivity for the new file
+     We re-attach the same event listeners the original app.js
+     would handle, so the page remains functional.
+     ================================================================== -->
+<script>
+    (function () {
+        // Wire up check-box visual toggles for skill cards
+        document.querySelectorAll('.skill-card').forEach(card => {
+            const checkbox = card.querySelector('.skill-toggle');
+            card.addEventListener('click', (e) => {
+                // If user clicked the checkbox directly, let native behavior handle it
+                if (e.target === checkbox) return;
+                checkbox.checked = !checkbox.checked;
+                // Dispatch change event for app.js compatibility
+                checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+        });
+    })();
+</script>
+</body>
+</html>
