@@ -85,6 +85,22 @@ def static_checks():
             term in content["app"]
             for term in ["downloadPdfReport", "createPdfBlobFromJpegs", ".pdf", "application/pdf", "candidate-report", "interviewer-report"]
         ),
+        "offer_pdf_has_seven_step_reasoning": all(
+            term in content["app"]
+            for term in [
+                "buildOfferSevenStepReasoning",
+                "## 七个步骤推理总览",
+                "## 七个步骤详细推演",
+                "## Offer 决策矩阵",
+                "证据解析",
+                "匹配闸口",
+                "岗位匹配",
+                "风险校准",
+                "沙盘推演",
+                "问题库生成",
+                "证据链收束",
+            ]
+        ),
         "two_report_modules_exist": "downloadInterviewerBtn" in content["app"] + content["index"]
         and "导出候选人 PDF" in content["index"]
         and "导出面试官 PDF" in content["index"]

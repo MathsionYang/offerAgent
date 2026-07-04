@@ -1979,10 +1979,54 @@ function buildOfferSandboxMarkdown(run) {
   const snapshot = run.input_snapshot || {};
   const gate = buildGateAssessment(snapshot);
   const offerLeverage = buildOfferLeverage(snapshot);
+  const normalized = normalizeSnapshot(snapshot);
+  const directConclusion = buildDirectConclusion(snapshot);
   const offerSection = extractSection(report, "Offer 沙盘推演");
+  const summarySection = extractSection(report, "一页摘要");
+  const gateSection = extractSection(report, "项目匹配闸口");
+  const hiddenPainSection = extractSection(report, "JD 隐性痛点解码");
+  const matchSection = extractSection(report, "岗位匹配");
+  const riskSection = extractSection(report, "风险与待验证");
+  const questionSection = extractSection(report, "面试官候选问题库（供挑选）");
+  const interviewerSection = extractSection(report, "面试官视角库");
   const dynamicSection = extractSection(report, "动态校准指令");
   const evidenceSection = extractSection(report, "证据链");
-  const body = [offerSection, dynamicSection, evidenceSection].filter(hasSubstantiveSection).join("\n\n");
+  const requirementRows = buildRequirementEvidenceRows(snapshot);
+  const evidenceSummary = buildEvidenceSummary(requirementRows);
+  const matchedRows = requirementRows.filter((row) => !row.isMissing);
+  const missingRows = requirementRows.filter((row) => row.isMissing);
+  const hiddenPainRows = buildJdHiddenPainRows(snapshot);
+  const sevenStepReasoning = buildOfferSevenStepReasoning({
+    report,
+    snapshot,
+    normalized,
+    gate,
+    directConclusion,
+    offerLeverage,
+    requirementRows,
+    matchedRows,
+    missingRows,
+    hiddenPainRows,
+    sections: {
+      summarySection,
+      gateSection,
+      hiddenPainSection,
+      matchSection,
+      riskSection,
+      offerSection,
+      questionSection,
+      interviewerSection,
+      dynamicSection,
+      evidenceSection,
+    },
+  });
+  const extractedAppendix = [
+    offerSection,
+    questionSection,
+    interviewerSection,
+    dynamicSection,
+    evidenceSection,
+  ].filter(hasSubstantiveSection).join("\n\n");
 
   return `# Offer 沙盘推演报告
 
@@ -1991,10 +2035,23 @@ function buildOfferSandboxMarkdown(run) {
 | 模块 | 当前判断 | 推进动作 |
 | --- | --- | --- |
 | 项目闸口 | ${gate.result}：${gate.summary} | ${gate.nextStep} |
-| 候选人阶段 | ${snapshot.candidate_stage || "未提供"} | 根据面试轮次决定是补证、深挖还是进入谈薪验证 |
-| 目标职级 | ${snapshot.target_level || "未提供"} | 面试前明确职级锚点、职责边界和评估标准 |
+| 候选人阶段 | ${normalized.candidate_stage || "未提供"} | 根据面试轮次决定是补证、深挖还是进入谈薪验证 |
+| 目标职级 | ${normalized.target_level || "未提供"} | 面试前明确职级锚点、职责边界和评估标准 |
 | 谈判杠杆 | ${offerLeverage.rating}：${offerLeverage.summary} | ${offerLeverage.detail} |
-| Offer 约束 | ${snapshot.offer_constraints ? clip(snapshot.offer_constraints) : "未提供 Offer / 谈薪约束"} | 补充预算范围、候选人期望、竞对 Offer、到岗时间和团队紧急程度 |
+| Offer 约束 | ${normalized.offer_constraints ? clip(normalized.offer_constraints) : "未提供 Offer / 谈薪约束"} | 补充预算范围、候选人期望、竞对 Offer、到岗时间和团队紧急程度 |
+| 证据可信度 | ${evidenceSummary} | 一级证据可用于定价，二级证据需追问，三级证据不得直接转化为 Offer 溢价 |
+
+## 七个步骤推理总览
+
+${sevenStepReasoning.overview}
+
+## 七个步骤详细推演
+
+${sevenStepReasoning.detail}
+
+## Offer 决策矩阵
+
+${sevenStepReasoning.decisionMatrix}
 
 ## 推进建议
 
@@ -2004,7 +2061,146 @@ function buildOfferSandboxMarkdown(run) {
 | 谈薪前 | 明确职级、薪资结构、到岗时间、竞对机会和候选人选择标准 | 关键约束后置暴露，导致 Offer 成功率下降 |
 | 面试后 | 根据实际回答更新岗位匹配、证据可信度、入职概率和谈薪风险 | 面试反馈未回填，题库和判断无法迭代 |
 
-${body}`;
+## 原始报告摘录
+
+${extractedAppendix || "原始报告中暂无可摘录的 Offer、问题库、视角库、动态校准或证据链内容。"}`
+}
+
+function buildOfferSevenStepReasoning(context) {
+  const {
+    normalized,
+    gate,
+    directConclusion,
+    offerLeverage,
+    requirementRows,
+    matchedRows,
+    missingRows,
+    hiddenPainRows,
+    sections,
+  } = context;
+  const strongestRows = [...requirementRows]
+    .filter((row) => !row.isMissing)
+    .sort((a, b) => a.evidenceLevel - b.evidenceLevel)
+    .slice(0, 3);
+  const weakestRows = (missingRows.length ? missingRows : requirementRows.filter((row) => row.evidenceLevel >= 2))
+    .slice(0, 3);
+  const extractedOfferSummary = summarizeSection(sections.offerSection, "原始报告未生成明确 Offer 沙盘推演正文，需要以闸口、证据和约束补推。");
+  const extractedRiskSummary = summarizeSection(sections.riskSection, "原始报告未生成明确风险段落，按缺证项、约束后置和动机不清处理。");
+  const extractedQuestionSummary = summarizeSection(
+    [sections.questionSection, sections.interviewerSection].filter(Boolean).join("\n"),
+    "原始报告未生成明确问题库，面试中应围绕项目真实性、失败复盘、指标口径和谈薪动机追问。",
+  );
+  const hiddenPainSummary = hiddenPainRows
+    .map((row) => `${row.phrase}：${row.pressure}；准备 ${row.prep}`)
+    .join("；");
+
+  const stepRows = [
+    {
+      step: "1. 证据解析",
+      reasoning: `先读取简历、JD、公司上下文和 Offer 约束。当前证据可信度为 ${buildEvidenceSummary(requirementRows)}。`,
+      evidence: `简历：${normalized.resume ? clip(normalized.resume) : "未提供"}；JD：${normalized.job_description ? clip(normalized.job_description) : "未提供"}`,
+      offerImpact: strongestRows.length
+        ? `可暂作谈判锚点的证据：${strongestRows.map((row) => `${row.capability}（${row.evidenceLevelLabel}）`).join("、")}`
+        : "暂未发现可直接支撑 Offer 溢价的高可信证据。",
+      action: "面试前把每个关键证据补齐分母、周期、个人贡献和可复核结果。",
+    },
+    {
+      step: "2. 匹配闸口",
+      reasoning: `${gate.result}。${gate.summary}`,
+      evidence: gate.bestEvidence,
+      offerImpact: gate.enterSandbox
+        ? "可进入下一轮，但 Offer 强度取决于后续追问能否把二级/三级证据提升为可信项目证据。"
+        : "暂不建议进入谈薪或强推进，否则容易在业务面或谈薪阶段暴露核心不匹配。",
+      action: gate.nextStep,
+    },
+    {
+      step: "3. 岗位匹配",
+      reasoning: `${directConclusion.label}。已匹配 ${matchedRows.length}/${requirementRows.length} 项，缺证 ${missingRows.length} 项。`,
+      evidence: matchedRows.length
+        ? matchedRows.map((row) => `${row.capability}：${row.resumeEvidence}`).join("；")
+        : "简历未体现明确岗位匹配证据。",
+      offerImpact: missingRows.length
+        ? `缺证项会压低职级或薪资空间：${missingRows.slice(0, 3).map((row) => row.capability).join("、")}`
+        : "岗位匹配表面完整，但仍需用反包装追问验证真实角色和指标归因。",
+      action: "把岗位要求转成面试评分项，逐项记录回答质量、证据等级和是否影响 Offer 定级。",
+    },
+    {
+      step: "4. 风险校准",
+      reasoning: extractedRiskSummary,
+      evidence: weakestRows.map((row) => `${row.capability}：${row.resumeEvidence}`).join("；") || "暂无明确风险证据。",
+      offerImpact: "风险项决定是否降级、延后 Offer、加面或要求补材料。",
+      action: "至少追问一次项目延期或线上故障，要求按时间线说明发现、止血、根因、整改和后续机制变化。",
+    },
+    {
+      step: "5. 沙盘推演",
+      reasoning: extractedOfferSummary,
+      evidence: `阶段：${normalized.candidate_stage || "未提供"}；目标职级：${normalized.target_level || "未提供"}；约束：${normalized.offer_constraints ? clip(normalized.offer_constraints) : "未提供"}`,
+      offerImpact: `${offerLeverage.rating}。${offerLeverage.detail}`,
+      action: "在业务面后更新入职概率、竞对机会、薪资底线、到岗时间、职级锚点和团队紧急程度。",
+    },
+    {
+      step: "6. 问题库生成",
+      reasoning: extractedQuestionSummary,
+      evidence: hiddenPainSummary || "JD 暂未识别出明确隐性压力源。",
+      offerImpact: "问题库回答质量会决定是否推进终面、是否追加技术/业务交叉面、是否进入谈薪。",
+      action: "使用业务负责人、项目推进、技术架构、谈薪顾问和决策层压力官视角交叉验证同一项目。",
+    },
+    {
+      step: "7. 证据链收束",
+      reasoning: "将简历证据、JD 证据、公司上下文、Offer 约束和面试反馈收束为可复核决策链。",
+      evidence: buildEvidenceChainPlain(normalized),
+      offerImpact: "只有能被证据链支撑的能力、稀缺性和到岗确定性，才应进入最终 Offer 定价。",
+      action: "面试后把实际追问、候选人回答、证据等级变化和谈薪约束回填到该报告，形成最终推进建议。",
+    },
+  ];
+
+  const overview = `| 步骤 | 推理结论 | Offer 影响 | 下一步 |
+| --- | --- | --- | --- |
+${stepRows.map((row) => `| ${row.step} | ${row.reasoning} | ${row.offerImpact} | ${row.action} |`).join("\n")}`;
+
+  const detail = stepRows
+    .map(
+      (row) => `### ${row.step}
+
+| 维度 | 内容 |
+| --- | --- |
+| 推理内容 | ${row.reasoning} |
+| 证据来源 | ${row.evidence} |
+| 对 Offer 的影响 | ${row.offerImpact} |
+| 必须补充 / 验证 | ${row.action} |`,
+    )
+    .join("\n\n");
+
+  const decisionMatrix = `| 决策项 | 当前判断 | 触发条件 | 建议动作 |
+| --- | --- | --- | --- |
+| 是否继续推进 | ${gate.enterSandbox ? "继续推进，但必须带条件验证" : "暂缓推进"} | ${gate.result}；${gate.summary} | ${gate.nextStep} |
+| 职级定位 | ${normalized.target_level || "未提供"} | 岗位匹配、项目复杂度、真实决策权、研发协同深度 | 面试后根据证据等级决定维持、下调或加面 |
+| 薪资 / 溢价 | ${offerLeverage.rating} | ${offerLeverage.summary} | ${offerLeverage.detail} |
+| 入职概率 | 待验证 | 动机清晰、约束前置、竞对机会透明、到岗时间明确 | HR 面或谈薪前补齐选择标准和关键约束 |
+| 风险处置 | ${missingRows.length ? "存在缺证风险" : "表面完整但需反包装"} | 无法解释失败、指标口径、个人贡献或技术取舍 | 追加项目复盘题和现场推演题 |`;
+
+  return { overview, detail, decisionMatrix };
+}
+
+function summarizeSection(section, fallback) {
+  if (!hasSubstantiveSection(section || "")) return fallback;
+  return clip(
+    section
+      .replace(/^## .+$/m, "")
+      .replace(/\|/g, " ")
+      .replace(/---/g, " ")
+      .replace(/\s+/g, " ")
+      .trim(),
+  );
+}
+
+function buildEvidenceChainPlain(snapshot) {
+  return [
+    `简历：${snapshot.resume ? clip(snapshot.resume) : "未提供"}`,
+    `JD：${snapshot.job_description ? clip(snapshot.job_description) : "未提供"}`,
+    `上下文：${snapshot.company_context ? clip(snapshot.company_context) : "未提供"}`,
+    `Offer 约束：${snapshot.offer_constraints ? clip(snapshot.offer_constraints) : "未提供"}`,
+  ].join("；");
 }
 
 function extractSection(markdown, heading) {
