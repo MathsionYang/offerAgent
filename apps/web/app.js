@@ -63,6 +63,11 @@ const systemPrompt = `你是面试准备助手。
 
 请基于用户提供的简历、JD、Offer 沙盘上下文和已选择的虚拟面试官视角，生成中文 Markdown 面试准备报告。报告的核心用途是帮助候选人更好准备面试，同时生成可供面试官挑选使用的候选人追问题库。
 
+报告必须区分两个完全不同的使用场景：
+- 候选人报告：从“诊断清单”升级为“面试打法”，帮助候选人知道优势如何放大、缺证如何诚实表达、今晚先补什么、面试中如何引导项目故事、如何准备动机和谈薪。
+- 面试官报告：从“JD 匹配分析”升级为“多角色决策辅助系统”，帮助面试官快速判断推荐强度、候选人画像、核心风险、追问链、红绿灯信号、评分卡和下一轮接力信息。
+- 不得把同一套结论简单换标题分别给候选人和面试官。候选人要看到行动策略，面试官要看到决策工具。
+
 必须遵守：
 - 可以输出“项目匹配闸口”的推进建议：项目经历明显不匹配 JD 职责时，建议不进入下一轮沙盘；匹配或待验证时，建议进入下一轮沙盘验证。
 - 不输出无证据的自动录用或淘汰结论，所有“淘汰 / 不推进”建议必须基于 JD 职责和候选人项目经历证据。
@@ -75,26 +80,41 @@ const systemPrompt = `你是面试准备助手。
 
 请使用以下标题：
 ## 一页摘要
+## JD 隐性痛点解码
 ## 项目匹配闸口
+## 条件性进入与能力迁移论证
 ## 岗位匹配
 ## 项目亮点
 ## 风险与待验证
 ## Offer 沙盘推演
 ## 必问追问
 ## 候选人准备重点
+## 候选人策略建议
 ## 面试官候选问题库（供挑选）
+## 面试官决策辅助
+## 面试官一分钟速览
+## 候选人画像
+## 角色分化面试官模块
+## 面试轮次信息传递卡
+## 面试后评估
 ## 面试官视角库
 ## 证据链
 ## 人工反馈建议
+## 动态校准指令
 
 排版要求：
 - 不要输出大段纯文本。优先使用 Markdown 表格、分层列表和短句。
-- “一页摘要”“项目匹配闸口”“岗位匹配”“候选人准备重点”“面试官候选问题库”“面试官视角库”建议使用 Markdown 表格呈现。
+- “一页摘要”“项目匹配闸口”“岗位匹配”“候选人准备重点”“候选人策略建议”“面试官候选问题库”“面试官决策辅助”“面试官视角库”建议使用 Markdown 表格呈现。
 - 表格控制在 3 到 4 列，列名必须清晰，单元格内容保持短句。
 - 生成内容允许使用 Markdown 结构，但最终报告不能出现多余 Markdown 装饰符，例如加粗星号、分隔线、代码围栏、引用符号、裸露表格分隔线。
 - 所有报告必须先下结论，再列详细分析。
 - 每一个结论都必须给出证据，表格中优先使用“结论 / 证据 / 详细说明 / 下一步”结构。
 - 面向候选人的报告必须增加招聘岗位分析：企业需要候选人具备什么能力、当前简历与岗位职责的匹配程度、不匹配点和重点准备建议。
+- 面向候选人的报告必须给出策略指导：三秒结论、优势放大、能力迁移、今晚行动清单、模拟面试路线图、压力问题预案、薪资 / 动机准备，不只输出检查清单。
+- 面向面试官的报告必须与候选人报告明显区分，不得复制候选人版结论页。面试官版要回答：这个人能不能干活、是否融入团队、水分有多少、值不值得给 Offer。
+- 面向面试官的报告必须按角色分化输出，至少覆盖 HR、技术架构 / 技术负责人、产品负责人、项目推进 / PMO、业务负责人 / 决策层五类视角。每类角色只输出该角色最需要的候选人画像、验证重点、必问问题、深挖问题、快速验证问题、红绿灯信号、评分卡和给下一轮面试官的信息。
+- 面试官报告必须提供“一分钟速览”，用于面试官在面试前 5 分钟快速决策阅读：推荐等级、核心亮点、核心风险、必问 3 题、面试策略、下一轮传递重点。
+- 每个核心追问必须包含追问链：回答好继续深挖什么，回答差如何止损或快速验证，以及面试后记录什么结论。
 - 禁止输出空章节。每个章节至少包含一个有证据的表格或 3 条以上具体问题。
 
 其中“项目匹配闸口”是第一步，必须先输出：
@@ -108,6 +128,9 @@ const systemPrompt = `你是面试准备助手。
 - 候选人应准备的项目故事：背景、目标、约束、动作、结果、复盘。
 - 候选人应补齐的证据：指标口径、个人贡献、关键决策、协作对象、失败或反思案例。
 - 候选人应提前演练的表达：自我介绍、项目讲述、岗位匹配、动机与期望。
+- 候选人准备重点必须输出“优先级排序”和“今晚行动清单”：先补 JD 核心必达项、再补能提升证据等级的指标口径和个人贡献、最后补加分项。
+- 候选人策略建议必须包含：差异化优势放大、缺证项不造假表达、主动引导面试官关注的项目、STAR 升级框架、压力问题应对和谈薪 / 到岗约束准备。
+- 如果短期无法补齐真实证据，必须提供诚实替代表达：说明相似经验、方法迁移和入职后补齐计划，不得引导候选人编造。
 
 其中“面试官候选问题库（供挑选）”必须包含：
 - 该模块服务面试官，下载版应包含简历与 JD 不匹配的点、不同面试官视角、验证简历过度包装的问题。
@@ -117,6 +140,45 @@ const systemPrompt = `你是面试准备助手。
 - 项目经理 / 推进视角问题：追问目标拆解、里程碑、资源协调、风险控制、跨团队沟通和复盘机制。
 - 候选人准备提示：帮助候选人准备项目证据、指标口径、个人贡献和复盘案例。
 - 高匹配反包装追问：当简历与 JD 看起来高度匹配时，不要降低验证强度，要进一步追问候选人的真实角色、关键决策、指标口径、失败细节、技术/业务取舍和无法提前背诵的现场推演问题，用于识别简历过度包装。
+- 每个核心问题必须提供追问路径：回答好时继续深挖什么，回答差时如何快速验证或停止深挖。
+- 每个问题必须说明它决定什么推进动作：继续推进、加面、补材料、暂缓或不推荐。
+
+其中“面试官决策辅助”必须包含：
+- 推荐等级：强烈推荐 / 推荐 / 有条件推荐 / 不推荐，只能基于 JD 和项目证据，不得使用敏感信息。
+- 结构化评分卡：专业能力、项目闭环、沟通协作、业务理解、技术协同、文化 / 团队适配、Offer 风险，每项给 1 到 5 分、证据、行为锚点和扣分信号。
+- 红灯 / 绿灯信号：列出候选人怎么回答代表可信，怎么回答代表包装或风险。
+- 追问链：每个核心问题都要写起手问题、回答好继续深挖、回答差快速验证和记录结论。
+- 录用条件与补充验证：如果推荐推进，必须说明下一轮必须验证什么；如果不推荐，说明缺少哪些项目证据。
+- 薪资 / Offer 接受概率：只基于上下文证据判断强 / 中 / 弱或待验证，缺证时不得编造薪资区间。
+
+其中“候选人画像”必须包含：
+- 职业路径画像：只基于简历中可见经历、项目类型、职责跨度和候选人阶段，不推断年龄、婚育、籍贯等敏感信息。
+- 稳定性 / 动机画像：只基于工作经历连续性、求职动机、Offer 约束和上下文证据，缺证时标注待验证。
+- 薪资 / 到岗画像：只基于用户提供的 Offer 约束、预算、竞对机会和到岗时间，缺证时标注待验证，不编造薪资范围。
+- 团队适配画像：结合公司 / 团队上下文，判断候选人的协作风格、节奏适应和潜在磨合点。
+
+其中“角色分化面试官模块”必须包含：
+- HR 面试官模块：动机、稳定性、薪资期望、到岗时间、竞业 / 合规风险、文化适配。
+- 技术架构 / 技术负责人模块：系统设计、技术边界、技术选型、研发协同、复杂问题排查。
+- 产品负责人模块：需求洞察、产品规划、MVP / 迭代意识、用户价值、业务指标。
+- 项目推进 / PMO 模块：里程碑、资源协调、延期预警、风险升级、复盘机制。
+- 业务负责人 / 决策层模块：战略取舍、商业洞察、投入产出、领导力潜力、资源约束下的判断质量。
+- 每个角色模块必须包含：角色目标、候选人画像、必问问题、深挖问题、快速验证问题、追问链、评分卡、绿灯信号、红灯信号、本角色不需要看的内容、给下一位面试官的话。
+- 每个角色至少输出 3 个问题：1 个必问、1 个深挖、1 个快速验证；不同角色的问题不得大量重复。
+
+其中“面试轮次信息传递卡”必须包含：
+- 本轮面试官角色。
+- 已验证通过。
+- 需要下一轮验证。
+- 新增发现。
+- 本轮评分。
+- 是否建议进入下一轮。
+
+其中“面试后评估”必须包含：
+- 面试官现场评分区：专业能力、项目经验、沟通协作、团队适配、成长潜力、Offer 风险。
+- 综合判断：推荐录用 / 有条件推荐 / 不推荐。
+- 需要补充验证的问题。
+- 面试官备注。
 
 其中“面试官视角库”必须体现为虚拟生成的面试官团队。它不是单独的 Skill，也不是固定模板题库，而是一组不同面试角色的评估视角：
 - 先根据 JD 职责、候选人项目经历和公司 / Offer 上下文，生成 3 到 6 个虚拟面试官角色。
@@ -630,6 +692,16 @@ ${rows.map((row) => `| ${row.capability} | ${row.jdEvidence} | ${row.evidenceLev
 | 表达演练 | 围绕 JD 核心职责准备 2 到 3 个证明匹配度的项目故事 | 模拟问答稿 |
 | 风险预案 | 个人贡献、项目失败、跨团队冲突、Offer 动机等高频追问 | 真实回答要点 |
 
+## 候选人策略建议
+
+| 策略模块 | 当前判断 | 候选人打法 |
+| --- | --- | --- |
+| 优势放大 | ${gate.bestEvidence} | 主动把最强项目讲成“问题判断、方案取舍、推进落地、指标复盘”的闭环，不只复述职责 |
+| 缺证表达 | ${gate.result.includes("不匹配") ? "核心项目证据不足" : "部分能力仍缺少一级证据"} | 不造假补经历，改为说明相似项目、已掌握方法和入职后补齐行业认知的计划 |
+| 主动引导 | 面试官最可能追问个人贡献、指标口径和失败复盘 | 自我介绍后主动抛出一个最贴近 JD 的项目，引导进入可证明能力的细节 |
+| 回答框架 | STAR 不够，需要补充指标口径和取舍逻辑 | 每个项目按背景、目标、约束、个人动作、结果、复盘、下次会改什么组织 |
+| 谈薪 / 动机 | ${offerLeverage.rating}：${offerLeverage.summary} | 把期望和动机绑定到职责完整度、成长空间、到岗确定性和可量化贡献 |
+
 ## 面试官候选问题库（供挑选）
 
 ### A. 岗位要求验证问题
@@ -672,6 +744,48 @@ ${rows.map((row) => `| ${row.capability} | ${row.jdEvidence} | ${row.evidenceLev
 | 成本、进度、资源控制 | 跨团队推进项目 | 如果现在把研发资源砍掉 40%，你会保留和放弃哪些能力？ | 是否能基于目标、风险和用户价值做取舍 |
 | 复杂问题解决 | 失败或延期项目 | 请讲一个该项目中你判断错误或推进失败的细节。 | 是否只有完美叙事，缺少真实反思 |
 | 方案设计与现场应变 | 最匹配 JD 的项目 | 面试官现场给一个新约束，你如何调整原方案？ | 是否能临场拆解问题并形成可执行方案 |
+
+## 面试官决策辅助
+
+| 决策项 | 结论 | 证据 | 面试动作 |
+| --- | --- | --- | --- |
+| 推荐等级 | ${buildInterviewerRecommendation(gate).level} | ${gate.summary} | ${buildInterviewerRecommendation(gate).action} |
+| 能不能干活 | ${gate.matchedCount >= 4 ? "有较强可能，但需复核真实贡献" : gate.matchedCount >= 2 ? "可能能做相邻场景，需要验证迁移边界" : "当前证据不足"} | ${buildEvidenceSummary(rows)} | 用最强项目追问需求、方案、研发协同、上线和复盘 |
+| 水分风险 | ${packagingRisk} | 简历中“负责 / 主导 / 推动”等表述需要还原 | 要求候选人现场画流程、拆指标、复盘失败 |
+| 团队适配 | 待验证 | 公司上下文：${input.companyContext ? clip(input.companyContext) : "未提供"} | 追问协作风格、冲突处理、节奏适应和升级机制 |
+| Offer 接受概率 | ${hasOfferRisk ? "中 / 待验证" : "待验证"} | ${input.offerConstraints || "未提供 Offer / 谈薪约束"} | 面试后更新薪资期望、竞对机会、到岗时间和岗位偏好 |
+
+### 结构化评分卡
+
+${buildInterviewerScorecard(snapshot)}
+
+### 红灯 / 绿灯信号
+
+${buildInterviewerSignalTable(snapshot)}
+
+### 追问路径图
+
+${buildInterviewerFollowupPaths(snapshot)}
+
+## 面试官一分钟速览
+
+${buildInterviewerQuickBrief(snapshot)}
+
+## 候选人画像
+
+${buildCandidateProfile(snapshot)}
+
+## 角色分化面试官模块
+
+${buildRoleAwareInterviewerModules(snapshot)}
+
+## 面试轮次信息传递卡
+
+${buildInterviewHandoffCard(snapshot)}
+
+## 面试后评估
+
+${buildPostInterviewEvaluationTemplate(snapshot)}
 
 ## 面试官视角库
 
@@ -1035,6 +1149,7 @@ function reportToStaticHtmlDocument(run, audience = "full", options = {}) {
       });
     </script>`
     : "";
+  const pdfSummaryCards = buildPdfSummaryCards(run, audience);
   return `<!doctype html>
 <html lang="zh-CN">
   <head>
@@ -1775,6 +1890,365 @@ function reportToStaticHtmlDocument(run, audience = "full", options = {}) {
         border-left: 3px solid var(--report-risk);
       }
 
+      /* Reference-style PDF skin, inspired by 1.html multi-role report. */
+      :root {
+        --pdf-bg: #f0f2f5;
+        --pdf-surface: #ffffff;
+        --pdf-surface-hover: #f7f8fa;
+        --pdf-border: #e4e6ed;
+        --pdf-border-light: #f0f1f4;
+        --pdf-text: #1a1d26;
+        --pdf-secondary: #5a6170;
+        --pdf-tertiary: #9198a6;
+        --pdf-accent: #4f6ef7;
+        --pdf-accent-light: #eef1fe;
+        --pdf-accent-dark: #3b56d6;
+        --pdf-green: #22c55e;
+        --pdf-green-light: #ecfdf5;
+        --pdf-green-dark: #16a34a;
+        --pdf-amber: #f59e0b;
+        --pdf-amber-light: #fffbeb;
+        --pdf-amber-dark: #d97706;
+        --pdf-red: #ef4444;
+        --pdf-red-light: #fef2f2;
+        --pdf-red-dark: #dc2626;
+        --pdf-purple: #8b5cf6;
+        --pdf-purple-light: #f5f3ff;
+        --pdf-teal: #14b8a6;
+        --pdf-teal-light: #f0fdfa;
+        --pdf-radius-sm: 8px;
+        --pdf-radius-md: 12px;
+        --pdf-radius-lg: 16px;
+        --pdf-shadow-sm: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.06);
+        --pdf-shadow-md: 0 4px 12px rgba(0,0,0,0.06), 0 2px 4px rgba(0,0,0,0.04);
+        color-scheme: light;
+      }
+
+      body {
+        align-items: flex-start;
+        background: var(--pdf-bg) !important;
+        color: var(--pdf-text);
+        font-family: Inter, "Noto Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+        font-size: 15px;
+        line-height: 1.6;
+        padding: 32px 24px 80px;
+      }
+
+      .page {
+        display: block;
+        max-width: 1100px;
+        padding: 0;
+      }
+
+      .cover {
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+        margin-bottom: 18px;
+        padding: 0;
+      }
+
+      .cover::before,
+      .cover::after {
+        display: none;
+      }
+
+      .cover-inner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 18px;
+      }
+
+      .cover-title-group {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+
+      .report-logo {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        border-radius: var(--pdf-radius-sm);
+        background: linear-gradient(135deg, var(--pdf-accent), var(--pdf-purple));
+        color: #ffffff;
+        font-size: 18px;
+        font-weight: 800;
+      }
+
+      .eyebrow {
+        border: 0;
+        background: var(--pdf-accent-light);
+        color: var(--pdf-accent);
+        font-size: 11px;
+        letter-spacing: 0.04em;
+        margin: 0 0 4px;
+        padding: 3px 10px;
+      }
+
+      .eyebrow::before {
+        display: none;
+      }
+
+      h1 {
+        color: var(--pdf-text);
+        font-size: 24px;
+        font-weight: 760;
+        letter-spacing: -0.02em;
+        line-height: 1.18;
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 8px 16px;
+        border: 0;
+        margin: 0;
+        padding: 0;
+      }
+
+      .meta div {
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        padding: 0;
+      }
+
+      .meta span {
+        color: var(--pdf-tertiary);
+        font-size: 12px;
+        margin-right: 5px;
+      }
+
+      .meta strong {
+        color: var(--pdf-secondary);
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .quick-stats {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        margin: 0 0 20px;
+      }
+
+      .quick-stat-card {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        border: 1px solid var(--pdf-border-light);
+        border-radius: var(--pdf-radius-sm);
+        background: var(--pdf-surface);
+        box-shadow: var(--pdf-shadow-sm);
+        min-height: 76px;
+        padding: 13px 14px;
+      }
+
+      .quick-stat-card.tone-good-card {
+        border-color: rgba(34, 197, 94, 0.24);
+        background: linear-gradient(180deg, #ffffff 0%, var(--pdf-green-light) 100%);
+      }
+
+      .quick-stat-card.tone-warn-card {
+        border-color: rgba(245, 158, 11, 0.28);
+        background: linear-gradient(180deg, #ffffff 0%, var(--pdf-amber-light) 100%);
+      }
+
+      .quick-stat-card.tone-risk-card {
+        border-color: rgba(239, 68, 68, 0.24);
+        background: linear-gradient(180deg, #ffffff 0%, var(--pdf-red-light) 100%);
+      }
+
+      .quick-stat-card.tone-info-card {
+        border-color: rgba(79, 110, 247, 0.22);
+        background: linear-gradient(180deg, #ffffff 0%, var(--pdf-accent-light) 100%);
+      }
+
+      .quick-stat-card .qs-icon {
+        flex: 0 0 auto;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 26px;
+        height: 26px;
+        border-radius: 8px;
+        background: var(--pdf-accent-light);
+        color: var(--pdf-accent-dark);
+        font-size: 12px;
+        font-weight: 780;
+        line-height: 1;
+        margin-top: 2px;
+      }
+
+      .quick-stat-card .qs-num {
+        color: var(--pdf-text);
+        font-size: 13px;
+        font-weight: 740;
+        line-height: 1.35;
+        margin-bottom: 3px;
+      }
+
+      .quick-stat-card .qs-label {
+        color: var(--pdf-tertiary);
+        font-size: 10px;
+        font-weight: 650;
+        letter-spacing: 0.02em;
+      }
+
+      .report-body {
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+        padding: 0;
+      }
+
+      .report-body > h3,
+      .report-body > h4,
+      .report-body > p,
+      .report-body > ul,
+      .report-body > ol,
+      .report-body > .table-wrap {
+        border: 1px solid var(--pdf-border-light);
+        border-radius: var(--pdf-radius-md);
+        background: var(--pdf-surface);
+        box-shadow: var(--pdf-shadow-sm);
+      }
+
+      h3 {
+        break-after: avoid;
+        margin: 20px 0 0;
+        padding: 18px 24px 14px;
+        border-bottom: 1px solid var(--pdf-border-light) !important;
+        border-radius: var(--pdf-radius-md) var(--pdf-radius-md) 0 0 !important;
+        color: var(--pdf-text);
+        font-size: 15px;
+        font-weight: 700;
+        gap: 10px;
+      }
+
+      h3::before {
+        content: "";
+        width: 32px;
+        height: 32px;
+        border-radius: var(--pdf-radius-sm);
+        background: var(--pdf-accent-light);
+        color: var(--pdf-accent);
+        box-shadow: none;
+      }
+
+      h3:nth-of-type(5n+1)::before { background: var(--pdf-amber-light); }
+      h3:nth-of-type(5n+2)::before { background: var(--pdf-accent-light); }
+      h3:nth-of-type(5n+3)::before { background: var(--pdf-purple-light); }
+      h3:nth-of-type(5n+4)::before { background: var(--pdf-teal-light); }
+      h3:nth-of-type(5n)::before { background: var(--pdf-red-light); }
+
+      h4 {
+        display: block;
+        margin: 12px 0 0;
+        padding: 14px 20px;
+        border-color: var(--pdf-border-light);
+        border-radius: var(--pdf-radius-md) var(--pdf-radius-md) 0 0;
+        background: var(--pdf-surface);
+        color: var(--pdf-secondary);
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      p,
+      li {
+        color: var(--pdf-secondary);
+        font-size: 13px;
+      }
+
+      .report-body > p,
+      .report-body > ul,
+      .report-body > ol {
+        margin: 0 0 12px;
+        padding: 14px 20px 16px;
+      }
+
+      .report-body > h3 + .table-wrap,
+      .report-body > h3 + p,
+      .report-body > h3 + ul,
+      .report-body > h3 + ol,
+      .report-body > h4 + .table-wrap {
+        border-top: 0;
+        border-radius: 0 0 var(--pdf-radius-md) var(--pdf-radius-md);
+        margin-top: 0;
+      }
+
+      .table-wrap {
+        border-color: var(--pdf-border-light);
+        border-radius: var(--pdf-radius-md);
+        background: var(--pdf-surface);
+        box-shadow: var(--pdf-shadow-sm);
+        margin: 0 0 14px;
+      }
+
+      table {
+        min-width: 0;
+        width: 100%;
+        border-collapse: collapse;
+        color: var(--pdf-text);
+        font-size: 12px;
+      }
+
+      th,
+      td {
+        border-bottom: 1px solid var(--pdf-border-light);
+        padding: 10px 12px;
+        vertical-align: top;
+      }
+
+      th {
+        background: #fafbfc;
+        color: var(--pdf-tertiary);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        text-transform: none;
+      }
+
+      td {
+        color: var(--pdf-secondary);
+      }
+
+      td:first-child {
+        background: var(--pdf-surface-hover);
+        color: var(--pdf-text);
+        font-weight: 650;
+      }
+
+      tbody tr:nth-child(even) {
+        background: transparent;
+      }
+
+      .tone-good {
+        background: var(--pdf-green-light) !important;
+        color: var(--pdf-green-dark) !important;
+        border-left: 3px solid var(--pdf-green);
+      }
+
+      .tone-warn {
+        background: var(--pdf-amber-light) !important;
+        color: var(--pdf-amber-dark) !important;
+        border-left: 3px solid var(--pdf-amber);
+      }
+
+      .tone-risk {
+        background: var(--pdf-red-light) !important;
+        color: var(--pdf-red-dark) !important;
+        border-left: 3px solid var(--pdf-red);
+      }
+
       @media print {
         @page {
           size: A4;
@@ -1800,12 +2274,22 @@ function reportToStaticHtmlDocument(run, audience = "full", options = {}) {
           border: 0;
           border-radius: 0;
           box-shadow: none;
-          background: none;
-          padding: 20px 0;
+          background: transparent;
+          padding: 0;
         }
 
         .cover {
           break-after: avoid;
+        }
+
+        .quick-stat-card,
+        .report-body > h3,
+        .report-body > h4,
+        .report-body > p,
+        .report-body > ul,
+        .report-body > ol,
+        .report-body > .table-wrap {
+          box-shadow: none;
         }
 
         h3,
@@ -1831,21 +2315,36 @@ function reportToStaticHtmlDocument(run, audience = "full", options = {}) {
   <body>
     <main class="page">
       <section class="cover">
-        <p class="eyebrow">${reportEyebrow}</p>
-        <h1>${reportTitle}</h1>
-        <div class="meta">
+        <div class="cover-inner">
           <div>
-            <span>生成时间</span>
-            <strong>${escapeHtml(createdAt)}</strong>
+            <div class="cover-title-group">
+              <div class="report-logo">OA</div>
+              <div>
+                <p class="eyebrow">${reportEyebrow}</p>
+                <h1>${reportTitle}</h1>
+              </div>
+            </div>
           </div>
-          <div>
-            <span>模型模式</span>
-            <strong>${escapeHtml(run.mode === "llm" ? "真实模型" : "Mock Demo")}</strong>
+          <div class="meta">
+            <div>
+              <span>生成时间</span>
+              <strong>${escapeHtml(createdAt)}</strong>
+            </div>
+            <div>
+              <span>模型模式</span>
+              <strong>${escapeHtml(run.mode === "llm" ? "真实模型" : "Mock Demo")}</strong>
+            </div>
+            <div>
+              <span>模型名称</span>
+              <strong>${escapeHtml(run.model || "未填写")}</strong>
+            </div>
           </div>
-          <div>
-            <span>模型名称</span>
-            <strong>${escapeHtml(run.model || "未填写")}</strong>
-          </div>
+        </div>
+        <div class="quick-stats">
+          ${pdfSummaryCards.map((card) => `<div class="quick-stat-card ${escapeHtml(card.tone || "")}">
+            <div class="qs-icon">${escapeHtml(card.icon)}</div>
+            <div><div class="qs-num">${escapeHtml(card.value)}</div><div class="qs-label">${escapeHtml(card.label)}</div></div>
+          </div>`).join("")}
         </div>
       </section>
       <section class="report-body">
@@ -1854,6 +2353,62 @@ function reportToStaticHtmlDocument(run, audience = "full", options = {}) {
     </main>
   </body>
 </html>`;
+}
+
+function buildPdfSummaryCards(run, audience = "full") {
+  const snapshot = run.input_snapshot || {};
+  const report = run.report || "";
+  const rows = buildRequirementEvidenceRows(snapshot);
+  const gate = buildGateAssessment(snapshot, rows);
+  const recommendation = buildInterviewerRecommendation(gate);
+  const offerLeverage = buildOfferLeverage(snapshot);
+  const missingRows = rows.filter((row) => row.isMissing);
+  const matchedRows = rows.filter((row) => !row.isMissing);
+  const topRisk = missingRows[0]?.capability || "验证真实贡献";
+  const topStrength = matchedRows[0]?.capability || "证据待补齐";
+  const mustAsk = audience === "interviewer"
+    ? "项目闭环 / 失败复盘 / 资源取舍"
+    : audience === "offer"
+      ? "职级 / 薪资 / 到岗"
+      : "项目故事 / 指标口径 / 压力题";
+  const nextFocus = audience === "interviewer"
+    ? (gate.enterSandbox ? "传递已验证与待验证项" : "先补项目证据")
+    : audience === "offer"
+      ? offerLeverage.rating
+      : "今晚补强最高风险证据";
+  const extractedRecommendation = extractSection(report, "面试官一分钟速览") || extractSection(report, "项目匹配闸口");
+  const recommendationText = audience === "candidate"
+    ? gate.result
+    : audience === "offer"
+      ? (gate.enterSandbox ? "可沙盘验证" : "暂缓推进")
+      : recommendation.level;
+
+  return [
+    {
+      icon: audience === "candidate" ? "闸" : audience === "offer" ? "盘" : "荐",
+      label: audience === "candidate" ? "闸口结论" : audience === "offer" ? "沙盘状态" : "推荐等级",
+      value: clip(recommendationText || extractedRecommendation || "待验证"),
+      tone: gate.enterSandbox ? "tone-good-card" : "tone-risk-card",
+    },
+    {
+      icon: "险",
+      label: "核心风险",
+      value: clip(topRisk),
+      tone: "tone-risk-card",
+    },
+    {
+      icon: "问",
+      label: "必问问题",
+      value: clip(mustAsk),
+      tone: "tone-warn-card",
+    },
+    {
+      icon: audience === "candidate" ? "行" : "传",
+      label: "下一轮重点",
+      value: clip(nextFocus || topStrength),
+      tone: "tone-info-card",
+    },
+  ];
 }
 
 function buildPreviewMarkdown(run) {
@@ -1879,6 +2434,7 @@ function buildAudienceMarkdown(run, audience) {
       extractSection(report, "岗位匹配"),
       extractSection(report, "风险与待验证"),
       extractSection(report, "候选人准备重点"),
+      extractSection(report, "候选人策略建议"),
       extractSection(report, "必问追问"),
       extractSection(report, "动态校准指令"),
       extractSection(report, "证据链"),
@@ -1887,71 +2443,110 @@ function buildAudienceMarkdown(run, audience) {
       .join("\n\n");
     return `# 候选人面试准备报告
 
-## 先看结论
+## 三秒结论
 
-| 结论 | 证据 | 不匹配 / 待验证点 | 下一步 |
-| --- | --- | --- | --- |
-| ${directConclusion.label} | JD 证据：${jdEvidence}；简历证据：${resumeEvidence} | ${directConclusion.points} | ${directConclusion.nextStep} |
-| 项目匹配闸口 | ${gate.summary} | ${gate.result} | ${gate.nextStep} |
-| 谈判杠杆 | ${offerLeverage.detail} | ${offerLeverage.rating} | 准备可量化溢价依据和约束说明 |
+${buildCandidateThreeSecondSummary(snapshot)}
+
+## 差异化优势
+
+${buildCandidateAdvantageCards(snapshot)}
 
 ## 招聘岗位分析
 
 ${buildConcreteJobAnalysis(snapshot)}
 
+## 能力迁移分析
+
+${buildAbilityTransferAnalysis(snapshot)}
+
 ## 简历与 JD 不匹配点
 
 ${buildConcreteGapTable(snapshot)}
 
-## 简历修改意见与重点准备
+## 今晚行动清单（简历修改意见与重点准备）
 
 ${buildCandidateRevisionAdvice(snapshot)}
 
-## 建议重点准备的问题
+## 候选人策略建议
+
+${buildCandidateStrategyAdvice(snapshot)}
+
+## 模拟面试路线图
 
 ${buildConcreteCandidateQuestions(snapshot)}
+
+## 压力面试应对指南
+
+${buildPressureInterviewGuide(snapshot)}
 
 ${body}`;
   }
 
   if (audience === "interviewer") {
-    const body = directConclusion.blockQuestions
-      ? [
-          extractSection(report, "项目匹配闸口"),
-          extractSection(report, "岗位匹配"),
-          extractSection(report, "证据链"),
-        ]
-          .filter(hasSubstantiveSection)
-          .join("\n\n")
-      : [
-          extractSection(report, "项目匹配闸口"),
-          extractSection(report, "JD 隐性痛点解码"),
-          extractSection(report, "岗位匹配"),
-          extractSection(report, "风险与待验证"),
-          extractSection(report, "面试官候选问题库（供挑选）"),
-          extractSection(report, "面试官视角库"),
-          extractSection(report, "动态校准指令"),
-          extractSection(report, "证据链"),
-        ]
-          .filter(hasSubstantiveSection)
-          .join("\n\n");
+    const generatedDecision = extractSection(report, "面试官决策辅助");
+    const generatedQuestions = extractSection(report, "面试官候选问题库（供挑选）");
+    const generatedLens = extractSection(report, "面试官视角库");
+    const generatedEvidence = extractSection(report, "证据链");
+    const recommendation = buildInterviewerRecommendation(gate);
+    const body = [
+      generatedDecision,
+      generatedQuestions,
+      generatedLens,
+      generatedEvidence,
+    ]
+      .filter(hasSubstantiveSection)
+      .join("\n\n");
     return `# 面试官提问辅助报告
 
-## 先看结论
+## 一分钟决策结论
 
-| 结论 | 证据 | 不匹配 / 待验证点 | 下一步 |
+| 决策问题 | 当前判断 | 证据 | 面试动作 |
 | --- | --- | --- | --- |
-| ${directConclusion.label} | JD 证据：${jdEvidence}；简历证据：${resumeEvidence} | ${directConclusion.points} | ${directConclusion.interviewerNextStep} |
-| 项目匹配闸口 | ${gate.summary} | ${gate.result} | ${gate.nextStep} |
-| 谈判杠杆 | ${offerLeverage.detail} | ${offerLeverage.rating} | 面试后更新薪资期望、竞对 Offer、到岗时间和职级偏好 |
+| 推荐等级 | ${recommendation.level} | ${gate.summary} | ${recommendation.action} |
+| 能不能干活 | ${gate.matchedCount >= 4 ? "有较强可能，但需复核真实贡献" : gate.matchedCount >= 2 ? "可能能做相邻场景，需要验证迁移边界" : "当前证据不足"} | JD 证据：${jdEvidence}；简历证据：${resumeEvidence} | 追问最强项目的需求判断、方案取舍、研发协同、上线复盘 |
+| 水分有多少 | ${directConclusion.hasMissing ? "存在缺证或包装风险" : "表面完整但仍需反包装验证"} | ${directConclusion.points} | 要求现场还原指标口径、个人动作、失败细节和决策链 |
+| 是否适配团队 | 待验证 | 公司 / 面试上下文：${snapshot.company_context ? clip(snapshot.company_context) : "未提供"} | 追问冲突处理、资源协调、节奏适应和升级机制 |
+| Offer 接受概率 | ${offerLeverage.rating} / 待验证 | ${offerLeverage.detail} | 面试后更新薪资期望、竞对 Offer、到岗时间和职级偏好 |
+
+## 面试官一分钟速览
+
+${buildInterviewerQuickBrief(snapshot)}
 
 ## 简历初评
 
 ${buildInterviewerResumeBrief(snapshot)}
 
-## 简历与 JD 不匹配点
+## 候选人画像
 
-${buildConcreteGapTable(snapshot)}
+${buildCandidateProfile(snapshot)}
+
+## 结构化评分卡
+
+${buildInterviewerScorecard(snapshot)}
+
+## 红灯 / 绿灯信号
+
+${buildInterviewerSignalTable(snapshot)}
+
+## 追问路径图
+
+${buildInterviewerFollowupPaths(snapshot)}
+
+## 录用条件与补充验证
+
+${buildInterviewerDecisionAdvice(snapshot)}
+
+## 角色分化面试官模块
+
+${buildRoleAwareInterviewerModules(snapshot)}
+
+## 面试轮次信息传递卡
+
+${buildInterviewHandoffCard(snapshot)}
+
+## 面试后评估
+
+${buildPostInterviewEvaluationTemplate(snapshot)}
 
 ${directConclusion.blockQuestions ? `## 面试官处理建议
 
@@ -2313,6 +2908,55 @@ ${rows.map((row) => `| ${row.capability} | ${row.jdEvidence} | ${row.resumeEvide
 | 综合匹配程度 | 基于 JD 职责与简历项目证据逐项对照 | 已匹配 ${matchCount}/${rows.length} 项能力证据 | ${matchLevel} |`;
 }
 
+function buildCandidateThreeSecondSummary(snapshot) {
+  const rows = buildRequirementEvidenceRows(snapshot);
+  const gate = buildGateAssessment(snapshot, rows);
+  const offerLeverage = buildOfferLeverage(snapshot);
+  const matchedRows = rows.filter((row) => !row.isMissing);
+  const missingRows = rows.filter((row) => row.isMissing);
+  const matchRate = Math.round((matchedRows.length / Math.max(rows.length, 1)) * 100);
+  const topStrength = matchedRows[0] || rows[0];
+  const topRisk = missingRows[0] || rows.find((row) => row.evidenceLevel >= 2) || rows[0];
+  return `| 速览项 | 结论 | 候选人动作 |
+| --- | --- | --- |
+| 核心匹配度 | ${matchRate}%；${gate.result} | 不要泛泛说匹配，优先讲最贴近 JD 的项目闭环 |
+| 差异化优势 | ${topStrength ? `${topStrength.capability}：${topStrength.resumeEvidence}` : "暂未识别明确优势"} | 自我介绍后主动引导到该项目，讲问题、取舍、推进和结果 |
+| 最大风险 | ${topRisk ? `${topRisk.capability}：${topRisk.isMissing ? "缺证" : topRisk.evidenceLevelLabel}` : "待验证"} | 准备指标口径、个人贡献、失败复盘或诚实迁移表达 |
+| 今晚优先动作 | 补齐最高风险证据，不追求面面俱到 | 画 1 张项目流程图，列 3 个关键决策，补 1 组可复核指标 |
+| 谈薪 / 动机 | ${offerLeverage.rating}：${offerLeverage.summary} | 把期望绑定到职责完整度、可量化贡献、到岗确定性 |`;
+}
+
+function buildCandidateAdvantageCards(snapshot) {
+  const rows = buildRequirementEvidenceRows(snapshot);
+  const matchedRows = rows.filter((row) => !row.isMissing).slice(0, 3);
+  const sourceRows = matchedRows.length ? matchedRows : rows.slice(0, 3);
+  return `| 优势项 | 证据 | 面试中怎么主动引导 | 风险提醒 |
+| --- | --- | --- | --- |
+${sourceRows.map((row, index) => {
+  const intro = index === 0
+    ? "开场 30 秒主动抛出该项目，争取让面试官围绕你最强证据追问"
+    : "在回答相邻问题时作为补充案例，证明能力不是孤立技能";
+  const risk = row.isMissing
+    ? "当前只是潜在优势，不能说成已经主导，需要先补真实项目证据"
+    : "避免只讲团队成果，必须说清本人动作、决策权和结果归因";
+  return `| ${row.capability} | ${row.resumeEvidence} | ${intro} | ${risk} |`;
+}).join("\n")}`;
+}
+
+function buildAbilityTransferAnalysis(snapshot) {
+  const rows = buildRequirementEvidenceRows(snapshot);
+  const matchedRows = rows.filter((row) => !row.isMissing);
+  const missingRows = rows.filter((row) => row.isMissing);
+  const anchor = matchedRows[0] || rows[0];
+  const transferRows = (missingRows.length ? missingRows : rows.filter((row) => row.evidenceLevel >= 2)).slice(0, 3);
+  return `| 目标缺口 | 可迁移锚点 | 迁移路径 | 面试验证问题 |
+| --- | --- | --- | --- |
+${transferRows.map((row) => {
+  const anchorText = anchor ? anchor.resumeEvidence : "过往复杂项目经历";
+  return `| ${row.capability} | ${anchorText} | 从相邻项目中的需求拆解、方案取舍、研发协同、客户沟通或交付治理迁移到该职责 | 请说明原场景和目标 JD 的相似点、差异点、你如何快速补行业认知，以及哪些能力需要入职后继续补齐 |`;
+}).join("\n") || "| 暂无明显缺口 | 当前证据仍需复核 | 用一级证据确认真实贡献，而不是额外包装迁移 | 请拆解指标口径、个人动作和失败复盘 |"}`;
+}
+
 function buildConcreteGapTable(snapshot) {
   const allRows = buildRequirementEvidenceRows(snapshot);
   const rows = allRows.filter((row) => row.isMissing);
@@ -2327,31 +2971,359 @@ ${gapRows.map((row) => {
 
 function buildConcreteCandidateQuestions(snapshot) {
   const rows = buildRequirementEvidenceRows(snapshot).slice(0, 6);
-  return `| 准备问题 | 对应岗位职责 | 当前项目锚点 | 回答要点 |
+  return `| 模拟问题 | 回答路线图 | 常见陷阱 | 绝对不要说 |
 | --- | --- | --- | --- |
-${rows.map((row) => `| 请用一个项目证明你具备“${row.capability}”，你当时的真实角色和关键决策是什么？ | ${row.jdEvidence} | ${row.resumeEvidence} | 讲清背景、目标、约束、个人动作、结果指标和复盘；当前证据等级：${row.evidenceLevelLabel} |`).join("\n")}
-| 请复盘一次项目延期或线上故障，你如何发现、止血、定位根因并做长期整改？ | 成本、进度、质量控制 | 失败、延期、事故或冲突项目 | 必须讲出时间线、影响范围、根因、整改机制和后续项目中的机制变化 |`;
+${rows.map((row) => `| 请用一个项目证明你具备“${row.capability}” | S：项目背景和约束；T：目标和成功口径；A：你的个人动作、关键取舍、协作对象；R：结果、复盘和下次会改变什么；证据等级：${row.evidenceLevelLabel} | 只复述“负责 / 参与 / 推动”，没有指标口径、个人动作或失败细节 | “这个主要是团队做的，我负责配合” |
+`).join("")}| 请复盘一次项目延期或线上故障 | 按时间线讲发现、止血、分工、根因、影响、整改和后续机制变化 | 把问题全推给研发、客户或外部环境 | “我没有遇到过失败或延期” |`;
 }
 
 function buildCandidateRevisionAdvice(snapshot) {
   const rows = buildRequirementEvidenceRows(snapshot);
   const missingRows = rows.filter((row) => row.isMissing);
   const targetRows = missingRows.length ? missingRows : rows.slice(0, 4);
-  return `| 需要修改 / 准备的点 | 当前问题 | 修改建议 | 面试准备材料 |
+  return `| 优先级 | 今晚要完成的动作 | 产出物 | 为什么优先 |
 | --- | --- | --- | --- |
-${targetRows.map((row) => {
+${targetRows.map((row, index) => {
   const problem = row.isMissing ? `简历没有体现“${row.capability}”的项目证据` : `简历已有“${row.capability}”线索，但当前仅为${row.evidenceLevelLabel}`;
-  return `| ${row.capability} | ${problem} | 在简历中补充一个对应项目，写清你的真实角色、关键动作、结果指标和复盘 | 准备项目背景、目标、约束、个人贡献、指标口径、失败或取舍案例 |`;
+  const priority = index === 0 ? "P0" : index === 1 ? "P1" : "P2";
+  return `| ${priority}：${row.capability} | 针对“${problem}”，补 1 个真实项目，写清背景、目标、约束、个人动作、结果和复盘 | 项目流程图、指标口径卡、关键决策清单、失败或取舍案例 | ${row.isMissing ? "这是 JD 缺证项，可能直接影响推进" : "可把现有证据从低可信提升为高可信"} |`;
 }).join("\n")}`;
+}
+
+function buildCandidateStrategyAdvice(snapshot) {
+  const rows = buildRequirementEvidenceRows(snapshot);
+  const gate = buildGateAssessment(snapshot, rows);
+  const offerLeverage = buildOfferLeverage(snapshot);
+  const matchedRows = rows.filter((row) => !row.isMissing);
+  const missingRows = rows.filter((row) => row.isMissing);
+  const bestRow = matchedRows[0] || rows[0];
+  const missingText = missingRows.slice(0, 2).map((row) => row.capability).join("、") || "一级证据口径";
+  return `| 策略模块 | 当前判断 | 候选人打法 |
+| --- | --- | --- |
+| 优势放大 | ${bestRow ? bestRow.resumeEvidence : gate.bestEvidence} | 主动把这个项目讲成问题判断、方案取舍、推进落地、指标复盘的闭环，不只复述职责 |
+| 缺证项表达 | ${missingText}仍需补强 | 不编造行业或项目经历，改为说明相似场景、已验证方法和入职后补齐行业认知的计划 |
+| 主动引导 | 面试官会优先追问${bestRow ? bestRow.capability : "项目闭环"} | 自我介绍后主动抛出最贴近 JD 的项目，引导对方追问你准备最充分的证据链 |
+| STAR 升级 | 普通 STAR 不足以证明产品判断 | 在背景、目标、动作、结果外补充约束条件、指标口径、关键取舍和复盘机制 |
+| 谈薪 / 动机 | ${offerLeverage.rating}：${offerLeverage.summary} | 把期望与职责完整度、成长空间、到岗确定性和可量化贡献绑定，避免只谈薪资数字 |`;
+}
+
+function buildPressureInterviewGuide(snapshot) {
+  const rows = buildRequirementEvidenceRows(snapshot);
+  const gate = buildGateAssessment(snapshot, rows);
+  const topRisk = rows.find((row) => row.isMissing) || rows.find((row) => row.evidenceLevel >= 2) || rows[0];
+  return `| 压力问题 | 面试官最想听到 | 最不想听到 | 候选人应对 |
+| --- | --- | --- | --- |
+| 项目延期 / 线上故障复盘 | 发现机制、止血动作、根因定位、影响范围、长期整改和后续机制变化 | 没有失败、都是别人问题、只讲结果不讲过程 | 如无线上故障，诚实换成真实延期、需求冲突、客户投诉或资源冲突案例 |
+| 你在项目里到底做了什么 | 明确个人交付物、关键决策、协作对象和结果归因 | “我们团队一起做的”，说不清自己的边界 | 用“我负责 / 我推动 / 我决策 / 我复盘”的句式拆清楚 |
+| 为什么缺少 ${topRisk?.capability || "关键能力"} 证据 | 承认简历表达不足，用相邻经历说明迁移路径和补齐计划 | 直接声称做过但无法还原细节 | 说清原场景、相似点、差异点、入职后 30 天补齐动作 |
+| 如果资源砍半怎么排优先级 | 用客户价值、风险等级、成本、收益和止损阈值排序 | “我会和大家沟通协调” | 现场列保留 / 延后 / 放弃清单，并说明指标依据 |
+| 为什么还值得推进 | ${gate.result} 下的最强证据和最关键补证计划 | 只表达意愿或学习能力 | 绑定 JD 核心职责、已有项目证据和可验证承诺 |`;
 }
 
 function buildConcreteInterviewerQuestions(snapshot) {
   const rows = buildRequirementEvidenceRows(snapshot).slice(0, 6);
-  return `| 面试官视角 | 对应 JD 职责 | 候选人项目锚点 | 可选追问 |
+  return `| 问题类型 | 核心追问 | 回答好继续深挖 | 回答差快速验证 | 推进动作 |
+| --- | --- | --- | --- | --- |
+${rows.map((row, index) => `| ${interviewerLens(index)}：${row.capability} | 对应 JD：${row.jdEvidence}；项目锚点：${row.resumeEvidence}；${row.verificationQuestion} | 继续追问指标口径、个人决策、协作对象、失败细节和结果归因 | 要求给出具体时间线、个人交付物和可复核材料；仍答不上标记缺证 | ${row.isMissing ? "补材料或暂缓" : "可继续深挖"} |`).join("\n")}
+| 反包装验证 | 请按时间线还原一次真实线上故障或延期，说明发现、止血、根因、整改和后续机制变化。 | 继续追问谁拍板、谁执行、影响范围、整改是否进入后续发布机制 | 候选人声称没有失败或只能讲完美项目，标记过度包装风险 | 失败复盘不过关则不建议强推进 |
+| 决策层压力官 | 如果上级砍掉一半预算，你如何用指标重排优先级并说服我？ | 继续追问保留/放弃清单、ROI 口径、客户影响和止损阈值 | 只说“沟通协调”或无法量化取舍依据 | 取舍能力不足时建议加业务负责人面 |`;
+}
+
+function buildInterviewerRecommendation(gate) {
+  if (gate.result.includes("匹配进入")) {
+    return {
+      level: "推荐",
+      action: "进入下一轮，但必须验证真实贡献、指标口径、失败复盘和团队适配",
+    };
+  }
+  if (gate.result.includes("条件性进入")) {
+    return {
+      level: "有条件推荐",
+      action: "只围绕可迁移能力推进，重点验证行业理解速度、场景抽象和项目复杂度",
+    };
+  }
+  return {
+    level: "不推荐",
+    action: "暂不进入下一轮，先要求补充能支撑 JD 核心职责的完整项目证据",
+  };
+}
+
+function buildInterviewerScorecard(snapshot) {
+  const rows = buildRequirementEvidenceRows(snapshot);
+  const gate = buildGateAssessment(snapshot, rows);
+  const offerLeverage = buildOfferLeverage(snapshot);
+  const matchedCount = rows.filter((row) => !row.isMissing).length;
+  const strongCount = rows.filter((row) => row.evidenceLevel === 1).length;
+  const missingCount = rows.length - matchedCount;
+  const scoreRows = [
+    {
+      dimension: "专业能力",
+      score: Math.min(5, Math.max(1, 2 + strongCount + Math.floor(matchedCount / 3))),
+      evidence: buildEvidenceSummary(rows),
+      anchor: "能拆解 JD 核心职责，并用真实项目说明产品判断和结果口径",
+      risk: missingCount >= 4 ? "多数核心职责缺证" : "只讲职责，不讲方法和取舍",
+    },
+    {
+      dimension: "项目闭环",
+      score: gate.enterSandbox ? (strongCount ? 4 : 3) : 1,
+      evidence: gate.bestEvidence,
+      anchor: "能讲清需求发现、方案设计、研发协同、上线、复盘",
+      risk: "缺少上线结果、失败复盘或个人贡献边界",
+    },
+    {
+      dimension: "沟通协作",
+      score: /推动|协作|客户|研发|设计|运营|跨团队|协调/.test(`${snapshot.resume || ""} ${snapshot.company_context || ""}`) ? 3 : 2,
+      evidence: findEvidence(`${snapshot.resume || ""} ${snapshot.company_context || ""}`, ["推动", "协作", "客户", "研发", "设计", "运营", "跨团队", "协调"]) || "材料中协作证据不足",
+      anchor: "能说明冲突方、沟通机制、升级路径和最终结果",
+      risk: "只说沟通顺畅，无法复盘冲突和资源争抢",
+    },
+    {
+      dimension: "业务理解",
+      score: /智慧矿山|矿山|GIS|B\s*端|B端|SaaS|企业|客户|行业/.test(`${snapshot.resume || ""} ${snapshot.job_description || ""}`) ? 3 : 2,
+      evidence: findEvidence(`${snapshot.resume || ""} ${snapshot.job_description || ""}`, ["智慧矿山", "矿山", "GIS", "B端", "B 端", "SaaS", "企业", "客户", "行业"]) || "目标行业或客户场景证据不足",
+      anchor: "能把用户、客户、业务指标和产品方案连起来",
+      risk: "只懂功能，不懂业务场景和客户价值",
+    },
+    {
+      dimension: "技术协同",
+      score: /架构|研发|技术|数据库|前后端|C\+\+|Java|JavaScript|系统设计/.test(`${snapshot.resume || ""} ${snapshot.job_description || ""}`) ? 3 : 2,
+      evidence: findEvidence(`${snapshot.resume || ""} ${snapshot.job_description || ""}`, ["架构", "研发", "技术", "数据库", "前后端", "C++", "Java", "JavaScript", "系统设计"]) || "技术协同证据不足",
+      anchor: "能说明技术边界、方案取舍、风险控制和研发协同方式",
+      risk: "堆技术名词，无法解释系统边界或技术风险",
+    },
+    {
+      dimension: "团队适配",
+      score: snapshot.company_context ? 3 : 2,
+      evidence: snapshot.company_context ? clip(snapshot.company_context) : "未提供团队文化或协作上下文",
+      anchor: "能适应团队节奏、沟通方式和岗位真实压力",
+      risk: "动机泛化，对岗位挑战或团队节奏理解不足",
+    },
+    {
+      dimension: "Offer 风险",
+      score: offerLeverage.rating.includes("暂无") ? 2 : 3,
+      evidence: offerLeverage.detail,
+      anchor: "能清楚说明期望、约束、竞对机会、到岗时间和取舍标准",
+      risk: "薪资、职级、到岗或竞对机会后置暴露",
+    },
+  ];
+  return `| 评分维度 | 分数 | 证据 | 行为锚点 / 扣分信号 |
 | --- | --- | --- | --- |
-${rows.map((row, index) => `| ${interviewerLens(index)} | ${row.jdEvidence} | ${row.resumeEvidence} | ${row.verificationQuestion} |`).join("\n")}
-| 反包装验证 | 成本、进度、质量控制 | 项目延期、线上故障或失败复盘 | 请按时间线还原一次真实线上故障或延期，说明发现、止血、根因、整改和后续机制变化。 |
-| 决策层压力官 | 战略取舍、预算削减、资源约束 | 最核心项目或模块 | 如果上级砍掉一半预算，你如何用指标重排优先级并说服我？ |`;
+${scoreRows.map((row) => `| ${row.dimension} | ${row.score}/5 | ${row.evidence} | 行为锚点：${row.anchor}；扣分信号：${row.risk} |`).join("\n")}`;
+}
+
+function buildInterviewerSignalTable(snapshot) {
+  const rows = buildRequirementEvidenceRows(snapshot);
+  const missingRows = rows.filter((row) => row.isMissing);
+  const matchedRows = rows.filter((row) => !row.isMissing);
+  return `| 信号类型 | 现场表现 | 代表含义 | 面试官动作 |
+| --- | --- | --- | --- |
+| 绿灯：项目真实 | 能按时间线讲清${matchedRows[0]?.capability || "核心项目"}的背景、目标、约束、个人动作和结果 | 项目闭环可信度较高 | 继续深挖关键决策和失败复盘 |
+| 绿灯：指标可信 | 能说明指标分母、统计周期、上线前后对比和归因边界 | 结果不是简单包装 | 追问是否有同期变量、对照组或客户反馈 |
+| 绿灯：协作成熟 | 能讲清冲突方、资源约束、升级机制和最终取舍 | 具备跨团队推进能力 | 追问如果资源减半会如何重排优先级 |
+| 红灯：职责复述 | 只重复“负责 / 参与 / 推动”，没有个人动作 | 可能只是边缘参与 | 要求候选人明确自己做过的交付物和决策 |
+| 红灯：缺证回避 | 对${missingRows[0]?.capability || "关键能力"}只讲学习意愿，没有项目证据 | 不足以支撑 JD 核心职责 | 标记缺证，必要时停止该方向深挖 |
+| 红灯：完美叙事 | 无法提供延期、冲突、事故或判断错误案例 | 可能存在过度包装 | 必须追问失败案例；仍无法回答则记录风险 |`;
+}
+
+function buildInterviewerFollowupPaths(snapshot) {
+  const rows = buildRequirementEvidenceRows(snapshot);
+  const targetRows = rows.slice(0, 4);
+  return `| 起手问题 | 回答好时继续追问 | 回答差时快速验证 | 记录结论 |
+| --- | --- | --- | --- |
+${targetRows.map((row) => `| ${row.verificationQuestion} | 请继续说明关键决策是谁做的、指标如何定义、失败点是什么 | 要求候选人给出具体时间、协作人、产出物和复盘材料；仍答不上则标记缺证 | ${row.capability}：${row.matchStatus} |`).join("\n")}
+| 请复盘一次项目延期或线上故障 | 继续追问发现、止血、根因、影响范围、整改机制和后续机制变化 | 如果没有真实失败案例，追问需求冲突、客户投诉或资源冲突；仍没有则标记包装风险 | 失败复盘能力 |
+| 如果预算或研发资源砍掉一半，你怎么重排优先级 | 继续追问 ROI、客户影响、风险阈值和说服路径 | 如果只说沟通协调，要求现场列出保留/放弃清单 | 战略取舍能力 |`;
+}
+
+function buildInterviewerDecisionAdvice(snapshot) {
+  const rows = buildRequirementEvidenceRows(snapshot);
+  const gate = buildGateAssessment(snapshot, rows);
+  const recommendation = buildInterviewerRecommendation(gate);
+  const missingRows = rows.filter((row) => row.isMissing).slice(0, 3);
+  const mustVerify = (missingRows.length ? missingRows : rows.slice(0, 3))
+    .map((row) => row.capability)
+    .join("、");
+  return `| 决策项 | 建议 |
+| --- | --- |
+| 推荐等级 | ${recommendation.level} |
+| 录用前置条件 | 候选人必须能用真实项目证明：${mustVerify} |
+| 下一轮最应验证 | 个人贡献边界、指标口径、失败复盘、技术 / 业务取舍和团队适配 |
+| 加面建议 | 若候选人通过业务面，建议追加项目推进 / 技术协同视角验证，避免只看产品表达 |
+| Offer 风险处理 | 谈薪前必须确认薪资期望、竞对机会、到岗时间、职级偏好和接受概率 |
+| 不推荐触发条件 | 无法提供完整项目闭环、拒绝复盘失败、无法解释指标口径或只讲团队成果 |`;
+}
+
+function buildInterviewerQuickBrief(snapshot) {
+  const rows = buildRequirementEvidenceRows(snapshot);
+  const gate = buildGateAssessment(snapshot, rows);
+  const recommendation = buildInterviewerRecommendation(gate);
+  const offerLeverage = buildOfferLeverage(snapshot);
+  const matchedRows = rows.filter((row) => !row.isMissing);
+  const missingRows = rows.filter((row) => row.isMissing);
+  const topStrength = matchedRows[0]?.capability || "暂无明确强证据";
+  const topRisk = missingRows[0]?.capability || "表面匹配但需反包装验证";
+  return `| 速览项 | 内容 |
+| --- | --- |
+| 推荐等级 | ${recommendation.level} |
+| 核心亮点 | ${topStrength}：${matchedRows[0]?.resumeEvidence || gate.bestEvidence} |
+| 核心风险 | ${topRisk}：${missingRows[0]?.evidenceReason || "需要验证真实角色、指标口径和失败复盘"} |
+| 必问 3 题 | 1. 还原最贴近 JD 的完整项目闭环；2. 按时间线复盘一次延期 / 故障；3. 解释一次资源砍半时的优先级取舍 |
+| 面试策略 | 先问项目闭环，再问失败复盘，最后用决策层压力题验证临场判断 |
+| Offer 提醒 | ${offerLeverage.rating}：${offerLeverage.summary} |
+| 下一轮传递重点 | ${gate.enterSandbox ? "传递已验证证据、仍待验证缺口和新增风险" : "先补项目证据，不建议直接推进到深轮面试"} |`;
+}
+
+function buildCandidateProfile(snapshot) {
+  const normalized = normalizeSnapshot(snapshot);
+  const rows = buildRequirementEvidenceRows(snapshot);
+  const gate = buildGateAssessment(snapshot, rows);
+  const offerLeverage = buildOfferLeverage(snapshot);
+  const projectTypes = rows
+    .filter((row) => !row.isMissing)
+    .slice(0, 3)
+    .map((row) => row.capability)
+    .join("、") || "简历未提供足够项目类型证据";
+  const motivationEvidence = findEvidence(
+    `${normalized.resume} ${normalized.company_context} ${normalized.offer_constraints}`,
+    ["希望", "期望", "考虑", "目标", "到岗", "预算", "竞对", "Offer", "offer", "成长", "稳定"],
+  ) || "动机、薪资和到岗约束缺少明确证据";
+  return `| 画像维度 | 当前判断 | 证据 | 需要验证 |
+| --- | --- | --- | --- |
+| 职业路径画像 | ${projectTypes} | ${clip(normalized.resume) || "未提供简历"} | 是否具备从单点执行到模块负责人 / 行业产品负责人的跨度 |
+| 项目角色画像 | ${gate.result} | ${gate.summary} | 本人真实角色、决策权、产出物和指标归因 |
+| 稳定性 / 动机画像 | 待验证 | ${motivationEvidence} | 离职动机、岗位偏好、长期稳定性和业务节奏接受度 |
+| 薪资 / 到岗画像 | ${offerLeverage.rating} / 待验证 | ${normalized.offer_constraints || "未提供 Offer / 谈薪约束"} | 薪资期望、竞对机会、可接受底线和最快到岗时间 |
+| 团队适配画像 | 待验证 | ${normalized.company_context || "未提供团队上下文"} | 沟通风格、冲突处理、资源争抢和升级机制成熟度 |`;
+}
+
+function buildRoleAwareInterviewerModules(snapshot) {
+  const rows = buildRequirementEvidenceRows(snapshot);
+  const gate = buildGateAssessment(snapshot, rows);
+  const offerLeverage = buildOfferLeverage(snapshot);
+  const profile = buildCandidateProfile(snapshot).replace(/\n/g, " ");
+  const roleModules = [
+    {
+      title: "HR 面试官模块",
+      goal: "验证动机、稳定性、薪资期望、到岗时间和合规风险",
+      portrait: `候选人阶段与 Offer 约束：${normalizeSnapshot(snapshot).candidate_stage || "未提供"}；${offerLeverage.summary}`,
+      mustAsk: "为什么选择该岗位？是否有竞对 Offer？最快到岗时间和薪资底线是什么？是否存在竞业或合规限制？",
+      deepAsk: "如果该岗位职责、薪资或到岗时间只能满足两项，你如何排序？为什么？",
+      quickCheck: "请用 30 秒说明你接受或拒绝 Offer 的前三个触发条件。",
+      chain: "动机清晰 -> 追问机会排序和长期规划；动机泛化 -> 追问离职原因、真实不满和接受 / 拒绝 Offer 的触发条件",
+      scorecard: "动机清晰度 /5；稳定性 /5；薪资匹配 /5；到岗确定性 /5",
+      green: "能明确说出岗位吸引点、机会排序、薪资弹性和到岗计划",
+      red: "关键条件后置暴露、只谈薪资、动机空泛或回避竞业限制",
+      skip: "不需要追问系统架构、技术选型细节或产品路线图深度。",
+      handoff: "把薪资底线、竞对阶段、到岗时间和动机强弱传给业务负责人",
+    },
+    {
+      title: "技术架构 / 技术负责人模块",
+      goal: "验证系统设计、技术边界、技术选型、研发协同和复杂问题排查",
+      portrait: `技术协同证据：${rows.find((row) => row.capability === "技术架构与研发协同")?.resumeEvidence || "缺少明确证据"}`,
+      mustAsk: "请画出最复杂项目的系统边界；为什么采用当时的技术方案？最大技术风险如何识别和控制？",
+      deepAsk: "如果核心模块要支撑 10 倍数据量或客户量，你会先改哪三个技术点？",
+      quickCheck: "请列出该项目中你本人直接参与的技术评审、接口设计或风险决策。",
+      chain: "能画清架构 -> 追问瓶颈、容灾、扩展和技术债；画不清 -> 追问本人负责模块和代码 / 文档贡献",
+      scorecard: "系统设计 /5；技术选型 /5；问题排查 /5；研发协同 /5",
+      green: "能解释技术方案取舍、边界、风险和研发协作机制",
+      red: "堆技术名词但无法解释为什么、谁决策、风险如何闭环",
+      skip: "不需要深问薪资底线、离职动机或 HR 合规细节。",
+      handoff: "把技术深度、系统边界和研发协同风险传给产品 / 项目推进面",
+    },
+    {
+      title: "产品负责人模块",
+      goal: "验证需求洞察、产品规划、MVP / 迭代意识、用户价值和业务指标",
+      portrait: `产品证据：${rows.find((row) => row.capability === "产品规划与生命周期管理")?.resumeEvidence || "缺少明确证据"}`,
+      mustAsk: "一个 0-1 项目最初的用户问题是什么？你如何定义 MVP？上线后如何迭代？",
+      deepAsk: "如果客户、销售和研发对版本优先级意见相反，你用什么标准裁剪需求？",
+      quickCheck: "请用一句话说清这个产品的目标用户、核心场景和成功指标。",
+      chain: "回答有用户和指标 -> 追问取舍、竞品和迭代路线；回答只有功能 -> 追问业务目标和用户价值",
+      scorecard: "需求洞察 /5；规划能力 /5；指标意识 /5；产品质量 /5",
+      green: "能把用户、客户、业务指标和产品方案连起来",
+      red: "只讲功能列表，无法解释为什么做、先做什么、怎么判断成功",
+      skip: "不需要深入问薪资谈判、竞业限制或代码实现细节。",
+      handoff: "把产品判断、MVP 意识和业务指标缺口传给业务负责人",
+    },
+    {
+      title: "项目推进 / PMO 模块",
+      goal: "验证里程碑、资源协调、延期预警、风险升级和复盘机制",
+      portrait: `交付证据：${rows.find((row) => row.capability === "成本、进度、质量控制")?.resumeEvidence || "缺少明确证据"}`,
+      mustAsk: "最复杂项目如何排期？需求增加 20% 怎么处理？一次差点延期如何预警和扭转？",
+      deepAsk: "如果关键研发资源被抽走，你如何重新拆里程碑、同步风险并争取业务接受？",
+      quickCheck: "请列一个真实项目的里程碑、风险清单、责任人和升级节点。",
+      chain: "能讲出排期和风险 -> 追问升级机制和复盘沉淀；只说协调 -> 追问具体冲突方和取舍记录",
+      scorecard: "目标拆解 /5；资源协调 /5；风险控制 /5；复盘沉淀 /5",
+      green: "能给出里程碑、风险清单、责任人、升级路径和后续机制变化",
+      red: "没有真实延期 / 冲突案例，或只把问题归因给外部团队",
+      skip: "不需要深问薪资期望或宏观战略取舍。",
+      handoff: "把交付风险、资源协调能力和复盘成熟度传给终面",
+    },
+    {
+      title: "业务负责人 / 决策层模块",
+      goal: "验证战略取舍、商业洞察、投入产出、领导力潜力和资源约束下的判断质量",
+      portrait: `闸口判断：${gate.result}；${gate.summary}`,
+      mustAsk: "如果预算砍半，你保留什么、放弃什么？如果短期 ROI 不好但战略上重要，如何争取资源？",
+      deepAsk: "如果你负责的方向连续两个季度没有指标起色，你会继续、收缩还是停掉？阈值是什么？",
+      quickCheck: "请用客户价值、收入影响、风险成本三个维度给当前项目排优先级。",
+      chain: "能量化取舍 -> 追问一年内优先改变什么；无法量化 -> 追问客户价值、成本和止损阈值",
+      scorecard: "战略思维 /5；商业洞察 /5；资源取舍 /5；领导力潜力 /5",
+      green: "能用客户价值、业务指标、风险等级和投入产出解释选择",
+      red: "只表达主观偏好，遇到预算和方向冲突时只做被动执行",
+      skip: "不需要追问基础工具使用或简历细枝末节。",
+      handoff: "输出是否建议 Offer、建议职级、需补充验证和入职后使用建议",
+    },
+  ];
+
+  return roleModules
+    .map((role) => `### ${role.title}
+
+| 模块 | 内容 |
+| --- | --- |
+| 角色目标 | ${role.goal} |
+| 候选人画像 | ${role.portrait} |
+| 必问问题 | ${role.mustAsk} |
+| 深挖问题 | ${role.deepAsk} |
+| 快速验证问题 | ${role.quickCheck} |
+| 追问链 | ${role.chain} |
+| 评分卡 | ${role.scorecard} |
+| 绿灯信号 | ${role.green} |
+| 红灯信号 | ${role.red} |
+| 本角色不需要看的内容 | ${role.skip} |
+| 给下一位面试官的话 | ${role.handoff} |`)
+    .join("\n\n");
+}
+
+function buildInterviewHandoffCard(snapshot) {
+  const rows = buildRequirementEvidenceRows(snapshot);
+  const gate = buildGateAssessment(snapshot, rows);
+  const recommendation = buildInterviewerRecommendation(gate);
+  const matchedRows = rows.filter((row) => !row.isMissing).slice(0, 3);
+  const missingRows = rows.filter((row) => row.isMissing).slice(0, 3);
+  return `| 传递字段 | 填写内容 |
+| --- | --- |
+| 本轮面试官角色 | HR / 技术架构 / 产品负责人 / 项目推进 / 业务负责人 / 决策层 |
+| 已验证通过 | ${matchedRows.map((row) => row.capability).join("、") || "待面试后填写"} |
+| 需要下一轮验证 | ${missingRows.map((row) => row.capability).join("、") || "失败复盘、指标口径、真实角色"} |
+| 新增发现 | 面试中发现的新亮点、新风险、动机变化或 Offer 约束 |
+| 本轮评分 | /5；评分理由必须写明关键证据 |
+| 是否建议进入下一轮 | ${recommendation.level}；${recommendation.action} |
+| 给下一位面试官的话 | 请重点验证上一轮未证实的项目证据，不要重复已经通过的问题 |`;
+}
+
+function buildPostInterviewEvaluationTemplate(snapshot) {
+  const gate = buildGateAssessment(snapshot);
+  const recommendation = buildInterviewerRecommendation(gate);
+  return `| 评估项 | 面试官填写 |
+| --- | --- |
+| 专业能力 | /5；关键观察： |
+| 项目经验 | /5；关键观察： |
+| 沟通协作 | /5；关键观察： |
+| 团队适配 | /5；关键观察： |
+| 成长潜力 | /5；关键观察： |
+| Offer 风险 | /5；关键观察： |
+| 综合判断 | 推荐录用 / 有条件推荐 / 不推荐；系统初始建议：${recommendation.level} |
+| 需要补充验证 | 项目闭环、指标口径、失败复盘、动机、薪资和到岗约束 |
+| 面试官备注 | 记录候选人原话、关键证据、风险信号和建议下一轮追问 |`;
 }
 
 function buildRequirementEvidenceRows(snapshot) {
