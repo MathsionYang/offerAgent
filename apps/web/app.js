@@ -23,9 +23,11 @@ const feedbackAgreementEl = $("feedbackAgreement");
 const feedbackQuestionUseEl = $("feedbackQuestionUse");
 const feedbackNotesEl = $("feedbackNotes");
 const appendFeedbackBtn = $("appendFeedbackBtn");
+const languageEl = $("language");
 const skillToggleEls = Array.from(document.querySelectorAll(".skill-toggle"));
 
 let currentRun = null;
+let currentLanguage = languageEl?.value || "zh";
 
 const providerDefaults = {
   mock: { model: "mock-product-manager-v1", baseUrl: "" },
@@ -36,11 +38,12 @@ const providerDefaults = {
   custom: { model: "", baseUrl: "" },
 };
 
-const sample = {
-  resume:
-    "候选人：张三，5 年 B 端 SaaS 产品经验。曾负责客户成功平台、工单系统和数据看板。主导过从 0 到 1 的功能规划，推动研发、设计、运营协作，上线后工单平均响应时长下降 28%。在另一个项目中负责数据看板需求梳理，但简历未说明指标口径和业务复盘方式。候选人期望负责更完整的产品模块，并希望团队业务增长确定性更强。",
-  job:
-    `1、负责智慧矿山行业产品规划、设计和产品生命周期管理，包括不限于行业市场与竞争分析；
+const samples = {
+  zh: {
+    resume:
+      "候选人：张三，5 年 B 端 SaaS 产品经验。曾负责客户成功平台、工单系统和数据看板。主导过从 0 到 1 的功能规划，推动研发、设计、运营协作，上线后工单平均响应时长下降 28%。在另一个项目中负责数据看板需求梳理，但简历未说明指标口径和业务复盘方式。候选人期望负责更完整的产品模块，并希望团队业务增长确定性更强。",
+    job:
+      `1、负责智慧矿山行业产品规划、设计和产品生命周期管理，包括不限于行业市场与竞争分析；
 2、负责智慧矿山业务咨询，智慧矿山行业调研、产品调研以及项目调研等，包括客户需求分析、技术交流引导和项目方案设计，指导项目技术架构设计与技术风险控制；
 3、负责前瞻性技术探索，对核心技术选型、新功能研发、新专利布局负责；
 4、对技术转化负责，深入用户场景研究需求，并推动方案实施；
@@ -53,10 +56,304 @@ const sample = {
 4、5年以上智慧矿山产品研发工作经验，负责过完整矿山或GIS平台产品的0-1开发工作，以及丰富的客户交流及内部协调经验；
 5、有产品意识，熟悉产品生命周期管理，具有敏锐的产品嗅觉和较强的创新能力，思路清晰，良好的产品开发成本、进度和质量控制能力；
 6、有3年以上软件研发经验者优先。`,
-  context:
-    "公司为成长期 B 端 SaaS 团队，希望候选人能独立负责客户成功相关产品模块。面试重点：需求判断、指标意识、跨团队推动、复盘能力。",
-  offerConstraints:
-    "目标职级：中级产品经理。预算较紧，希望候选人 4 周内到岗。候选人可能同时接触另一家 CRM 公司，需要验证动机和岗位偏好。",
+    context:
+      "公司为成长期 B 端 SaaS 团队，希望候选人能独立负责客户成功相关产品模块。面试重点：需求判断、指标意识、跨团队推动、复盘能力。",
+    offerConstraints:
+      "目标职级：中级产品经理。预算较紧，希望候选人 4 周内到岗。候选人可能同时接触另一家 CRM 公司，需要验证动机和岗位偏好。",
+    candidateStage: "业务一面",
+    targetLevel: "中级产品经理",
+  },
+  en: {
+    resume:
+      "Candidate: Alex Chen, 5 years of B2B SaaS product experience. Owned a customer success platform, ticketing workflow, and analytics dashboard. Led 0-to-1 feature planning, coordinated engineering, design, and operations, and reduced average ticket response time by 28% after launch. Also handled analytics dashboard requirement discovery, but the resume does not clarify metric definitions, personal contribution boundaries, or post-launch review methods. The candidate wants to own a more complete product module and prefers a team with clearer business growth visibility.",
+    job:
+      `1. Own product planning, design, and lifecycle management for smart mining products, including industry market research and competitive analysis.
+2. Lead smart mining consulting, industry research, product research, and project discovery, including customer requirement analysis, technical communication, solution design, and guidance on technical architecture and risk control.
+3. Explore forward-looking technologies and take ownership of core technology selection, new feature R&D, and patent planning.
+4. Own technology commercialization by deeply studying user scenarios and driving implementation.
+5. Work closely with frontline engineering teams and participate in or guide R&D work.
+
+Requirements:
+1. Bachelor's degree or above in computer science or a related field; 5+ years of product/R&D experience; system design or software development experience preferred.
+2. Proficient with Axure, Figma, and similar product design tools; familiar with C++, Java, JavaScript, common frontend/backend frameworks, databases, and operating systems.
+3. Strong problem-solving, communication, collaboration, learning ability, and pressure tolerance.
+4. 5+ years of smart mining product R&D experience, ownership of complete 0-to-1 mining or GIS platform products, and rich customer communication plus internal coordination experience.
+5. Strong product sense, lifecycle management capability, innovation ability, clear thinking, and product development cost, schedule, and quality control.
+6. 3+ years of software engineering experience preferred.`,
+    context:
+      "The company is a growth-stage B2B SaaS team and expects the candidate to independently own customer-success-related product modules. Interview focus: requirement judgment, metric thinking, cross-functional execution, and retrospective capability.",
+    offerConstraints:
+      "Target level: Mid-level Product Manager. Budget is tight and the team hopes the candidate can join within 4 weeks. The candidate may also be speaking with another CRM company, so motivation and role preference need validation.",
+    candidateStage: "业务一面",
+    targetLevel: "Mid-level Product Manager",
+  },
+};
+
+const sample = samples.zh;
+
+const i18n = {
+  zh: {
+    title: "面试助手",
+    metaDescription: "面试助手开源 Web MVP：辅助候选人准备面试，并生成面试官可选问题库。",
+    navSubtitle: "Offer 沙盘 + 面试官视角库",
+    languageLabel: "语言 / Language",
+    heroSubtitle: "辅助候选人更好准备面试，并生成可供面试官挑选的候选人追问题库。",
+    caps: [
+      ["岗位匹配", "先判断项目经历是否匹配 JD 职责，再决定是否进入沙盘。"],
+      ["证据链优先", "把项目讲述、指标口径和个人贡献绑定到证据。"],
+      ["视角库", "生成面试官可挑选的问题，也帮助候选人提前演练。"],
+    ],
+    workflow: [
+      ["配置模型", "选择模型服务商和本次使用的模型。"],
+      ["粘贴材料", "输入简历、JD 和可选面试上下文。"],
+      ["准备报告", "通过项目匹配闸口后，输出候选人准备重点、Offer 风险与追问策略。"],
+      ["反馈校准", "把人工判断写回报告并下载保存。"],
+    ],
+    labels: {
+      configTitle: "临时配置模型",
+      mockBtn: "填充脱敏样例",
+      provider: "模型服务商",
+      model: "模型名称",
+      apiKey: "临时 API Key",
+      baseUrl: "代理 / 自定义 Base URL（可选）",
+      inputTitle: "输入简历与 JD",
+      clearBtn: "清空当前页面",
+      resume: "候选人简历",
+      job: "岗位 JD",
+      context: "公司 / 面试上下文（可选）",
+      sandbox: "Offer 沙盘",
+      sandboxHint: "用于模拟面试推进、录用风险和谈薪约束",
+      candidateStage: "候选人阶段",
+      targetLevel: "目标职级",
+      offerConstraints: "Offer / 谈薪约束（可选）",
+      skillTitle: "面试官视角库",
+      skillHint: "不同面试角色的问题视角，供候选人准备和面试官挑选",
+      generateBtn: "生成面试准备报告",
+      feedbackTitle: "人工反馈",
+      runScope: "仅当前页面有效",
+      agreement: "是否同意系统判断",
+      questionUse: "追问是否可采用",
+      feedbackNotes: "人工补充意见",
+      appendFeedback: "把反馈写入报告",
+      reportTitle: "报告预览",
+      downloadCandidate: "导出候选人 PDF",
+      downloadInterviewer: "导出面试官 PDF",
+      downloadOffer: "导出 Offer 推演 PDF",
+      footer: "面试准备助手第一版只做面试准备辅助，不输出自动录用或淘汰结论。",
+    },
+    placeholders: {
+      apiKeyMock: "Mock 模式不需要 Key",
+      apiKeyReal: "仅保存在当前页面内存，刷新后丢失",
+      baseUrl: "例如 https://your-worker.workers.dev",
+      resume: "粘贴候选人简历文本。不建议在公共设备输入真实敏感信息。",
+      job: "粘贴产品经理岗位 JD。",
+      context: "例如公司阶段、业务方向、目标职级、面试重点、薪资约束等。",
+      targetLevel: "例如 P6 / 中级产品经理",
+      offerConstraints: "例如预算范围、候选人期望、竞品 Offer、到岗时间、团队紧急程度。",
+      feedbackNotes: "例如：哪些结论不准确、哪些问题更适合、还需要验证什么。",
+    },
+    providerOptions: {
+      mock: "Mock Demo（不调用模型）",
+      qwen: "通义千问 / DashScope",
+      custom: "OpenAI-Compatible 代理 / 自定义接口",
+    },
+    stageOptions: {
+      "初筛": "初筛",
+      "业务一面": "业务一面",
+      "业务终面": "业务终面",
+      "Offer 前": "Offer 前",
+    },
+    feedbackOptions: {
+      "未反馈": "未反馈",
+      "同意": "同意",
+      "部分同意": "部分同意",
+      "不同意": "不同意",
+      "采用": "采用",
+      "改写采用": "改写采用",
+      "未采用": "未采用",
+    },
+    skillCards: {
+      hr: ["虚拟 HR 面试官", "深挖动机、岗位偏好、到岗约束和风险边界。"],
+      business: ["虚拟业务负责人", "结合 JD 职责深挖业务判断、指标口径和结果归因。"],
+      project: ["虚拟项目推进面试官", "结合项目经历深挖里程碑、资源协调和复盘机制。"],
+      negotiation: ["虚拟谈薪顾问", "深挖机会选择标准、竞争 Offer、入职概率和谈薪策略。"],
+      decision: ["决策层压力官", "用预算削减、战略取舍和 ROI 压力测试候选人的判断依据。"],
+    },
+    emptyTitle: "等待生成报告",
+    emptyText: "报告会覆盖候选人准备重点、岗位匹配、Offer 沙盘推演、面试官候选问题库、证据链和人工反馈建议。",
+    progressWaiting: "等待生成报告",
+    reportUpdated: "报告已更新",
+    streamPlaceholder: "正在建立候选人、岗位、沙盘与面试官视角证据索引...",
+    streamDone: "已完成",
+    streaming: "分块输出中",
+    modeMock: "当前模式：Mock Demo",
+    modeReal: "当前模式：真实模型调用",
+    runPending: "尚未生成",
+    runGenerating: "生成中...",
+    mockStreaming: "Mock 分块生成中",
+    llmStreaming: "真实模型流式生成中",
+    mockDone: "Mock 分块生成完成",
+    llmDone: "真实模型生成完成",
+    statusReady: "准备就绪。未配置 Key 时会使用 Mock Demo。",
+    statusSample: "已填充脱敏样例。可以直接生成 Mock 报告。",
+    statusCleared: "已清空当前页面内存中的 Key、输入和报告。",
+    statusMissingInput: "请先填写简历和 JD。",
+    statusGeneratingMock: "正在分块生成 Mock 沙盘报告...",
+    statusGeneratingLlm: "正在流式生成报告...",
+    statusMockDone: "Mock 沙盘报告已生成。请下载到本地保存。",
+    statusLlmDone: "真实模型报告已生成。请下载到本地保存。",
+    statusNeedReport: "请先生成报告，再写入人工反馈。",
+    statusFeedback: "人工反馈已写入当前报告。请下载保存，刷新页面后不会保留。",
+    statusPdf: "正在生成 PDF，请稍候...",
+    statusDownloaded: (filename) => `已下载 ${filename}。`,
+    statusPdfFallback: "直接下载 PDF 失败，已打开打印窗口作为降级方案。",
+    statusPopupBlocked: "PDF 窗口被浏览器拦截，请允许弹窗后重试。",
+    statusPrintWindow: "已打开 PDF 打印窗口，请在打印对话框中选择“保存为 PDF”。",
+    errorCors: "生成失败：浏览器直连被模型服务商跨域策略拦截。请先用 Mock Demo，或填写你自己的代理 / Serverless 兼容地址。",
+    errorGeneric: (message) => `生成失败：${message}`,
+    pdfTitles: {
+      candidate: ["候选人面试准备报告", "候选人模块"],
+      interviewer: ["面试官提问辅助报告", "面试官模块"],
+      offer: ["Offer 沙盘推演报告", "Offer 推演模块"],
+      full: ["面试准备报告", "Offer 沙盘 + 面试官视角库"],
+    },
+    fileNames: {
+      candidate: "candidate-report",
+      interviewer: "interviewer-report",
+      offer: "offer-sandbox",
+    },
+  },
+  en: {
+    title: "Interview Assistant",
+    metaDescription: "Open-source Web MVP for interview preparation, evidence-based screening, interviewer question banks, and PDF reports.",
+    navSubtitle: "Offer Sandbox + Interviewer Lens Library",
+    languageLabel: "Language",
+    heroSubtitle: "Turn resumes and job descriptions into candidate prep reports, interviewer question guides, and offer simulation PDFs.",
+    caps: [
+      ["Role Match", "Run the project-match gate before moving into offer simulation."],
+      ["Evidence First", "Tie project stories, metric definitions, and personal contribution to verifiable evidence."],
+      ["Interviewer Lenses", "Generate role-specific questions for interviewers and practice prompts for candidates."],
+    ],
+    workflow: [
+      ["Configure Model", "Choose the model provider and model for this run."],
+      ["Paste Materials", "Enter the resume, JD, and optional interview context."],
+      ["Generate Reports", "Produce candidate prep, offer risks, and interviewer follow-up strategy."],
+      ["Calibrate Feedback", "Append human feedback and export the final report."],
+    ],
+    labels: {
+      configTitle: "Temporary Model Config",
+      mockBtn: "Fill Anonymized Sample",
+      provider: "Model Provider",
+      model: "Model Name",
+      apiKey: "Temporary API Key",
+      baseUrl: "Proxy / Custom Base URL (optional)",
+      inputTitle: "Resume and JD Input",
+      clearBtn: "Clear Page",
+      resume: "Candidate Resume",
+      job: "Job Description",
+      context: "Company / Interview Context (optional)",
+      sandbox: "Offer Sandbox",
+      sandboxHint: "Used to simulate interview progress, hiring risk, and negotiation constraints",
+      candidateStage: "Candidate Stage",
+      targetLevel: "Target Level",
+      offerConstraints: "Offer / Negotiation Constraints (optional)",
+      skillTitle: "Interviewer Lens Library",
+      skillHint: "Question perspectives for different interviewer roles",
+      generateBtn: "Generate Interview Prep Report",
+      feedbackTitle: "Human Feedback",
+      runScope: "Current page only",
+      agreement: "Do you agree with the system judgment?",
+      questionUse: "Can the follow-up questions be used?",
+      feedbackNotes: "Additional human notes",
+      appendFeedback: "Append Feedback to Report",
+      reportTitle: "Report Preview",
+      downloadCandidate: "Export Candidate PDF",
+      downloadInterviewer: "Export Interviewer PDF",
+      downloadOffer: "Export Offer Simulation PDF",
+      footer: "The first version is an interview-prep assistant only and does not issue automatic hiring or rejection decisions.",
+    },
+    placeholders: {
+      apiKeyMock: "No key required in Mock mode",
+      apiKeyReal: "Stored only in current page memory and lost after refresh",
+      baseUrl: "Example: https://your-worker.workers.dev",
+      resume: "Paste candidate resume text. Avoid entering sensitive real data on public devices.",
+      job: "Paste the product manager job description.",
+      context: "Example: company stage, business direction, target level, interview focus, salary constraints.",
+      targetLevel: "Example: P6 / Mid-level Product Manager",
+      offerConstraints: "Example: budget range, candidate expectation, competing offer, start date, team urgency.",
+      feedbackNotes: "Example: inaccurate conclusions, better questions, or remaining validation needs.",
+    },
+    providerOptions: {
+      mock: "Mock Demo (no model call)",
+      qwen: "Qwen / DashScope",
+      custom: "OpenAI-Compatible Proxy / Custom Endpoint",
+    },
+    stageOptions: {
+      "初筛": "Screening",
+      "业务一面": "First business interview",
+      "业务终面": "Final business interview",
+      "Offer 前": "Pre-offer",
+    },
+    feedbackOptions: {
+      "未反馈": "No feedback",
+      "同意": "Agree",
+      "部分同意": "Partially agree",
+      "不同意": "Disagree",
+      "采用": "Use",
+      "改写采用": "Use after rewriting",
+      "未采用": "Do not use",
+    },
+    skillCards: {
+      hr: ["Virtual HR Interviewer", "Probes motivation, role preference, start-date constraints, and risk boundaries."],
+      business: ["Virtual Business Owner", "Validates business judgment, metric definitions, and result attribution against the JD."],
+      project: ["Virtual Project / PMO Interviewer", "Probes milestones, resource coordination, and retrospective mechanisms."],
+      negotiation: ["Virtual Negotiation Advisor", "Validates opportunity selection, competing offers, acceptance probability, and negotiation strategy."],
+      decision: ["Executive Pressure Officer", "Uses budget cuts, strategic trade-offs, and ROI pressure to test judgment quality."],
+    },
+    emptyTitle: "Waiting for Report",
+    emptyText: "The report will cover candidate prep priorities, role matching, offer simulation, interviewer question bank, evidence chain, and feedback suggestions.",
+    progressWaiting: "Waiting for report",
+    reportUpdated: "Report updated",
+    streamPlaceholder: "Building the evidence index across candidate, role, offer sandbox, and interviewer lenses...",
+    streamDone: "Completed",
+    streaming: "Streaming blocks",
+    modeMock: "Current mode: Mock Demo",
+    modeReal: "Current mode: Live model call",
+    runPending: "Not generated",
+    runGenerating: "Generating...",
+    mockStreaming: "Mock block generation",
+    llmStreaming: "Live model streaming",
+    mockDone: "Mock block generation completed",
+    llmDone: "Live model generation completed",
+    statusReady: "Ready. Mock Demo will be used when no key is configured.",
+    statusSample: "Anonymized sample filled. You can generate a Mock report now.",
+    statusCleared: "Cleared the key, inputs, and report from current page memory.",
+    statusMissingInput: "Please fill in both resume and JD first.",
+    statusGeneratingMock: "Generating the Mock sandbox report in blocks...",
+    statusGeneratingLlm: "Streaming the report from the model...",
+    statusMockDone: "Mock sandbox report generated. Download it locally to save.",
+    statusLlmDone: "Live model report generated. Download it locally to save.",
+    statusNeedReport: "Please generate a report before appending human feedback.",
+    statusFeedback: "Human feedback appended to the current report. Download it before refreshing.",
+    statusPdf: "Generating PDF, please wait...",
+    statusDownloaded: (filename) => `Downloaded ${filename}.`,
+    statusPdfFallback: "Direct PDF download failed. Opened a print window as fallback.",
+    statusPopupBlocked: "PDF window was blocked by the browser. Please allow pop-ups and retry.",
+    statusPrintWindow: "PDF print window opened. Choose Save as PDF in the print dialog.",
+    errorCors: "Generation failed: browser direct access was blocked by the model provider's CORS policy. Use Mock Demo or provide your own proxy / serverless compatible endpoint.",
+    errorGeneric: (message) => `Generation failed: ${message}`,
+    pdfTitles: {
+      candidate: ["Candidate Interview Preparation Report", "Candidate Module"],
+      interviewer: ["Interviewer Question Guide", "Interviewer Module"],
+      offer: ["Offer Simulation Report", "Offer Simulation Module"],
+      full: ["Interview Preparation Report", "Offer Sandbox + Interviewer Lens Library"],
+    },
+    fileNames: {
+      candidate: "candidate-report",
+      interviewer: "interviewer-report",
+      offer: "offer-simulation",
+    },
+  },
 };
 
 const systemPrompt = `你是面试准备助手。
@@ -249,7 +546,8 @@ const skillLibrary = {
   },
 };
 
-const reportStages = [
+const reportStagesByLanguage = {
+  zh: [
   { title: "证据解析", marker: "## 一页摘要", detail: "读取简历、JD 与上下文" },
   { title: "匹配闸口", marker: "## 项目匹配闸口", detail: "判断是否进入下一轮沙盘" },
   { title: "岗位匹配", marker: "## 岗位匹配", detail: "校准职责要求与项目证据" },
@@ -257,9 +555,22 @@ const reportStages = [
   { title: "沙盘推演", marker: "## Offer 沙盘推演", detail: "评估推进路径与 Offer 风险" },
   { title: "问题库生成", marker: "## 面试官候选问题库", detail: "生成候选人准备与面试官提问题库" },
   { title: "证据链收束", marker: "## 证据链", detail: "整理可追溯判断依据" },
-];
+  ],
+  en: [
+    { title: "Evidence Scan", marker: "## One-Page Summary", detail: "Read resume, JD, and context" },
+    { title: "Match Gate", marker: "## Project Match Gate", detail: "Decide whether to enter offer simulation" },
+    { title: "Role Match", marker: "## Role Match", detail: "Map requirements to project evidence" },
+    { title: "Risk Check", marker: "## Risks and Validation Needed", detail: "Separate facts, assumptions, and gaps" },
+    { title: "Offer Simulation", marker: "## Offer Simulation", detail: "Assess next steps and offer risk" },
+    { title: "Question Bank", marker: "## Interviewer Question Bank", detail: "Generate candidate practice and interviewer questions" },
+    { title: "Evidence Chain", marker: "## Evidence Chain", detail: "Summarize traceable decision evidence" },
+  ],
+};
 
-renderStreamProgress("", "等待生成报告", false);
+const getText = () => i18n[currentLanguage] || i18n.zh;
+const getReportStages = () => reportStagesByLanguage[currentLanguage] || reportStagesByLanguage.zh;
+
+renderStreamProgress("", getText().progressWaiting, false);
 
 providerEl.addEventListener("change", () => {
   const defaults = providerDefaults[providerEl.value] || providerDefaults.mock;
@@ -267,22 +578,27 @@ providerEl.addEventListener("change", () => {
   baseUrlEl.value = defaults.baseUrl;
   apiKeyEl.disabled = providerEl.value === "mock";
   apiKeyEl.placeholder =
-    providerEl.value === "mock" ? "Mock 模式不需要 Key" : "仅保存在当前页面内存，刷新后丢失";
+    providerEl.value === "mock" ? getText().placeholders.apiKeyMock : getText().placeholders.apiKeyReal;
   updateModelMode();
 });
 
 apiKeyEl.addEventListener("input", updateModelMode);
 
+if (languageEl) {
+  languageEl.addEventListener("change", () => applyLanguage(languageEl.value));
+}
+
 bindClick("mockBtn", () => {
-  resumeEl.value = sample.resume;
-  jobEl.value = sample.job;
-  contextEl.value = sample.context;
-  candidateStageEl.value = "业务一面";
-  targetLevelEl.value = "中级产品经理";
-  offerConstraintsEl.value = sample.offerConstraints;
+  const localizedSample = samples[currentLanguage] || samples.zh;
+  resumeEl.value = localizedSample.resume;
+  jobEl.value = localizedSample.job;
+  contextEl.value = localizedSample.context;
+  candidateStageEl.value = localizedSample.candidateStage;
+  targetLevelEl.value = localizedSample.targetLevel;
+  offerConstraintsEl.value = localizedSample.offerConstraints;
   providerEl.value = "mock";
   providerEl.dispatchEvent(new Event("change"));
-  setStatus("已填充脱敏样例。可以直接生成 Mock 报告。");
+  setStatus(getText().statusSample);
 });
 
 bindClick("clearBtn", () => {
@@ -295,9 +611,9 @@ bindClick("clearBtn", () => {
   offerConstraintsEl.value = "";
   currentRun = null;
   reportEl.className = "report empty";
-  reportEl.innerHTML = '<div class="empty-state"><span class="empty-mark">OA</span><h3>等待生成报告</h3><p>报告会覆盖候选人准备重点、岗位匹配、Offer 沙盘推演、面试官候选问题库、证据链和人工反馈建议。</p></div>';
-  renderStreamProgress("", "等待生成报告", false);
-  runBadgeEl.textContent = "尚未生成";
+  renderEmptyReport();
+  renderStreamProgress("", getText().progressWaiting, false);
+  runBadgeEl.textContent = getText().runPending;
   downloadMdBtn.disabled = true;
   setInterviewerDownloadDisabled(true);
   setOfferDownloadDisabled(true);
@@ -305,13 +621,13 @@ bindClick("clearBtn", () => {
   feedbackAgreementEl.value = "未反馈";
   feedbackQuestionUseEl.value = "未反馈";
   feedbackNotesEl.value = "";
-  setStatus("已清空当前页面内存中的 Key、输入和报告。");
+  setStatus(getText().statusCleared);
 });
 
 generateBtn.addEventListener("click", async () => {
   const input = collectInput();
   if (!input.resume.trim() || !input.jobDescription.trim()) {
-    setStatus("请先填写简历和 JD。", true);
+    setStatus(getText().statusMissingInput, true);
     return;
   }
 
@@ -320,14 +636,14 @@ generateBtn.addEventListener("click", async () => {
   setInterviewerDownloadDisabled(true);
   setOfferDownloadDisabled(true);
   appendFeedbackBtn.disabled = true;
-  runBadgeEl.textContent = "生成中...";
-  renderStreamingReport("", input.useRealModel ? "真实模型流式生成中" : "Mock 分块生成中");
-  setStatus(input.useRealModel ? "正在流式生成报告..." : "正在分块生成 Mock 沙盘报告...");
+  runBadgeEl.textContent = getText().runGenerating;
+  renderStreamingReport("", input.useRealModel ? getText().llmStreaming : getText().mockStreaming);
+  setStatus(input.useRealModel ? getText().statusGeneratingLlm : getText().statusGeneratingMock);
 
   try {
     const report = input.useRealModel
       ? await generateWithLLM(input, (partial) => {
-          renderStreamingReport(cleanReportMarkdown(partial), "真实模型流式生成中");
+          renderStreamingReport(cleanReportMarkdown(partial), getText().llmStreaming);
         })
       : await streamMockReport(input);
     const cleanedReport = cleanReportMarkdown(report);
@@ -346,17 +662,18 @@ generateBtn.addEventListener("click", async () => {
         target_level: input.targetLevel,
         offer_constraints: input.offerConstraints,
         selected_skills: input.selectedSkills,
+        language: input.language,
       },
       report: cleanedReport,
     };
 
-    renderStreamingReport(buildPreviewMarkdown(currentRun), input.useRealModel ? "真实模型生成完成" : "Mock 分块生成完成", true);
+    renderStreamingReport(buildPreviewMarkdown(currentRun), input.useRealModel ? getText().llmDone : getText().mockDone, true);
     runBadgeEl.textContent = currentRun.id;
     downloadMdBtn.disabled = false;
     setInterviewerDownloadDisabled(false);
     setOfferDownloadDisabled(false);
     appendFeedbackBtn.disabled = false;
-    setStatus(input.useRealModel ? "真实模型报告已生成。请下载到本地保存。" : "Mock 沙盘报告已生成。请下载到本地保存。");
+    setStatus(input.useRealModel ? getText().statusLlmDone : getText().statusMockDone);
   } catch (error) {
     setStatus(formatGenerationError(error), true);
   } finally {
@@ -367,14 +684,14 @@ generateBtn.addEventListener("click", async () => {
 downloadMdBtn.addEventListener("click", () => {
   if (!currentRun) return;
   currentRun.human_feedback = collectFeedback();
-  downloadPdfReport(currentRun, "candidate", `candidate-report-${currentRun.id}.pdf`);
+  downloadPdfReport(currentRun, "candidate", buildPdfFilename(currentRun, "candidate"));
 });
 
 if (downloadInterviewerBtn) {
   downloadInterviewerBtn.addEventListener("click", () => {
     if (!currentRun) return;
     currentRun.human_feedback = collectFeedback();
-    downloadPdfReport(currentRun, "interviewer", `interviewer-report-${currentRun.id}.pdf`);
+    downloadPdfReport(currentRun, "interviewer", buildPdfFilename(currentRun, "interviewer"));
   });
 }
 
@@ -382,13 +699,13 @@ if (downloadOfferBtn) {
   downloadOfferBtn.addEventListener("click", () => {
     if (!currentRun) return;
     currentRun.human_feedback = collectFeedback();
-    downloadPdfReport(currentRun, "offer", `offer-sandbox-${currentRun.id}.pdf`);
+    downloadPdfReport(currentRun, "offer", buildPdfFilename(currentRun, "offer"));
   });
 }
 
 appendFeedbackBtn.addEventListener("click", () => {
   if (!currentRun) {
-    setStatus("请先生成报告，再写入人工反馈。", true);
+    setStatus(getText().statusNeedReport, true);
     return;
   }
 
@@ -399,7 +716,7 @@ appendFeedbackBtn.addEventListener("click", () => {
   downloadMdBtn.disabled = false;
   setInterviewerDownloadDisabled(false);
   setOfferDownloadDisabled(false);
-  setStatus("人工反馈已写入当前报告。请下载保存，刷新页面后不会保留。");
+  setStatus(getText().statusFeedback);
 });
 
 function collectInput() {
@@ -415,6 +732,7 @@ function collectInput() {
     targetLevel: targetLevelEl.value.trim(),
     offerConstraints: offerConstraintsEl.value.trim(),
     selectedSkills: collectSelectedSkills(),
+    language: currentLanguage,
     useRealModel: providerEl.value !== "mock" && Boolean(apiKeyEl.value.trim()),
   };
 }
@@ -430,6 +748,151 @@ function setInterviewerDownloadDisabled(disabled) {
 
 function setOfferDownloadDisabled(disabled) {
   if (downloadOfferBtn) downloadOfferBtn.disabled = disabled;
+}
+
+function applyLanguage(language) {
+  currentLanguage = language === "en" ? "en" : "zh";
+  if (languageEl) languageEl.value = currentLanguage;
+
+  const text = getText();
+  document.documentElement.lang = currentLanguage === "en" ? "en" : "zh-CN";
+  document.title = text.title;
+  const metaDescription = document.querySelector('meta[name="description"]');
+  if (metaDescription) metaDescription.content = text.metaDescription;
+
+  setText(".brand strong", text.title);
+  setText(".brand span:not(.brand-mark)", text.navSubtitle);
+  setText(".language-switch span", text.languageLabel);
+  setText(".hero-copy h1", text.title);
+  setText(".hero-subtitle", text.heroSubtitle);
+
+  document.querySelectorAll(".cap-card").forEach((card, index) => {
+    const item = text.caps[index];
+    if (!item) return;
+    const title = card.querySelector("strong");
+    const body = card.querySelector("p");
+    if (title) title.textContent = item[0];
+    if (body) body.textContent = item[1];
+  });
+
+  document.querySelectorAll(".workflow .step-card").forEach((card, index) => {
+    const item = text.workflow[index];
+    if (!item) return;
+    const title = card.querySelector("strong");
+    const body = card.querySelector("p");
+    if (title) title.textContent = item[0];
+    if (body) body.textContent = item[1];
+  });
+
+  setText("#config-title", text.labels.configTitle);
+  setText("#mockBtn", text.labels.mockBtn);
+  setFieldLabel(providerEl, text.labels.provider);
+  setFieldLabel(modelEl, text.labels.model);
+  setFieldLabel(apiKeyEl, text.labels.apiKey);
+  setFieldLabel(baseUrlEl, text.labels.baseUrl);
+  setText("#input-title", text.labels.inputTitle);
+  setText("#clearBtn", text.labels.clearBtn);
+  setFieldLabel(resumeEl, text.labels.resume);
+  setFieldLabel(jobEl, text.labels.job);
+  setFieldLabel(contextEl, text.labels.context);
+  setFieldLabel(candidateStageEl, text.labels.candidateStage);
+  setFieldLabel(targetLevelEl, text.labels.targetLevel);
+  setFieldLabel(offerConstraintsEl, text.labels.offerConstraints);
+  setText("#generateBtn", text.labels.generateBtn);
+  setText("#feedback-title", text.labels.feedbackTitle);
+  setText(".feedback-panel .run-badge", text.labels.runScope);
+  setFieldLabel(feedbackAgreementEl, text.labels.agreement);
+  setFieldLabel(feedbackQuestionUseEl, text.labels.questionUse);
+  setFieldLabel(feedbackNotesEl, text.labels.feedbackNotes);
+  setText("#appendFeedbackBtn", text.labels.appendFeedback);
+  setText("#report-title", text.labels.reportTitle);
+  setText("#downloadMdBtn", text.labels.downloadCandidate);
+  setText("#downloadInterviewerBtn", text.labels.downloadInterviewer);
+  setText("#downloadOfferBtn", text.labels.downloadOffer);
+  setText(".footer p", text.labels.footer);
+
+  const subPanelHeads = document.querySelectorAll(".sub-panel-head");
+  if (subPanelHeads[0]) {
+    subPanelHeads[0].querySelector("span").textContent = text.labels.sandbox;
+    subPanelHeads[0].querySelector("small").textContent = text.labels.sandboxHint;
+  }
+  if (subPanelHeads[1]) {
+    subPanelHeads[1].querySelector("span").textContent = text.labels.skillTitle;
+    subPanelHeads[1].querySelector("small").textContent = text.labels.skillHint;
+  }
+
+  setPlaceholder(apiKeyEl, providerEl.value === "mock" ? text.placeholders.apiKeyMock : text.placeholders.apiKeyReal);
+  setPlaceholder(baseUrlEl, text.placeholders.baseUrl);
+  setPlaceholder(resumeEl, text.placeholders.resume);
+  setPlaceholder(jobEl, text.placeholders.job);
+  setPlaceholder(contextEl, text.placeholders.context);
+  setPlaceholder(targetLevelEl, text.placeholders.targetLevel);
+  setPlaceholder(offerConstraintsEl, text.placeholders.offerConstraints);
+  setPlaceholder(feedbackNotesEl, text.placeholders.feedbackNotes);
+
+  setOptionText(providerEl, "mock", text.providerOptions.mock);
+  setOptionText(providerEl, "qwen", text.providerOptions.qwen);
+  setOptionText(providerEl, "custom", text.providerOptions.custom);
+  Object.entries(text.stageOptions).forEach(([value, label]) => setOptionText(candidateStageEl, value, label));
+  Object.entries(text.feedbackOptions).forEach(([value, label]) => {
+    setOptionText(feedbackAgreementEl, value, label);
+    setOptionText(feedbackQuestionUseEl, value, label);
+  });
+
+  document.querySelectorAll(".skill-card").forEach((card) => {
+    const id = card.querySelector(".skill-toggle")?.value;
+    const item = text.skillCards[id];
+    if (!item) return;
+    const title = card.querySelector("strong");
+    const body = card.querySelector("small");
+    if (title) title.textContent = item[0];
+    if (body) body.textContent = item[1];
+  });
+
+  updateModelMode();
+  if (!currentRun) {
+    renderEmptyReport();
+    renderStreamProgress("", text.progressWaiting, false);
+    runBadgeEl.textContent = text.runPending;
+    setStatus(text.statusReady);
+  } else {
+    renderReport(buildPreviewMarkdown(currentRun));
+  }
+}
+
+function setText(selector, value) {
+  const element = document.querySelector(selector);
+  if (element) element.textContent = value;
+}
+
+function setFieldLabel(control, value) {
+  const label = control?.closest("label");
+  const span = Array.from(label?.children || []).find((child) => child.tagName === "SPAN");
+  if (span) span.textContent = value;
+}
+
+function setPlaceholder(control, value) {
+  if (control) control.placeholder = value;
+}
+
+function setOptionText(select, value, label) {
+  const option = Array.from(select?.options || []).find((item) => item.value === value);
+  if (option) option.textContent = label;
+}
+
+function renderEmptyReport() {
+  reportEl.className = "report empty";
+  reportEl.innerHTML = `<div class="empty-state">
+    <span class="empty-mark">OA</span>
+    <h3>${escapeHtml(getText().emptyTitle)}</h3>
+    <p>${escapeHtml(getText().emptyText)}</p>
+  </div>`;
+}
+
+function buildPdfFilename(run, audience) {
+  const language = getRunLanguage(run);
+  const labels = (i18n[language] || i18n.zh).fileNames;
+  return `${labels[audience] || labels.candidate}-${run.id}.pdf`;
 }
 
 function collectFeedback() {
@@ -469,10 +932,10 @@ async function generateWithLLM(input, onDelta = () => {}) {
   const body = {
     model: input.model,
     messages: [
-      { role: "system", content: systemPrompt },
+      { role: "system", content: buildSystemPrompt(input.language) },
       {
         role: "user",
-        content: `# 简历\n${input.resume}\n\n# JD\n${input.jobDescription}\n\n# 公司 / 面试上下文\n${input.companyContext || "无"}\n\n# Offer 沙盘上下文\n候选人阶段：${input.candidateStage}\n目标职级：${input.targetLevel || "未提供"}\nOffer / 谈薪约束：${input.offerConstraints || "未提供"}\n\n# 已选择面试官视角\n${formatSelectedSkills(input.selectedSkills)}`,
+        content: buildLlmUserPrompt(input),
       },
     ],
     temperature: 0.2,
@@ -506,6 +969,58 @@ async function generateWithLLM(input, onDelta = () => {}) {
   }
   await streamMarkdownByBlocks(content, onDelta, 120);
   return cleanReportMarkdown(content);
+}
+
+function buildSystemPrompt(language = "zh") {
+  if (language !== "en") return systemPrompt;
+  return `${systemPrompt}
+
+Additional output-language requirement:
+- Generate the entire report in English.
+- Translate all headings, table headers, labels, statuses, evidence levels, recommendations, interviewer roles, and follow-up questions into English.
+- Keep the same decision logic and evidence constraints as the Chinese prompt.
+- Do not mix Chinese section titles into the English report unless quoting source material from the user.`;
+}
+
+function buildLlmUserPrompt(input) {
+  if (input.language === "en") {
+    return `# Output Language
+English
+
+# Resume
+${input.resume}
+
+# Job Description
+${input.jobDescription}
+
+# Company / Interview Context
+${input.companyContext || "None"}
+
+# Offer Sandbox Context
+Candidate stage: ${input.language === "en" ? translateStage(input.candidateStage) : input.candidateStage}
+Target level: ${input.targetLevel || "Not provided"}
+Offer / negotiation constraints: ${input.offerConstraints || "Not provided"}
+
+# Selected Interviewer Lenses
+${formatSelectedSkills(input.selectedSkills)}`;
+  }
+
+  return `# 简历
+${input.resume}
+
+# JD
+${input.jobDescription}
+
+# 公司 / 面试上下文
+${input.companyContext || "无"}
+
+# Offer 沙盘上下文
+候选人阶段：${input.candidateStage}
+目标职级：${input.targetLevel || "未提供"}
+Offer / 谈薪约束：${input.offerConstraints || "未提供"}
+
+# 已选择面试官视角
+${formatSelectedSkills(input.selectedSkills)}`;
 }
 
 async function readStreamResponse(response, onDelta) {
@@ -825,10 +1340,161 @@ function cleanReportMarkdown(markdown) {
     .replace(/~~([^~\n]+)~~/g, "$1");
 }
 
+function generateMockReportEn(input) {
+  const snapshot = normalizeSnapshot({ ...input, language: "en" });
+  const rows = buildRequirementEvidenceRows(snapshot);
+  const gate = buildGateAssessment(snapshot, rows);
+  const offerLeverage = buildOfferLeverage(snapshot);
+  const hiddenPains = buildJdHiddenPainRows(snapshot);
+  const evidenceSummary = summarizeEvidenceCounts(rows);
+  const requirementRows = rows
+    .map((row) => `| ${translateCapability(row.capability)} | ${row.jdEvidence} | ${row.resumeEvidence} | ${translateEvidenceLevel(row.evidenceLevel)} | ${translateMatchStatus(row)} |`)
+    .join("\n");
+  const gapRows = rows
+    .filter((row) => row.isMissing || row.evidenceLevel > 1)
+    .slice(0, 5)
+    .map((row) => `| ${translateCapability(row.capability)} | ${row.resumeEvidence} | ${translateEvidenceLevel(row.evidenceLevel)} | Ask for metric definition, decision chain, personal contribution, and retrospective evidence. |`)
+    .join("\n");
+  const painRows = (hiddenPains.length ? hiddenPains : [
+    { phrase: "strong pressure tolerance", pressure: "urgent releases, resource constraints, customer escalations, or shifting priorities", prep: "Prepare one incident or delay retrospective with timeline and corrective actions" },
+    { phrase: "business sense", pressure: "ambiguous requirements, prioritization, ROI trade-offs, and opportunity judgment", prep: "Prepare one project where you rejected or reshaped a requirement" },
+    { phrase: "communication and coordination", pressure: "cross-functional conflict, engineering capacity competition, customer requirement changes", prep: "Prepare stakeholder map, escalation path, and final decision logic" },
+  ])
+    .map((row) => `| ${row.phrase} | ${row.pressure} | ${row.prep} |`)
+    .join("\n");
+  const gateSummary = `${gate.matchedCount}/${rows.length} core requirement evidence items found. ${gate.enterSandbox ? "The candidate can enter the next validation round with explicit evidence checks." : "Do not move into the next sandbox round before stronger project evidence is provided."}`;
+
+  return `# Interview Preparation Report
+
+## One-Page Summary
+
+| Module | Conclusion | Evidence | Next Step |
+| --- | --- | --- | --- |
+| Project match gate | ${translateGateResult(gate.result)} | ${gateSummary} | ${gate.enterSandbox ? "Proceed to evidence validation, anti-packaging questions, and offer constraints." : "Request complete project-loop evidence before further interview simulation."} |
+| Evidence credibility | ${evidenceSummary} | Resume snapshot: ${clip(input.resume)} | Prioritize first-level evidence: denominator, period, before/after comparison, and direct contribution. |
+| Key strength | ${gate.bestEvidence} | Resume evidence | Convert the strongest project into a problem, target, constraint, action, result, and retrospective story. |
+| Key risk | Personal contribution and metric definitions are not fully proven. | JD snapshot: ${clip(input.jobDescription)} | Ask follow-up questions on role boundary, metric ownership, failure details, and decision chain. |
+| Offer leverage | ${translateOfferRating(offerLeverage.rating)} | ${offerLeverage.summary} | Use only verifiable impact, scarce domain knowledge, competing offers, or start-date certainty as leverage. |
+
+## JD Hidden Pain Point Decoding
+
+| JD Phrase | Hidden Pressure Source | Candidate Preparation |
+| --- | --- | --- |
+${painRows}
+
+## Project Match Gate
+
+| JD Evidence Requirement | JD Evidence | Candidate Project Evidence | Evidence Level | Gate Judgment |
+| --- | --- | --- | --- | --- |
+${requirementRows}
+
+| Gate Result | Detail | Next Step |
+| --- | --- | --- |
+| ${translateGateResult(gate.result)} | ${gateSummary} | ${gate.enterSandbox ? "Enter the next sandbox round with explicit validation questions." : "Pause progression and request stronger project evidence."} |
+
+## Conditional Entry and Capability Transfer
+
+| Scenario | Transfer Pitch | Validation Focus |
+| --- | --- | --- |
+| Cross-domain adaptation | Although my previous projects may not fully match the target industry, I have handled complex B2B systems involving requirement discovery, stakeholder coordination, technical trade-offs, delivery, and retrospective learning. I would use one complete project to show how these capabilities transfer to this role. | Validate industry learning plan, customer requirement analysis, technical solution guidance, and engineering collaboration depth. |
+
+## Role Match
+
+| Capability | Current Evidence | Credibility | Follow-Up Question |
+| --- | --- | --- | --- |
+${rows.map((row) => `| ${translateCapability(row.capability)} | ${row.resumeEvidence} | ${translateEvidenceLevel(row.evidenceLevel)} | ${translateVerificationQuestion(row)} |`).join("\n")}
+
+## Project Highlights
+
+- Strongest available evidence: ${gate.bestEvidence}
+- If the candidate truly owned requirement judgment, solution design, and cross-functional delivery, the interview should force metric definitions and personal contribution boundaries.
+- For cross-domain candidates, focus on transferable capabilities: complex scenario analysis, technical trade-offs, customer communication, engineering collaboration, delivery risk control, and retrospective mechanisms.
+
+## Risks and Validation Needed
+
+| Risk | Evidence | Why It Matters | Next Step |
+| --- | --- | --- | --- |
+${gapRows || "| Evidence gap | No major missing row detected, but anti-packaging verification is still required. | High surface match can still hide team-only contribution. | Ask for metric denominator, failure detail, and decision ownership. |"}
+
+## Offer Simulation
+
+| Item | Current Judgment | Next Step |
+| --- | --- | --- |
+| Candidate stage | ${translateStage(input.candidateStage)} | Decide whether this is screening, business validation, final validation, or negotiation. |
+| Target level | ${input.targetLevel || "Not provided"} | Align level expectations before offer discussion. |
+| Offer constraints | ${input.offerConstraints || "Not provided"} | Add budget range, competing offers, start date, and role preference before negotiation. |
+| Negotiation leverage | ${translateOfferRating(offerLeverage.rating)} | ${offerLeverage.detail} |
+| Gate status | ${translateGateResult(gate.result)} | ${gate.enterSandbox ? "Continue validation." : "Do not push to offer before evidence is strengthened."} |
+
+## Must-Ask Follow-Up Questions
+
+1. What was the real user or business problem behind your strongest project, and how did you prove it was not a fake requirement?
+2. How exactly was the result metric defined? Please explain denominator, period, before/after comparison, and your direct contribution.
+3. When engineering capacity was limited, what did you cut, delay, or protect, and why?
+4. What was the biggest cross-functional blocker, and what concrete actions did you personally take?
+5. Reconstruct one project delay or production incident by timeline: discovery, containment, ownership split, root cause, customer or business impact, long-term fix, and mechanism changes such as longer gray release, monitoring dashboard, approval flow, or rollback plan.
+
+## Candidate Preparation Priorities
+
+| Priority | What To Prepare | Output |
+| --- | --- | --- |
+| Project story | Background, goal, constraints, action, result, retrospective | 2-minute STAR version and 5-minute deep-dive version |
+| Evidence upgrade | Metric definition, denominator, period, comparison group, personal decision | Evidence card for each core project |
+| Expression rehearsal | Self-introduction, role match, project narrative, motivation, and offer constraints | Mock interview script |
+| Risk plan | Failure case, conflict case, incident review, motivation, salary and start-date questions | Honest answer bullets without fabrication |
+
+## Interviewer Question Bank
+
+| Question | JD Responsibility | Project Anchor | Validation Purpose | Risk Signal |
+| --- | --- | --- | --- | --- |
+| Which project best proves your fit for this JD, and why? | Core role match | ${clip(input.resume)} | Verify semantic fit, not keyword overlap. | Generic answer or no specific project. |
+| Explain one requirement you rejected or reshaped. | Requirement analysis and prioritization | Candidate's strongest project | Validate product judgment and trade-off logic. | Only describes execution, not decision. |
+| Draw the project milestone and risk map. | Project delivery and coordination | Delivery project | Validate PM / PMO capability. | Cannot name dependencies or escalation path. |
+| Reconstruct a delay or incident by timeline. | Risk control and retrospective | Failure or conflict case | Detect over-packaging and real ownership. | Claims no failure or conflict ever occurred. |
+| If budget is cut by half, how do you reorder priorities? | Strategic trade-off and ROI | Target role scenario | Test executive pressure judgment. | Uses preference instead of metrics. |
+
+## Interviewer Lens Library
+
+| Role | Focus | Deep Question | Good Answer Should Prove | Risk Signal |
+| --- | --- | --- | --- | --- |
+| HR Interviewer | Motivation, stability, start date, salary risk | Why this role now, and what trade-off would make you decline it? | Clear motivation and explicit constraints. | Motivation is vague or purely salary-driven. |
+| Business Owner | Business understanding and result attribution | How did you connect customer pain to business metric? | Business logic and metric ownership. | Only describes features shipped. |
+| Product Lead | Planning, lifecycle, product quality | What did you prioritize for MVP and what did you intentionally not build? | Product sense and lifecycle judgment. | Cannot explain trade-off criteria. |
+| Project / PMO Interviewer | Milestones, resources, risks | Where did the project almost slip, and how did you intervene? | Risk detection and coordination behavior. | No concrete blockers or actions. |
+| Executive Pressure Officer | Strategic trade-off and ROI | If your module loses half its budget, what do you keep, cut, and defend with metrics? | Decision quality under resource pressure. | Avoids trade-off or lacks metrics. |
+
+## Evidence Chain
+
+| Evidence Source | Evidence Level | Supports Which Judgment | Still Needs Validation |
+| --- | --- | --- | --- |
+| Resume | Medium to pending unless metrics are verified | Project match, role match, candidate strengths | Metric definitions, contribution boundary, failure detail |
+| JD | High for role requirements | Capability matrix and gate criteria | Which requirements are must-have versus nice-to-have |
+| Company / interview context | Medium | Offer risk and team fit | Team urgency, budget range, interviewer preference |
+| Offer constraints | Medium to pending | Negotiation leverage and acceptance probability | Competing offers, start date, compensation expectation |
+
+## Human Feedback Suggestions
+
+- Does the interviewer agree with the project match gate?
+- Which evidence was confirmed, disproved, or still pending?
+- Which follow-up questions exposed the key risk?
+- Should the candidate enter the next round?
+- What is the single most important issue for the next interviewer?
+
+## Dynamic Calibration Instruction
+
+| Feedback Field | What To Capture | Iteration Action |
+| --- | --- | --- |
+| Missing real interview questions | Questions asked in the interview but absent from this report | Add to the role-specific question bank |
+| Newly exposed risk | Weak answers, missing evidence, or new contradictions | Update risk list and evidence level |
+| Effective ad-hoc questions | Interviewer follow-ups that worked well | Promote to high-frequency follow-up library |
+| Inaccurate match judgment | Where the report over- or under-estimated fit | Calibrate the prompt and gate logic |
+| Low-value questions | Questions proven ineffective | Lower weight or remove from the library |`;
+}
+
 async function streamMockReport(input) {
-  const report = generateMockReport(input);
+  const report = input.language === "en" ? generateMockReportEn(input) : generateMockReport(input);
   await streamMarkdownByBlocks(report, (partial) => {
-    renderStreamingReport(partial, "Mock 分块生成中");
+    renderStreamingReport(partial, getText().mockStreaming);
   }, 320);
   return report;
 }
@@ -869,7 +1535,12 @@ function formatSelectedSkills(selectedSkills) {
   return selectedSkills
     .map((id) => {
       const skill = skillLibrary[id];
-      return skill ? `- ${skill.name}：${skill.focus}。${skill.evidence}` : "";
+      if (!skill) return "";
+      if (currentLanguage === "en") {
+        const skillText = getText().skillCards[id];
+        return skillText ? `- ${skillText[0]}: ${skillText[1]}` : "";
+      }
+      return `- ${skill.name}：${skill.focus}。${skill.evidence}`;
     })
     .filter(Boolean)
     .join("\n");
@@ -953,21 +1624,21 @@ function buildDeepQuestions(id, skill, evidence) {
 
 function updateModelMode() {
   const useRealModel = providerEl.value !== "mock" && Boolean(apiKeyEl.value.trim());
-  modelModeEl.textContent = useRealModel ? "当前模式：真实模型调用" : "当前模式：Mock Demo";
+  modelModeEl.textContent = useRealModel ? getText().modeReal : getText().modeMock;
   modelModeEl.classList.toggle("active", useRealModel);
 }
 
 function renderReport(markdown) {
   reportEl.className = "report";
   reportEl.innerHTML = markdownToHtml(markdown);
-  renderStreamProgress(markdown, "报告已更新", true);
+  renderStreamProgress(markdown, getText().reportUpdated, true);
 }
 
-function renderStreamingReport(markdown, label = "分块生成中", isDone = false) {
+function renderStreamingReport(markdown, label = getText().mockStreaming, isDone = false) {
   reportEl.className = "report streaming";
   const content = markdown.trim()
     ? markdownToHtml(markdown)
-    : '<p class="stream-placeholder">正在建立候选人、岗位、沙盘与面试官视角证据索引...</p>';
+    : `<p class="stream-placeholder">${escapeHtml(getText().streamPlaceholder)}</p>`;
   const cursor = isDone ? "" : '<span class="stream-cursor" aria-hidden="true"></span>';
 
   renderStreamProgress(markdown, label, isDone);
@@ -982,7 +1653,8 @@ function renderStreamProgress(markdown, label, isDone) {
 
 function buildStreamProgress(markdown, label, isDone) {
   const activeIndex = inferStageIndex(markdown, isDone);
-  const steps = reportStages
+  const stages = getReportStages();
+  const steps = stages
     .map((stage, index) => {
       const state = isDone || index < activeIndex ? "done" : index === activeIndex ? "active" : "";
       return `<div class="stream-step ${state}">
@@ -995,16 +1667,17 @@ function buildStreamProgress(markdown, label, isDone) {
 
   return `<div class="stream-title">
       <span>${escapeHtml(label)}</span>
-      <small>${isDone ? "已完成" : "分块输出中"}</small>
+      <small>${isDone ? getText().streamDone : getText().streaming}</small>
     </div>
     <div class="stream-steps">${steps}</div>`;
 }
 
 function inferStageIndex(markdown, isDone) {
-  if (isDone) return reportStages.length;
+  const stages = getReportStages();
+  if (isDone) return stages.length;
 
   let activeIndex = 0;
-  reportStages.forEach((stage, index) => {
+  stages.forEach((stage, index) => {
     if (markdown.includes(stage.marker)) activeIndex = index;
   });
   return activeIndex;
@@ -1123,23 +1796,10 @@ function cellToneClass(value) {
 
 function reportToStaticHtmlDocument(run, audience = "full", options = {}) {
   const markdown = buildAudienceMarkdown(run, audience);
-  const createdAt = new Date(run.created_at).toLocaleString("zh-CN");
-  const reportTitle =
-    audience === "candidate"
-      ? "候选人面试准备报告"
-      : audience === "interviewer"
-        ? "面试官提问辅助报告"
-        : audience === "offer"
-          ? "Offer 沙盘推演报告"
-          : "面试准备报告";
-  const reportEyebrow =
-    audience === "candidate"
-      ? "候选人模块"
-      : audience === "interviewer"
-        ? "面试官模块"
-        : audience === "offer"
-          ? "Offer 推演模块"
-          : "Offer 沙盘 + 面试官视角库";
+  const language = getRunLanguage(run);
+  const text = i18n[language] || i18n.zh;
+  const createdAt = new Date(run.created_at).toLocaleString(language === "en" ? "en-US" : "zh-CN");
+  const [reportTitle, reportEyebrow] = text.pdfTitles[audience] || text.pdfTitles.full;
   const printFilename = options.printFilename || `${reportTitle}.pdf`;
   const autoPrintScript = options.autoPrint
     ? `<script>
@@ -1151,7 +1811,7 @@ function reportToStaticHtmlDocument(run, audience = "full", options = {}) {
     : "";
   const pdfSummaryCards = buildPdfSummaryCards(run, audience);
   return `<!doctype html>
-<html lang="zh-CN">
+<html lang="${language === "en" ? "en" : "zh-CN"}">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -2327,16 +2987,16 @@ function reportToStaticHtmlDocument(run, audience = "full", options = {}) {
           </div>
           <div class="meta">
             <div>
-              <span>生成时间</span>
+              <span>${language === "en" ? "Generated At" : "生成时间"}</span>
               <strong>${escapeHtml(createdAt)}</strong>
             </div>
             <div>
-              <span>模型模式</span>
-              <strong>${escapeHtml(run.mode === "llm" ? "真实模型" : "Mock Demo")}</strong>
+              <span>${language === "en" ? "Model Mode" : "模型模式"}</span>
+              <strong>${escapeHtml(run.mode === "llm" ? (language === "en" ? "Live Model" : "真实模型") : "Mock Demo")}</strong>
             </div>
             <div>
-              <span>模型名称</span>
-              <strong>${escapeHtml(run.model || "未填写")}</strong>
+              <span>${language === "en" ? "Model Name" : "模型名称"}</span>
+              <strong>${escapeHtml(run.model || (language === "en" ? "Not provided" : "未填写"))}</strong>
             </div>
           </div>
         </div>
@@ -2357,6 +3017,7 @@ function reportToStaticHtmlDocument(run, audience = "full", options = {}) {
 
 function buildPdfSummaryCards(run, audience = "full") {
   const snapshot = run.input_snapshot || {};
+  const language = getRunLanguage(run);
   const report = run.report || "";
   const rows = buildRequirementEvidenceRows(snapshot);
   const gate = buildGateAssessment(snapshot, rows);
@@ -2364,47 +3025,66 @@ function buildPdfSummaryCards(run, audience = "full") {
   const offerLeverage = buildOfferLeverage(snapshot);
   const missingRows = rows.filter((row) => row.isMissing);
   const matchedRows = rows.filter((row) => !row.isMissing);
-  const topRisk = missingRows[0]?.capability || "验证真实贡献";
-  const topStrength = matchedRows[0]?.capability || "证据待补齐";
+  const topRisk = missingRows[0]?.capability || (language === "en" ? "Verify real contribution" : "验证真实贡献");
+  const topStrength = matchedRows[0]?.capability || (language === "en" ? "Evidence gap" : "证据待补齐");
   const mustAsk = audience === "interviewer"
-    ? "项目闭环 / 失败复盘 / 资源取舍"
+    ? (language === "en" ? "Project loop / failure review / trade-off" : "项目闭环 / 失败复盘 / 资源取舍")
     : audience === "offer"
-      ? "职级 / 薪资 / 到岗"
-      : "项目故事 / 指标口径 / 压力题";
+      ? (language === "en" ? "Level / compensation / start date" : "职级 / 薪资 / 到岗")
+      : (language === "en" ? "Project story / metric definition / pressure question" : "项目故事 / 指标口径 / 压力题");
   const nextFocus = audience === "interviewer"
-    ? (gate.enterSandbox ? "传递已验证与待验证项" : "先补项目证据")
+    ? (gate.enterSandbox ? (language === "en" ? "Pass confirmed and pending items" : "传递已验证与待验证项") : (language === "en" ? "Request project evidence first" : "先补项目证据"))
     : audience === "offer"
       ? offerLeverage.rating
-      : "今晚补强最高风险证据";
+      : (language === "en" ? "Upgrade the highest-risk evidence tonight" : "今晚补强最高风险证据");
   const extractedRecommendation = extractSection(report, "面试官一分钟速览") || extractSection(report, "项目匹配闸口");
   const recommendationText = audience === "candidate"
-    ? gate.result
+    ? (language === "en" ? translateGateResult(gate.result) : gate.result)
     : audience === "offer"
-      ? (gate.enterSandbox ? "可沙盘验证" : "暂缓推进")
+      ? (gate.enterSandbox ? (language === "en" ? "Ready for simulation" : "可沙盘验证") : (language === "en" ? "Pause progression" : "暂缓推进"))
       : recommendation.level;
+  const labels = language === "en"
+    ? {
+        gate: "Gate Result",
+        sandbox: "Simulation Status",
+        recommendation: "Recommendation",
+        risk: "Core Risk",
+        question: "Must-Ask",
+        next: "Next Focus",
+        icons: { gate: "G", sandbox: "S", recommendation: "R", risk: "!", question: "Q", next: "N" },
+      }
+    : {
+        gate: "闸口结论",
+        sandbox: "沙盘状态",
+        recommendation: "推荐等级",
+        risk: "核心风险",
+        question: "必问问题",
+        next: "下一轮重点",
+        icons: { gate: "闸", sandbox: "盘", recommendation: "荐", risk: "险", question: "问", next: audience === "candidate" ? "行" : "传" },
+      };
 
   return [
     {
-      icon: audience === "candidate" ? "闸" : audience === "offer" ? "盘" : "荐",
-      label: audience === "candidate" ? "闸口结论" : audience === "offer" ? "沙盘状态" : "推荐等级",
-      value: clip(recommendationText || extractedRecommendation || "待验证"),
+      icon: audience === "candidate" ? labels.icons.gate : audience === "offer" ? labels.icons.sandbox : labels.icons.recommendation,
+      label: audience === "candidate" ? labels.gate : audience === "offer" ? labels.sandbox : labels.recommendation,
+      value: clip(recommendationText || extractedRecommendation || (language === "en" ? "Pending validation" : "待验证")),
       tone: gate.enterSandbox ? "tone-good-card" : "tone-risk-card",
     },
     {
-      icon: "险",
-      label: "核心风险",
-      value: clip(topRisk),
+      icon: labels.icons.risk,
+      label: labels.risk,
+      value: clip(language === "en" ? translateCapability(topRisk) : topRisk),
       tone: "tone-risk-card",
     },
     {
-      icon: "问",
-      label: "必问问题",
+      icon: labels.icons.question,
+      label: labels.question,
       value: clip(mustAsk),
       tone: "tone-warn-card",
     },
     {
-      icon: audience === "candidate" ? "行" : "传",
-      label: "下一轮重点",
+      icon: labels.icons.next,
+      label: labels.next,
       value: clip(nextFocus || topStrength),
       tone: "tone-info-card",
     },
@@ -2420,6 +3100,8 @@ ${buildAudienceMarkdown(run, "offer")}`;
 }
 
 function buildAudienceMarkdown(run, audience) {
+  if (getRunLanguage(run) === "en") return buildAudienceMarkdownEn(run, audience);
+
   const report = run.report;
   const snapshot = run.input_snapshot || {};
   const resumeEvidence = snapshot.resume ? clip(snapshot.resume) : "未提供简历快照";
@@ -2567,6 +3249,101 @@ ${body}`;
   }
 
   return report;
+}
+
+function buildAudienceMarkdownEn(run, audience) {
+  const report = run.report || "";
+  const snapshot = run.input_snapshot || {};
+  const gate = buildGateAssessment(snapshot);
+  const offerLeverage = buildOfferLeverage(snapshot);
+
+  if (audience === "candidate") {
+    const body = [
+      extractSection(report, "Project Match Gate"),
+      extractSection(report, "JD Hidden Pain Point Decoding"),
+      extractSection(report, "Role Match"),
+      extractSection(report, "Risks and Validation Needed"),
+      extractSection(report, "Candidate Preparation Priorities"),
+      extractSection(report, "Must-Ask Follow-Up Questions"),
+      extractSection(report, "Evidence Chain"),
+    ].filter(hasSubstantiveSection).join("\n\n");
+
+    return `# Candidate Interview Preparation Report
+
+## Three-Second Conclusion
+
+| Item | Conclusion | Evidence | Next Step |
+| --- | --- | --- | --- |
+| Gate | ${translateGateResult(gate.result)} | ${gate.matchedCount} core evidence items found | ${gate.enterSandbox ? "Proceed with validation questions." : "Request stronger project-loop evidence first."} |
+| Main risk | Contribution boundary and metric definitions need validation | Resume: ${snapshot.resume ? clip(snapshot.resume) : "Not provided"} | Prepare denominator, period, before/after comparison, personal action, and retrospective. |
+| Offer leverage | ${translateOfferRating(offerLeverage.rating)} | ${offerLeverage.summary} | Convert only verified impact into negotiation leverage. |
+
+${body || report}`;
+  }
+
+  if (audience === "interviewer") {
+    const body = [
+      extractSection(report, "Interviewer Decision Support"),
+      extractSection(report, "Interviewer Question Bank"),
+      extractSection(report, "Interviewer Lens Library"),
+      extractSection(report, "Evidence Chain"),
+    ].filter(hasSubstantiveSection).join("\n\n");
+
+    return `# Interviewer Question Guide
+
+## One-Minute Decision Brief
+
+| Decision Item | Current Judgment | Evidence | Interview Action |
+| --- | --- | --- | --- |
+| Recommendation | ${gate.enterSandbox ? "Conditional proceed" : "Pause / do not proceed"} | ${gate.matchedCount} matched requirement evidence items | Validate personal contribution, metric definitions, failure detail, and decision ownership. |
+| Can this person do the job? | ${gate.matchedCount >= 4 ? "Likely, but verify true ownership" : gate.matchedCount >= 2 ? "Possible adjacent fit, verify transfer boundary" : "Evidence is insufficient"} | Resume: ${snapshot.resume ? clip(snapshot.resume) : "Not provided"} | Ask for a complete project loop and anti-packaging details. |
+| Offer risk | ${translateOfferRating(offerLeverage.rating)} | ${offerLeverage.summary} | Update competing offers, start date, level expectation, and compensation constraints after interview. |
+
+${body || report}`;
+  }
+
+  if (audience === "offer") return buildOfferSandboxMarkdownEn(run);
+
+  return report;
+}
+
+function buildOfferSandboxMarkdownEn(run) {
+  const report = run.report || "";
+  const snapshot = run.input_snapshot || {};
+  const gate = buildGateAssessment(snapshot);
+  const offerLeverage = buildOfferLeverage(snapshot);
+  const rows = buildRequirementEvidenceRows(snapshot);
+
+  return `# Offer Simulation Report
+
+## Simulation Conclusion
+
+| Module | Current Judgment | Next Step |
+| --- | --- | --- |
+| Project gate | ${translateGateResult(gate.result)} | ${gate.enterSandbox ? "Continue to offer-risk validation." : "Pause progression and request stronger project evidence."} |
+| Candidate stage | ${translateStage(snapshot.candidate_stage)} | Align interview-round purpose before negotiation. |
+| Target level | ${snapshot.target_level || "Not provided"} | Clarify scope, level anchor, and evaluation standard. |
+| Negotiation leverage | ${translateOfferRating(offerLeverage.rating)} | ${offerLeverage.detail} |
+| Offer constraints | ${snapshot.offer_constraints ? clip(snapshot.offer_constraints) : "Not provided"} | Add budget, expected compensation, competing offers, start date, and team urgency. |
+| Evidence credibility | ${summarizeEvidenceCounts(rows)} | First-level evidence may support pricing; pending evidence should trigger more validation. |
+
+## Decision Matrix
+
+| Scenario | Recommended Action | Risk Signal |
+| --- | --- | --- |
+| ${gate.enterSandbox ? "Can enter next validation round" : "Do not push forward yet"} | ${gate.enterSandbox ? "Validate project evidence, incident review, metric definition, and motivation constraints." : "Ask the candidate to supplement project loop, personal contribution, and role-fit evidence first."} | Candidate cannot explain ownership, denominator, trade-off, failure, or mechanism change. |
+| Before negotiation | Clarify level, compensation structure, start date, competing offers, and decision criteria. | Key constraints are revealed too late. |
+| After interview | Update role match, evidence credibility, acceptance probability, and negotiation risk. | Feedback is not captured and the question library cannot improve. |
+
+## Extracted Report Context
+
+${[
+  extractSection(report, "Offer Simulation"),
+  extractSection(report, "Interviewer Question Bank"),
+  extractSection(report, "Interviewer Lens Library"),
+  extractSection(report, "Dynamic Calibration Instruction"),
+  extractSection(report, "Evidence Chain"),
+].filter(hasSubstantiveSection).join("\n\n") || "No extracted offer, question bank, lens library, calibration, or evidence-chain content is available yet."}`;
 }
 
 function buildOfferSandboxMarkdown(run) {
@@ -3331,12 +4108,12 @@ function buildRequirementEvidenceRows(snapshot) {
   const jd = normalized.job_description || "";
   const resume = normalized.resume || "";
   const requirements = [
-    { capability: "行业场景理解", keywords: ["智慧矿山", "GIS", "矿山", "冶金", "矿产", "行业", "B 端", "B端", "SaaS", "企业"] },
-    { capability: "产品规划与生命周期管理", keywords: ["产品规划", "生命周期", "0-1", "0 到 1", "从零", "产品设计", "规划"] },
-    { capability: "客户需求分析与方案设计", keywords: ["客户", "需求分析", "技术交流", "方案设计", "咨询", "调研", "需求梳理"] },
-    { capability: "技术架构与研发协同", keywords: ["架构", "研发", "C++", "Java", "JavaScript", "数据库", "操作系统", "前后端", "技术"] },
-    { capability: "技术选型与创新探索", keywords: ["前瞻", "技术选型", "新功能", "专利", "技术探索", "创新", "开源"] },
-    { capability: "成本、进度、质量控制", keywords: ["成本", "进度", "质量", "风险控制", "协调", "推进", "延期", "里程碑", "复盘"] },
+    { capability: "行业场景理解", keywords: ["智慧矿山", "smart mining", "GIS", "矿山", "mining", "冶金", "矿产", "行业", "industry", "B 端", "B端", "B2B", "SaaS", "企业", "enterprise"] },
+    { capability: "产品规划与生命周期管理", keywords: ["产品规划", "product planning", "lifecycle", "生命周期", "0-1", "0-to-1", "0 到 1", "从零", "产品设计", "product design", "规划", "roadmap"] },
+    { capability: "客户需求分析与方案设计", keywords: ["客户", "customer", "requirement", "需求分析", "技术交流", "technical communication", "方案设计", "solution", "consulting", "咨询", "调研", "research", "需求梳理"] },
+    { capability: "技术架构与研发协同", keywords: ["架构", "architecture", "研发", "R&D", "engineering", "C++", "Java", "JavaScript", "database", "数据库", "operating system", "操作系统", "前后端", "backend", "frontend", "技术"] },
+    { capability: "技术选型与创新探索", keywords: ["前瞻", "forward-looking", "技术选型", "technology selection", "新功能", "new feature", "专利", "patent", "技术探索", "innovation", "创新", "开源", "open source"] },
+    { capability: "成本、进度、质量控制", keywords: ["成本", "cost", "进度", "schedule", "quality", "质量", "风险控制", "risk control", "协调", "coordination", "推进", "delivery", "延期", "delay", "milestone", "里程碑", "retrospective", "复盘"] },
   ];
   return requirements.map((requirement) => {
     const resumeEvidence = findEvidence(resume, requirement.keywords) || "简历未体现明确证据";
@@ -3365,14 +4142,15 @@ function normalizeSnapshot(input) {
     target_level: input.target_level || input.targetLevel || "",
     offer_constraints: input.offer_constraints || input.offerConstraints || "",
     selected_skills: input.selected_skills || input.selectedSkills || [],
+    language: input.language || "zh",
   };
 }
 
 function classifyEvidenceLevel(evidenceText) {
   if (!evidenceText || evidenceText === "简历未体现明确证据") return 3;
   const hasQuant = /(\d+(\.\d+)?\s*%|\d+\s*(万|千|个|人|家|天|周|月|年|次|单|小时|分钟|ms|元|万元|亿)|上线|版本|v\d|ROI|DAU|MAU|GMV|SLA)/i.test(evidenceText);
-  const hasSpecificRole = /主导|负责|Owner|牵头|独立|设计|上线|落地|交付|专利|开源/i.test(evidenceText);
-  const hasVagueTeam = /我们|参与|协助|支持|熟悉|了解|学习|接触|团队/i.test(evidenceText);
+  const hasSpecificRole = /主导|负责|Owner|owned|led|牵头|独立|设计|designed|launched|上线|落地|delivered|交付|专利|开源/i.test(evidenceText);
+  const hasVagueTeam = /我们|参与|participated|协助|supported|支持|熟悉|了解|学习|接触|团队|team/i.test(evidenceText);
   if (hasQuant && hasSpecificRole) return 1;
   if (hasSpecificRole || hasQuant) return 2;
   if (hasVagueTeam) return 3;
@@ -3570,15 +4348,15 @@ function downloadFile(filename, content, type) {
 }
 
 async function downloadPdfReport(run, audience, filename) {
-  setStatus("正在生成 PDF，请稍候...");
+  setStatus(getText().statusPdf);
   try {
     const html = reportToStaticHtmlDocument(run, audience);
     const pdfBlob = await renderHtmlDocumentToPdfBlob(html);
     downloadBlob(filename, pdfBlob);
-    setStatus(`已下载 ${filename}。`);
+    setStatus(getText().statusDownloaded(filename));
   } catch (error) {
     console.error(error);
-    setStatus("直接下载 PDF 失败，已打开打印窗口作为降级方案。", true);
+    setStatus(getText().statusPdfFallback, true);
     openPdfPrintWindow(reportToStaticHtmlDocument(run, audience), filename);
   }
 }
@@ -3801,7 +4579,7 @@ function openPdfPrintWindow(html, filename) {
   const pdfHtml = html.replace("</head>", `<script>window.__offerAgentPdfName = ${JSON.stringify(filename)};</script></head>`);
   const printWindow = window.open("", "_blank", "width=1180,height=900");
   if (!printWindow) {
-    setStatus("PDF 窗口被浏览器拦截，请允许弹窗后重试。", true);
+    setStatus(getText().statusPopupBlocked, true);
     return;
   }
 
@@ -3818,7 +4596,7 @@ function openPdfPrintWindow(html, filename) {
     ),
   );
   printWindow.document.close();
-  setStatus("已打开 PDF 打印窗口，请在打印对话框中选择“保存为 PDF”。");
+  setStatus(getText().statusPrintWindow);
 }
 
 function setStatus(message, isError = false) {
@@ -3829,9 +4607,74 @@ function setStatus(message, isError = false) {
 function formatGenerationError(error) {
   const message = error?.message || String(error);
   if (/Failed to fetch|NetworkError|Load failed/i.test(message)) {
-    return "生成失败：浏览器直连被模型服务商跨域策略拦截。请先用 Mock Demo，或填写你自己的代理 / Serverless 兼容地址。";
+    return getText().errorCors;
   }
-  return `生成失败：${message}`;
+  return getText().errorGeneric(message);
 }
 
+function getRunLanguage(run) {
+  return run?.input_snapshot?.language || currentLanguage || "zh";
+}
+
+function translateStage(value) {
+  return i18n.en.stageOptions[value] || value || "Not provided";
+}
+
+function translateCapability(value) {
+  const map = {
+    "行业场景理解": "Industry scenario understanding",
+    "产品规划与生命周期管理": "Product planning and lifecycle management",
+    "客户需求分析与方案设计": "Customer requirement analysis and solution design",
+    "技术架构与研发协同": "Technical architecture and engineering collaboration",
+    "技术选型与创新探索": "Technology selection and innovation exploration",
+    "成本、进度、质量控制": "Cost, schedule, and quality control",
+    "验证真实贡献": "Verify real contribution",
+    "证据待补齐": "Evidence gap",
+  };
+  return map[value] || value || "Pending validation";
+}
+
+function translateEvidenceLevel(level) {
+  if (level === 1) return "Level 1 evidence (high credibility)";
+  if (level === 2) return "Level 2 evidence (medium credibility)";
+  return "Level 3 evidence (low credibility / pending validation)";
+}
+
+function translateMatchStatus(row) {
+  if (row.isMissing) return "Not matched / evidence missing";
+  if (row.evidenceLevel === 1) return "Matched, verify metric definition";
+  if (row.evidenceLevel === 2) return "Partially matched / follow-up required";
+  return "Pending validation";
+}
+
+function translateGateResult(value) {
+  if (/匹配进入/.test(value)) return "Matched: proceed";
+  if (/条件性进入/.test(value)) return "Conditional proceed (transferable fit)";
+  if (/不匹配/.test(value)) return "Not matched: do not proceed";
+  return value || "Pending validation";
+}
+
+function translateOfferRating(value) {
+  if (/强/.test(value)) return "Strong leverage";
+  if (/中/.test(value)) return "Medium leverage";
+  if (/弱/.test(value)) return "Weak leverage";
+  if (/暂无/.test(value)) return "No clear leverage";
+  return value || "Pending validation";
+}
+
+function translateVerificationQuestion(row) {
+  if (row.isMissing) return `Add one project proving ${translateCapability(row.capability)}, covering background, goal, action, result, and retrospective.`;
+  if (row.evidenceLevel === 1) return `Explain denominator, period, before/after comparison, and your direct contribution for ${translateCapability(row.capability)}.`;
+  return "Break down your real role, key decisions, collaborators, and result attribution for this evidence.";
+}
+
+function summarizeEvidenceCounts(rows) {
+  const counts = rows.reduce((acc, row) => {
+    acc[row.evidenceLevel] += 1;
+    return acc;
+  }, { 1: 0, 2: 0, 3: 0 });
+  return `Level 1: ${counts[1]}, Level 2: ${counts[2]}, Level 3 / missing: ${counts[3]}`;
+}
+
+applyLanguage(currentLanguage);
 providerEl.dispatchEvent(new Event("change"));
