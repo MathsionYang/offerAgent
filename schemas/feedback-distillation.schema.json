@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offeragent.dev/schemas/feedback-distillation.schema.json",
+  "title": "FeedbackDistillation",
+  "type": "object",
+  "required": ["rules", "actions"],
+  "properties": {
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "when", "then"],
+        "properties": {
+          "id": { "type": "string" },
+          "when": { "type": "string" },
+          "then": { "type": "string" },
+          "target": { "type": "string" }
+        }
+      }
+    },
+    "actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "type": {
+            "type": "string",
+            "enum": ["promote_question", "rewrite_question", "demote_question", "raise_risk_weight", "lower_risk_weight", "downgrade_claim", "add_regression_case"]
+          },
+          "target_id": { "type": "string" },
+          "reason": { "type": "string" },
+          "status": { "type": "string" }
+        }
+      }
+    }
+  }
+}

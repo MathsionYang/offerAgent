@@ -1,0 +1,18 @@
+{
+  "id": "executive-pressure-officer-v1",
+  "name": "决策层压力官",
+  "type": "role",
+  "version": "1.0.0",
+  "applicable_scenarios": ["终面压力测试", "战略取舍验证", "预算削减场景"],
+  "decision_framework": ["战略取舍是否有依据", "预算压缩时是否能重排优先级", "ROI 不确定时是否能解释投入逻辑", "失败后是否有止损机制"],
+  "evidence_standards": ["候选人能用客户价值、业务指标、风险成本和资源约束解释取舍", "候选人能说明继续、收缩或停止项目的阈值"],
+  "recommended_questions": [
+    "如果上级要求砍掉你负责模块一半预算，你如何重新排定需求优先级？请用具体指标说服我。",
+    "如果你判断一个战略方向值得做，但短期 ROI 不好看，你会如何争取资源？",
+    "如果项目投入三个月后效果不达预期，你会继续、收缩还是停止？依据是什么？"
+  ],
+  "anti_patterns": ["只表达主观偏好", "无法解释投入产出", "遇到预算压力只被动执行"],
+  "boundaries": ["压力测试聚焦业务判断，不做人身攻击", "不把一次回答作为最终录用依据", "不输出自动淘汰结论"],
+  "confidence_rules": ["能给出指标、阈值、取舍和复盘时提高置信度", "只讲态度或愿景时保持待验证"],
+  "feedback_fields": ["question_use", "evidence_sufficiency", "risk_validation"]
+}

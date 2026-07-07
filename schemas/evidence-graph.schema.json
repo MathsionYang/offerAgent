@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offeragent.dev/schemas/evidence-graph.schema.json",
+  "title": "EvidenceGraph",
+  "type": "object",
+  "required": ["nodes", "edges"],
+  "properties": {
+    "nodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "type", "label"],
+        "properties": {
+          "id": { "type": "string" },
+          "type": {
+            "type": "string",
+            "enum": [
+              "job_requirement",
+              "resume_evidence",
+              "interview_question",
+              "risk",
+              "feedback",
+              "offer_signal"
+            ]
+          },
+          "label": { "type": "string" },
+          "summary": { "type": "string" },
+          "metadata": { "type": "object" }
+        }
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["from", "to", "type"],
+        "properties": {
+          "from": { "type": "string" },
+          "to": { "type": "string" },
+          "type": {
+            "type": "string",
+            "enum": [
+              "supports",
+              "questions",
+              "contradicts",
+              "validates",
+              "updates",
+              "impacts_offer"
+            ]
+          },
+          "weight": { "type": "number" },
+          "note": { "type": "string" }
+        }
+      }
+    }
+  }
+}

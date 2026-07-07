@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offeragent.dev/schemas/offer-simulation-run.schema.json",
+  "title": "OfferSimulationRun",
+  "type": "object",
+  "required": ["id", "evaluation_run_id", "created_at", "stage", "readiness"],
+  "properties": {
+    "id": { "type": "string" },
+    "evaluation_run_id": { "type": "string" },
+    "created_at": { "type": "string" },
+    "stage": { "type": "string" },
+    "target_level": { "type": "string" },
+    "readiness": { "type": "string" },
+    "enter_sandbox": { "type": "boolean" },
+    "offer_leverage": {
+      "type": "object",
+      "properties": {
+        "rating": { "type": "string" },
+        "summary": { "type": "string" },
+        "detail": { "type": "string" },
+        "supporting_evidence_ids": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "risks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "risk": { "type": "string" },
+          "severity": { "type": "string" },
+          "evidence_ids": { "type": "array", "items": { "type": "string" } },
+          "question_ids": { "type": "array", "items": { "type": "string" } },
+          "status": { "type": "string" }
+        }
+      }
+    },
+    "next_actions": { "type": "array", "items": { "type": "string" } },
+    "feedback_updates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "field": { "type": "string" },
+          "value": { "type": "string" },
+          "action": { "type": "string" }
+        }
+      }
+    },
+    "final_decision_hint": { "type": "string" }
+  }
+}

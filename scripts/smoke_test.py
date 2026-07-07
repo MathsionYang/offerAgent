@@ -21,6 +21,14 @@ def static_checks():
         "readme": ROOT / "README.md",
         "prompt": ROOT / "prompts" / "product-manager-interview-prep.md",
         "schema_run": ROOT / "schemas" / "evaluation-run.schema.json",
+        "schema_offer": ROOT / "schemas" / "offer-simulation-run.schema.json",
+        "schema_graph": ROOT / "schemas" / "evidence-graph.schema.json",
+        "schema_feedback": ROOT / "schemas" / "feedback-distillation.schema.json",
+        "skill_hr": ROOT / "examples" / "skill-definitions" / "hr-interviewer.json",
+        "skill_business": ROOT / "examples" / "skill-definitions" / "business-interviewer.json",
+        "skill_project": ROOT / "examples" / "skill-definitions" / "project-interviewer.json",
+        "skill_negotiation": ROOT / "examples" / "skill-definitions" / "negotiation-advisor.json",
+        "skill_decision": ROOT / "examples" / "skill-definitions" / "executive-pressure-officer.json",
         "gitignore": ROOT / ".gitignore",
     }
     content = {name: read(path) for name, path in files.items()}
@@ -105,9 +113,71 @@ def static_checks():
         and "导出候选人 PDF" in content["index"]
         and "导出面试官 PDF" in content["index"]
         and "buildAudienceMarkdown" in content["app"],
-        "json_download_removed": "downloadJsonBtn" not in content["app"] + content["index"],
+        "structured_json_export_exists": all(
+            term in content["app"] + content["index"]
+            for term in [
+                "downloadJsonBtn",
+                "导出评测 JSON",
+                "Export Evaluation JSON",
+                "enrichEvaluationRun",
+                "evaluation_summary",
+                "requirement_matches",
+                "interview_questions",
+                "offer_simulation_run",
+                "evidence_graph",
+                "feedback_distillation",
+                "application/json;charset=utf-8",
+            ]
+        ),
+        "mirofish_nuwa_structures_exist": all(
+            term in content["app"] + content["schema_run"]
+            for term in [
+                "buildOfferSimulationRun",
+                "buildEvidenceGraph",
+                "buildFeedbackDistillation",
+                "offer-simulation-run.schema.json",
+                "evidence-graph.schema.json",
+                "feedback-distillation.schema.json",
+            ]
+        ),
+        "offer_simulation_schema_exists": all(
+            term in content["schema_offer"]
+            for term in ["OfferSimulationRun", "evaluation_run_id", "offer_leverage", "feedback_updates", "final_decision_hint"]
+        ),
+        "evidence_graph_schema_exists": all(
+            term in content["schema_graph"]
+            for term in ["EvidenceGraph", "job_requirement", "resume_evidence", "interview_question", "impacts_offer"]
+        ),
+        "feedback_distillation_schema_exists": all(
+            term in content["schema_feedback"]
+            for term in ["FeedbackDistillation", "promote_question", "demote_question", "raise_risk_weight", "downgrade_claim"]
+        ),
+        "skill_definition_examples_exist": all(
+            term in "\n".join(
+                content[name]
+                for name in ["skill_hr", "skill_business", "skill_project", "skill_negotiation", "skill_decision"]
+            )
+            for term in [
+                "虚拟 HR 面试官",
+                "虚拟业务负责人",
+                "虚拟项目推进面试官",
+                "虚拟谈薪顾问",
+                "决策层压力官",
+                "evidence_standards",
+                "confidence_rules",
+                "feedback_fields",
+            ]
+        ),
         "feedback_loop_exists": all(
-            term in content["app"] for term in ["appendFeedbackToReport", "collectFeedback", "human_feedback"]
+            term in content["app"]
+            for term in [
+                "appendFeedbackToReport",
+                "collectFeedback",
+                "human_feedback",
+                "disagreement_reason",
+                "evidence_sufficiency",
+                "risk_validation",
+            ]
         ),
         "privacy_no_persistence_api": not re.search(
             r"localStorage|sessionStorage|indexedDB|document\.cookie|setItem\(|getItem\(",
@@ -125,7 +195,22 @@ def static_checks():
         ),
         "schema_reflects_current_features": all(
             term in content["schema_run"]
-            for term in ["candidate_stage", "target_level", "offer_constraints", "selected_skills", "offer_sandbox"]
+            for term in [
+                "candidate_stage",
+                "target_level",
+                "offer_constraints",
+                "selected_skills",
+                "offer_sandbox",
+                "evaluation_summary",
+                "requirement_matches",
+                "interview_questions",
+                "human_feedback",
+                "evidence_sufficiency",
+                "risk_validation",
+                "offer_simulation_run",
+                "evidence_graph",
+                "feedback_distillation",
+            ]
         ),
         "all_dom_refs_exist": sorted(refs - ids) == [],
         "balanced_parens": content["app"].count("(") == content["app"].count(")"),

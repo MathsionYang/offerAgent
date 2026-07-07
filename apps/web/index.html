@@ -291,6 +291,37 @@
                   <option value="未采用">未采用</option>
                 </select>
               </label>
+
+              <label>
+                <span>不同意原因</span>
+                <select id="feedbackDisagreementReason">
+                  <option value="未反馈">未反馈</option>
+                  <option value="证据不足">证据不足</option>
+                  <option value="权重不同">权重不同</option>
+                  <option value="岗位理解不同">岗位理解不同</option>
+                  <option value="系统误判">系统误判</option>
+                </select>
+              </label>
+
+              <label>
+                <span>证据是否充分</span>
+                <select id="feedbackEvidenceSufficiency">
+                  <option value="未反馈">未反馈</option>
+                  <option value="充分">充分</option>
+                  <option value="部分充分">部分充分</option>
+                  <option value="不充分">不充分</option>
+                </select>
+              </label>
+
+              <label>
+                <span>面试后是否验证风险</span>
+                <select id="feedbackRiskValidation">
+                  <option value="未反馈">未反馈</option>
+                  <option value="已证实">已证实</option>
+                  <option value="已推翻">已推翻</option>
+                  <option value="仍待验证">仍待验证</option>
+                </select>
+              </label>
             </div>
 
             <label>
@@ -340,6 +371,9 @@
             </button>
             <button id="downloadOfferBtn" class="secondary-btn" type="button" disabled>
               导出 Offer 推演 PDF
+            </button>
+            <button id="downloadJsonBtn" class="secondary-btn" type="button" disabled>
+              导出评测 JSON
             </button>
           </div>
         </section>

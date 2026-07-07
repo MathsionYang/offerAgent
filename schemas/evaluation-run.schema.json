@@ -19,7 +19,60 @@
         "candidate_stage": { "type": "string" },
         "target_level": { "type": "string" },
         "offer_constraints": { "type": "string" },
-        "selected_skills": { "type": "array", "items": { "type": "string" } }
+        "selected_skills": { "type": "array", "items": { "type": "string" } },
+        "language": { "type": "string" }
+      }
+    },
+    "evaluation_summary": {
+      "type": "object",
+      "properties": {
+        "gate_result": { "type": "string" },
+        "enter_sandbox": { "type": "boolean" },
+        "matched_count": { "type": "number" },
+        "total_requirements": { "type": "number" },
+        "evidence_summary": { "type": "string" },
+        "strong_evidence_count": { "type": "number" },
+        "medium_evidence_count": { "type": "number" },
+        "weak_or_missing_evidence_count": { "type": "number" },
+        "next_validation_focus": { "type": "array", "items": { "type": "string" } },
+        "offer_leverage_rating": { "type": "string" },
+        "offer_leverage_summary": { "type": "string" },
+        "feedback_status": { "type": ["object", "null"] }
+      }
+    },
+    "requirement_matches": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "capability": { "type": "string" },
+          "jd_evidence": { "type": "string" },
+          "resume_evidence": { "type": "string" },
+          "evidence_level": { "type": "number" },
+          "evidence_level_label": { "type": "string" },
+          "evidence_reason": { "type": "string" },
+          "match_status": { "type": "string" },
+          "is_missing": { "type": "boolean" },
+          "verification_question": { "type": "string" }
+        }
+      }
+    },
+    "interview_questions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "lens": { "type": "string" },
+          "capability": { "type": "string" },
+          "question": { "type": "string" },
+          "evidence_anchor": { "type": "string" },
+          "jd_anchor": { "type": "string" },
+          "evaluation_goal": { "type": "string" },
+          "expected_signal": { "type": "string" },
+          "adoption_status": { "type": "string" }
+        }
       }
     },
     "offer_sandbox": {
@@ -28,8 +81,26 @@
         "stage": { "type": "string" },
         "target_level": { "type": "string" },
         "readiness": { "type": "string" },
+        "enter_sandbox": { "type": "boolean" },
+        "negotiation_leverage": { "type": "string" },
+        "leverage_detail": { "type": "string" },
         "risks": { "type": "array", "items": { "type": "string" } },
         "next_actions": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "offer_simulation_run": { "$ref": "offer-simulation-run.schema.json" },
+    "evidence_graph": { "$ref": "evidence-graph.schema.json" },
+    "feedback_distillation": { "$ref": "feedback-distillation.schema.json" },
+    "human_feedback": {
+      "type": "object",
+      "properties": {
+        "agreement": { "type": "string" },
+        "question_use": { "type": "string" },
+        "disagreement_reason": { "type": "string" },
+        "evidence_sufficiency": { "type": "string" },
+        "risk_validation": { "type": "string" },
+        "notes": { "type": "string" },
+        "updated_at": { "type": "string" }
       }
     },
     "report": { "type": "string" },
@@ -41,7 +112,13 @@
           "id": { "type": "string" },
           "source_type": { "type": "string" },
           "claim": { "type": "string" },
-          "confidence": { "type": "number" }
+          "confidence": { "type": "number" },
+          "capability": { "type": "string" },
+          "evidence_level": { "type": "number" },
+          "evidence_level_label": { "type": "string" },
+          "source_excerpt": { "type": "string" },
+          "jd_excerpt": { "type": "string" },
+          "verification_question": { "type": "string" }
         }
       }
     }
