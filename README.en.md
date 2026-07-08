@@ -4,7 +4,7 @@ Language: [中文](README.md) | English
 
 Interview Assistant is an early Web MVP designed as an “Offer Sandbox + Interviewer Lens Library”. The current version focuses on one minimal closed loop:
 
-After users enter a candidate resume, job description, and optional context, the system first checks whether the candidate's project experience supports the core responsibilities in the JD. It then generates candidate preparation reports, interviewer follow-up reports, evidence chains, risk points, and downloadable PDF reports.
+After users select a target role (Product Manager, Developer, Technical Support, or Sales) and enter a candidate resume, job description, and optional context, the system first checks whether the candidate's project experience supports the core responsibilities in the JD. It then generates candidate preparation reports, interviewer follow-up reports, evidence chains, risk points, Offer simulation state, and downloadable PDF reports.
 
 Demo:
 
@@ -18,7 +18,7 @@ This project is not a commercial recruiting system and does not replace human hi
 
 ## One-Line Positioning
 
-Turn “resume + JD” into a follow-up-ready, reviewable, downloadable interview preparation report, and generate a question library for interviewers and candidates.
+Turn “target role + resume + JD” into a follow-up-ready, reviewable, downloadable interview preparation report, and generate a question library for interviewers and candidates.
 
 ## Current Core Flow
 
@@ -36,11 +36,12 @@ Users enter:
 
 1. Candidate resume.
 2. Job description.
-3. Company / interview context.
-4. Candidate stage, such as screening, business first round, final business round, or pre-offer.
-5. Target level.
-6. Offer / negotiation constraints.
-7. Interviewer perspectives, such as HR, business owner, project / PMO, negotiation advisor, and executive pressure officer.
+3. Target role: Product Manager, Developer, Technical Support, or Sales.
+4. Company / interview context.
+5. Candidate stage, such as screening, business first round, final business round, or pre-offer.
+6. Target level.
+7. Offer / negotiation constraints.
+8. Interviewer perspectives, such as HR, business owner, project / PMO, negotiation advisor, and executive pressure officer.
 
 The current page supports two modes:
 
@@ -61,12 +62,12 @@ Current gating logic includes:
 1. Extracting core responsibilities and capability requirements from the JD.
 2. Finding corresponding project evidence in the resume.
 3. Labeling each evidence item with Level 1 / Level 2 / Level 3 credibility.
-4. Comparing role responsibilities against project experience to decide whether the candidate's projects can support the JD.
+4. Comparing the selected RoleProfile, role responsibilities, and project experience to decide whether the candidate's projects can support the JD.
 5. Producing one of three gate results: Matched, Conditional Proceed (Transfer Fit), or Not Matched / Do Not Proceed.
 6. Marking validation gaps or mismatch points when project evidence is insufficient.
 7. Generating anti-overpackaging follow-up questions when the resume appears highly matched on the surface.
 
-The current implementation still relies on rules, keywords, and model generation rather than a strict structured scoring engine, but it already productizes evidence-based conclusions, evidence credibility grading, conditional proceed, and capability-transfer talk tracks in the frontend.
+The current implementation still relies on rules, keywords, and model generation rather than a strict structured scoring engine, but it already productizes evidence-based conclusions, evidence credibility grading, conditional proceed, capability-transfer talk tracks, target-role RoleProfiles, and a minimal EvidenceGraph in the frontend.
 
 ### 3. Candidate Report
 
@@ -161,15 +162,16 @@ Human feedback is appended to the current report, but there is not yet a persist
 
 1. Built a pure static Web page.
 2. Supports local Mock Demo.
-3. Supports resume, JD, company context, candidate stage, target level, and offer-constraint inputs.
-4. Supports interviewer lens selection.
-5. Supports segmented report generation.
-6. Supports candidate and interviewer report splitting.
-7. Supports PDF report export.
-8. Supports Candidate, Interviewer, and Offer Simulation PDF exports.
-9. Supports writing human feedback into the current report.
-10. Supports Chinese / English switching.
-11. Supports GitHub Pages deployment.
+3. Supports resume, JD, target role, company context, candidate stage, target level, and offer-constraint inputs.
+4. Supports target-role dropdown selection: Product Manager, Developer, Technical Support, and Sales.
+5. Supports interviewer lens selection.
+6. Supports segmented report generation.
+7. Supports candidate and interviewer report splitting.
+8. Supports PDF report export.
+9. Supports Candidate, Interviewer, and Offer Simulation PDF exports.
+10. Supports writing human feedback into the current report.
+11. Supports Chinese / English switching.
+12. Supports GitHub Pages deployment.
 
 Segmented report streaming simulates the experience of real model output, while modular PDF export supports separate delivery of candidate-facing and interviewer-facing reports.
 
@@ -192,6 +194,20 @@ Segmented report streaming simulates the experience of real model output, while 
 15. JD hidden-pain decoding.
 16. Dynamic calibration instructions.
 17. Fixed executive pressure test.
+18. EvidenceGraph display, filtering, node detail, and report-section jump.
+19. Evidence-gap prompts for conclusions without evidence, risks without follow-up questions, and uncovered JD requirements.
+20. FeedbackDistillation visualization: escalate, downgrade, delete, keep, and impact summary.
+21. OfferSimulationRun structured state: lifecycle stage, run history, three-scenario comparison, and backfill hints.
+
+### Structured Runtime State
+
+The Web MVP has moved from “report generation only” to “report + backfillable runtime state”:
+
+1. `EvaluationRun`: records the input snapshot, target role, report output, evidence, feedback, and version metadata.
+2. `OfferSimulationRun`: records Base / Optimistic / Conservative offer paths, lifecycle stage, and next-round strategy inputs.
+3. `EvidenceGraph`: connects JD requirements, resume evidence, questions, risks, feedback, and offer signals into a minimal relationship graph.
+4. `FeedbackDistillation`: classifies human feedback as escalate, downgrade, delete, or keep, with impact notes and Skill update suggestions.
+5. `SkillDefinition`: fixed interviewer perspectives have been organized as examples and will evolve into a selectable, composable, versioned Skill Registry.
 
 ### Prompt Enhancements
 
@@ -221,12 +237,12 @@ Segmented report streaming simulates the experience of real model output, while 
 1. No user login or account system yet.
 2. No team collaboration, workspace, or history yet.
 3. No cloud report storage yet.
-4. No role template library yet.
+4. No editable, versioned role template library yet; only four built-in RoleProfiles are available now.
 5. No company template library yet.
 6. No linked multi-round interview records yet.
-7. No true post-interview feedback learning loop yet.
+7. No persistent post-interview feedback learning loop yet; only in-run FeedbackDistillation is displayed now.
 8. No batch resume evaluation yet.
-9. No structured scoring dashboard yet.
+9. No cross-candidate structured scoring dashboard yet.
 10. No permission management yet.
 
 ### Model And Algorithm
@@ -234,8 +250,8 @@ Segmented report streaming simulates the experience of real model output, while 
 1. Current Mock logic is still rule- and template-heavy and does not equal real model performance.
 2. Real-model output depends on prompt stability and has not yet gone through systematic evaluation.
 3. Evidence credibility grading, conditional proceed, negotiation leverage, and JD hidden-pain decoding have been productized in the Web Mock report but still require real-model evaluation.
-4. Persistent and editable standardized Evidence Schema is missing.
-5. Configurable role capability matrix is missing.
+4. EvidenceGraph has minimal display and gap detection, but persistence, editing, and cross-run review are still missing.
+5. Four built-in RoleProfiles exist, but configurable, versioned, and automatically selected role capability matrices are still missing.
 
 ### Engineering Implementation
 

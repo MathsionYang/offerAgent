@@ -4,17 +4,17 @@
 
 ## 1. 使用场景
 
-- 适用阶段：产品经理 / 项目型岗位的业务面试前准备。
+- 适用阶段：产品经理、开发人员、技术支持人员、销售人员等目标岗位的业务面试前准备。
 - 样本规模：第一轮至少 10 份脱敏简历 + JD。
 - 评审人员：至少 3 位招聘参与者，建议覆盖 HR、招聘经理、业务面试官。
-- 输出形式：每个样本保存一份结构化 EvaluationRun JSON、一份 PDF 报告和一行人工评测记录。
+- 输出形式：每个样本保留当前运行内结构化 EvaluationRun 状态、EvidenceGraph、OfferSimulationRun、一份 PDF 报告和一行人工评测记录；不再要求用户侧导出评测 JSON。
 
 ## 2. 样本信息表
 
 | 字段 | 填写说明 |
 | --- | --- |
 | sample_id | 样本编号，例如 PM-001 |
-| role_type | 岗位类型，例如产品经理、项目经理、研发主管 |
+| role_type | 岗位类型，例如 product_manager、developer、technical_support、sales |
 | jd_source | JD 来源，例如真实脱敏、模拟 JD、公开 JD |
 | resume_source | 简历来源，例如真实脱敏、模拟简历、历史样本 |
 | candidate_level | 候选人目标职级或经验段 |

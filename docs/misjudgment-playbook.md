@@ -38,7 +38,7 @@
 
 ## 4. 误判复盘流程
 
-1. 读取 EvaluationRun JSON。
+1. 读取当前运行内的结构化 EvaluationRun 状态、EvidenceGraph 关系和报告中的证据编号。
 2. 对照人工评测表，找出 `system_gate` 与 `human_gate` 不一致样本。
 3. 标记 `disagreement_reason`。
 4. 找到对应 `requirement_matches`、`interview_questions` 和 `evidence`。

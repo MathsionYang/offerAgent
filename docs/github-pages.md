@@ -45,11 +45,11 @@ https://<your-name>.github.io/<your-repo>/
 
 1. 打开 GitHub Pages 页面。
 2. 选择 Mock Demo，或选择模型服务商并临时输入自己的 API Key。
-3. 粘贴简历和 JD。
+3. 选择目标岗位，并粘贴简历和 JD。
 4. 点击生成报告。
 5. 查看分析结果、证据链、追问清单。
 6. 填写人工反馈。
-7. 下载 Markdown 或 JSON。
+7. 下载候选人 PDF、面试官 PDF 或 Offer 推演 PDF。
 
 ## 5. 隐私与 Key
 

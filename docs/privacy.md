@@ -11,3 +11,6 @@ OfferAgent 第一版是开源个人工具，不保存用户信息。
 
 如果用户选择在浏览器中直连大模型服务商，输入内容会发送给对应服务商。请自行确认服务商的隐私政策和数据处理规则。
 
+- 报告需要用户自己下载和保存。
+- 目标岗位选择、EvidenceGraph、OfferSimulationRun 和 FeedbackDistillation 仅保留在当前页面运行状态中。
+- 当前 Web 版提供 PDF 下载，不提供面向用户的评测 JSON 导出。
