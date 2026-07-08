@@ -37,6 +37,7 @@ let currentRun = null;
 let currentLanguage = languageEl?.value || "zh";
 let activeAudienceMode = document.body?.dataset.pageMode === "interviewer" ? "interviewer" : "candidate";
 let activeWorkspaceView = "workbench";
+const MODEL_REQUEST_TIMEOUT_MS = 90000;
 
 const providerDefaults = {
   mock: { model: "mock-product-manager-v1", baseUrl: "" },
@@ -920,7 +921,9 @@ generateBtn.addEventListener("click", async () => {
     setWorkspaceView("graph");
     setStatus(input.useRealModel ? getText().statusLlmDone : getText().statusMockDone);
   } catch (error) {
-    setStatus(formatGenerationError(error), true);
+    const errorMessage = formatGenerationError(error);
+    renderGenerationError(errorMessage);
+    setStatus(errorMessage, true);
   } finally {
     generateBtn.disabled = false;
   }
@@ -2044,7 +2047,7 @@ function buildSkillUpdateSuggestions(feedback, rows, snapshot = {}) {
 }
 
 async function generateWithLLM(input, onDelta = () => {}) {
-  const endpoint = `${resolveBaseUrl(input).replace(/\/$/, "")}/chat/completions`;
+  const endpoint = resolveChatCompletionsEndpoint(input);
   const body = {
     model: input.model,
     messages: [
@@ -2058,18 +2061,27 @@ async function generateWithLLM(input, onDelta = () => {}) {
     stream: true,
   };
 
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${input.apiKey}`,
-    },
-    body: JSON.stringify(body),
-  });
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), MODEL_REQUEST_TIMEOUT_MS);
+  let response;
+
+  try {
+    response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${input.apiKey}`,
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`模型接口返回 ${response.status}。${text.slice(0, 220)}`);
+    const text = await safeReadResponseText(response);
+    throw new Error(formatHttpGenerationError(response, text));
   }
 
   const contentType = response.headers.get("content-type") || "";
@@ -2085,6 +2097,20 @@ async function generateWithLLM(input, onDelta = () => {}) {
   }
   await streamMarkdownByBlocks(content, onDelta, 120);
   return cleanReportMarkdown(content);
+}
+
+async function safeReadResponseText(response) {
+  try {
+    return await response.text();
+  } catch {
+    return "";
+  }
+}
+
+function formatHttpGenerationError(response, bodyText = "") {
+  const excerpt = bodyText.replace(/\s+/g, " ").trim().slice(0, 260);
+  const statusText = response.statusText ? ` ${response.statusText}` : "";
+  return `HTTP ${response.status}${statusText}${excerpt ? `: ${excerpt}` : ""}`;
 }
 
 function buildSystemPrompt(language = "zh") {
@@ -2214,6 +2240,11 @@ function extractDeltaFromStreamPayload(payload) {
 function resolveBaseUrl(input) {
   if (input.baseUrl) return input.baseUrl;
   return providerDefaults[input.provider]?.baseUrl || providerDefaults.openai.baseUrl;
+}
+
+function resolveChatCompletionsEndpoint(input) {
+  const baseUrl = resolveBaseUrl(input).trim().replace(/\/+$/, "");
+  return /\/chat\/completions$/i.test(baseUrl) ? baseUrl : `${baseUrl}/chat/completions`;
 }
 
 function generateMockReport(input) {
@@ -2782,6 +2813,22 @@ function renderStreamingReport(markdown, label = getText().mockStreaming, isDone
   reportEl.innerHTML = `<div class="stream-content">${content}${cursor}</div>`;
   reportEl.scrollTop = reportEl.scrollHeight;
   renderEvidenceGraph(isDone ? currentRun : null);
+}
+
+function renderGenerationError(message) {
+  const title = currentLanguage === "en" ? "Generation Failed" : "生成失败";
+  const hint = currentLanguage === "en"
+    ? "The live model or proxy endpoint did not return a valid response. Check the provider, Base URL, API key, and model name, or switch back to Mock Demo."
+    : "真实模型或代理接口没有返回有效结果。请检查模型服务商、Base URL、API Key 和模型名称，或先切回 Mock Demo。";
+  reportEl.className = "report empty";
+  reportEl.innerHTML = `<div class="empty-state">
+    <span class="empty-mark">OA</span>
+    <h3>${escapeHtml(title)}</h3>
+    <p>${escapeHtml(message)}</p>
+    <p>${escapeHtml(hint)}</p>
+  </div>`;
+  renderStreamProgress("", title, true);
+  renderEvidenceGraph(null);
 }
 
 function renderStreamProgress(markdown, label, isDone) {
@@ -6119,6 +6166,27 @@ function setStatus(message, isError = false) {
 
 function formatGenerationError(error) {
   const message = error?.message || String(error);
+  const isEnglish = currentLanguage === "en";
+  if (error?.name === "AbortError" || /aborted|timeout|timed out/i.test(message)) {
+    return isEnglish
+      ? "Generation failed: the live model request timed out after 90 seconds. Check the proxy or switch to Mock Demo."
+      : "生成失败：真实模型请求超过 90 秒未返回。请检查代理 / 模型服务，或先切回 Mock Demo。";
+  }
+  if (/HTTP 502|Bad Gateway/i.test(message)) {
+    return isEnglish
+      ? "Generation failed: the model proxy returned 502 Bad Gateway. This is not a frontend hang; the upstream model service or proxy is unavailable. Check Base URL/provider, then retry or switch to Mock Demo."
+      : "生成失败：模型代理返回 502 Bad Gateway。这不是前端卡住，而是上游模型服务或代理不可用。请检查 Base URL / 服务商后重试，或先切回 Mock Demo。";
+  }
+  if (/HTTP 401|Unauthorized/i.test(message)) {
+    return isEnglish
+      ? "Generation failed: API key authorization failed. Check the key and provider."
+      : "生成失败：API Key 鉴权失败，请检查 Key 与模型服务商是否匹配。";
+  }
+  if (/HTTP 429|Too Many Requests|rate limit/i.test(message)) {
+    return isEnglish
+      ? "Generation failed: the model service is rate limited. Wait and retry, or switch to Mock Demo."
+      : "生成失败：模型服务限流。请稍后重试，或先切回 Mock Demo。";
+  }
   if (/Failed to fetch|NetworkError|Load failed/i.test(message)) {
     return getText().errorCors;
   }
