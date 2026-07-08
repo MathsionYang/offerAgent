@@ -129,6 +129,18 @@ def static_checks():
                 "application/json;charset=utf-8",
             ]
         ),
+        "evidence_graph_ui_exists": all(
+            term in content["app"] + content["index"] + content["css"]
+            for term in [
+                "evidenceGraph",
+                "renderEvidenceGraph",
+                "drawEvidenceGraphEdges",
+                "evidence-graph",
+                "evidence-graph-lines",
+                "graph-node",
+                "证据关系图谱",
+            ]
+        ),
         "mirofish_nuwa_structures_exist": all(
             term in content["app"] + content["schema_run"]
             for term in [

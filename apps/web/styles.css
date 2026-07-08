@@ -432,6 +432,238 @@ textarea:focus {
   margin-top: 14px;
 }
 
+.evidence-graph {
+  position: relative;
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #f8fafc;
+  padding: 14px;
+}
+
+.evidence-graph.empty {
+  background: #f8fafc;
+}
+
+.evidence-graph-empty {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.evidence-graph-empty strong {
+  color: var(--ink);
+  font-size: 15px;
+}
+
+.evidence-graph-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.evidence-graph-head h3 {
+  margin: 2px 0 0;
+  font-size: 17px;
+}
+
+.evidence-graph-head > span {
+  border: 1px solid #c6d7e5;
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--muted-strong);
+  padding: 5px 9px;
+  font-size: 12px;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.evidence-graph-canvas {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid #dbe5ee;
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.evidence-graph-lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.evidence-graph-lines path {
+  fill: none;
+  stroke: #94a3b8;
+  stroke-width: 1.5;
+  opacity: 0.55;
+}
+
+.evidence-graph-lines .edge-supports,
+.evidence-graph-lines .edge-validates {
+  stroke: #14804a;
+}
+
+.evidence-graph-lines .edge-questions,
+.evidence-graph-lines .edge-updates {
+  stroke: #197b9b;
+}
+
+.evidence-graph-lines .edge-contradicts {
+  stroke: #b42318;
+}
+
+.evidence-graph-lines .edge-impacts_offer {
+  stroke: #b7791f;
+}
+
+.evidence-graph-columns {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.evidence-graph-column {
+  display: grid;
+  gap: 8px;
+}
+
+.evidence-graph-column > strong {
+  color: var(--muted-strong);
+  font-size: 13px;
+}
+
+.graph-node-list {
+  display: grid;
+  gap: 8px;
+}
+
+.graph-node {
+  display: grid;
+  gap: 4px;
+  min-height: 0;
+  border: 1px solid #d6e1eb;
+  border-left: 4px solid #94a3b8;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--ink);
+  padding: 9px;
+  text-align: left;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+}
+
+.graph-node:hover,
+.graph-node.active {
+  transform: translateY(-1px);
+  border-color: #8ec9dc;
+  box-shadow: 0 12px 24px rgba(25, 123, 155, 0.14);
+}
+
+.graph-node.type-job_requirement {
+  border-left-color: #5144aa;
+}
+
+.graph-node.type-resume_evidence {
+  border-left-color: #14804a;
+}
+
+.graph-node.type-interview_question {
+  border-left-color: #197b9b;
+}
+
+.graph-node.type-risk {
+  border-left-color: #b42318;
+}
+
+.graph-node.type-feedback {
+  border-left-color: #7c3aed;
+}
+
+.graph-node.type-offer_signal {
+  border-left-color: #b7791f;
+}
+
+.graph-node span,
+.graph-node em {
+  color: var(--muted);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 850;
+}
+
+.graph-node strong {
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.graph-node small {
+  color: var(--muted-strong);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.graph-node-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.evidence-graph-detail {
+  margin-top: 12px;
+  border: 1px solid #dbe5ee;
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 12px;
+  color: var(--muted-strong);
+  font-size: 13px;
+}
+
+.evidence-graph-detail strong {
+  color: var(--ink);
+}
+
+.evidence-graph-detail p {
+  margin: 6px 0;
+}
+
+.evidence-graph-detail dl {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 5px 10px;
+  margin: 8px 0;
+}
+
+.evidence-graph-detail dt {
+  color: var(--muted);
+  font-weight: 850;
+}
+
+.evidence-graph-detail dd {
+  margin: 0;
+}
+
+.evidence-graph-detail ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
+.evidence-graph-detail li {
+  margin: 5px 0;
+}
+
+.evidence-graph-detail li span {
+  color: var(--muted);
+}
+
 .report-export-bar button {
   width: 100%;
 }

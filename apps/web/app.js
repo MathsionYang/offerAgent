@@ -12,6 +12,7 @@ const targetLevelEl = $("targetLevel");
 const offerConstraintsEl = $("offerConstraints");
 const reportEl = $("report");
 const reportProgressEl = $("reportProgress");
+const evidenceGraphEl = $("evidenceGraph");
 const statusEl = $("status");
 const modelModeEl = $("modelMode");
 const runBadgeEl = $("runBadge");
@@ -952,6 +953,7 @@ function renderEmptyReport() {
     <h3>${escapeHtml(getText().emptyTitle)}</h3>
     <p>${escapeHtml(getText().emptyText)}</p>
   </div>`;
+  renderEvidenceGraph(null);
 }
 
 function buildPdfFilename(run, audience) {
@@ -2121,6 +2123,7 @@ function renderReport(markdown) {
   reportEl.className = "report";
   reportEl.innerHTML = markdownToHtml(markdown);
   renderStreamProgress(markdown, getText().reportUpdated, true);
+  renderEvidenceGraph(currentRun);
 }
 
 function renderStreamingReport(markdown, label = getText().mockStreaming, isDone = false) {
@@ -2133,6 +2136,7 @@ function renderStreamingReport(markdown, label = getText().mockStreaming, isDone
   renderStreamProgress(markdown, label, isDone);
   reportEl.innerHTML = `<div class="stream-content">${content}${cursor}</div>`;
   reportEl.scrollTop = reportEl.scrollHeight;
+  renderEvidenceGraph(isDone ? currentRun : null);
 }
 
 function renderStreamProgress(markdown, label, isDone) {
@@ -2170,6 +2174,184 @@ function inferStageIndex(markdown, isDone) {
     if (markdown.includes(stage.marker)) activeIndex = index;
   });
   return activeIndex;
+}
+
+function renderEvidenceGraph(run) {
+  if (!evidenceGraphEl) return;
+  const graph = run?.evidence_graph;
+  if (!graph?.nodes?.length) {
+    const emptyTitle = currentLanguage === "en" ? "Evidence Graph" : "证据关系图谱";
+    const emptyText = currentLanguage === "en"
+      ? "Generate a report to visualize how JD requirements, resume evidence, questions, risks, feedback, and offer signals connect."
+      : "生成报告后，这里会展示 JD 要求、简历证据、追问问题、风险、反馈和 Offer 信号之间的关系。";
+    evidenceGraphEl.className = "evidence-graph empty";
+    evidenceGraphEl.innerHTML = `<div class="evidence-graph-empty">
+      <strong>${escapeHtml(emptyTitle)}</strong>
+      <span>${escapeHtml(emptyText)}</span>
+    </div>`;
+    return;
+  }
+
+  const nodesById = new Map(graph.nodes.map((node) => [node.id, node]));
+  const grouped = groupEvidenceGraphNodes(graph.nodes);
+  const labels = getEvidenceGraphLabels();
+  evidenceGraphEl.className = "evidence-graph";
+  evidenceGraphEl.innerHTML = `<div class="evidence-graph-head">
+      <div>
+        <p class="eyebrow">${escapeHtml(labels.eyebrow)}</p>
+        <h3>${escapeHtml(labels.title)}</h3>
+      </div>
+      <span>${escapeHtml(labels.count(graph.nodes.length, graph.edges.length))}</span>
+    </div>
+    <div class="evidence-graph-canvas">
+      <svg class="evidence-graph-lines" aria-hidden="true"></svg>
+      <div class="evidence-graph-columns">
+        ${renderEvidenceGraphColumn(labels.columns.requirements, grouped.requirements)}
+        ${renderEvidenceGraphColumn(labels.columns.evidence, grouped.evidence)}
+        ${renderEvidenceGraphColumn(labels.columns.validation, grouped.validation)}
+      </div>
+    </div>
+    <div class="evidence-graph-detail" id="evidenceGraphDetail">
+      <strong>${escapeHtml(labels.detailTitle)}</strong>
+      <p>${escapeHtml(labels.detailPlaceholder)}</p>
+    </div>`;
+
+  evidenceGraphEl.querySelectorAll(".graph-node").forEach((nodeEl) => {
+    nodeEl.addEventListener("click", () => {
+      const node = nodesById.get(nodeEl.dataset.nodeId);
+      if (!node) return;
+      evidenceGraphEl.querySelectorAll(".graph-node").forEach((item) => item.classList.remove("active"));
+      nodeEl.classList.add("active");
+      renderEvidenceGraphDetail(node, graph.edges, nodesById);
+    });
+  });
+
+  window.setTimeout(() => drawEvidenceGraphEdges(graph.edges), 0);
+}
+
+function groupEvidenceGraphNodes(nodes) {
+  return {
+    requirements: nodes.filter((node) => node.type === "job_requirement"),
+    evidence: nodes.filter((node) => node.type === "resume_evidence"),
+    validation: nodes.filter((node) => !["job_requirement", "resume_evidence"].includes(node.type)),
+  };
+}
+
+function getEvidenceGraphLabels() {
+  if (currentLanguage === "en") {
+    return {
+      eyebrow: "Traceability",
+      title: "Evidence Graph",
+      count: (nodes, edges) => `${nodes} nodes / ${edges} links`,
+      columns: {
+        requirements: "JD Requirements",
+        evidence: "Resume Evidence",
+        validation: "Questions / Risks / Offer",
+      },
+      detailTitle: "Node details",
+      detailPlaceholder: "Click a node to inspect evidence, questions, and linked risks.",
+    };
+  }
+  return {
+    eyebrow: "可追溯关系",
+    title: "证据关系图谱",
+    count: (nodes, edges) => `${nodes} 个节点 / ${edges} 条关系`,
+    columns: {
+      requirements: "JD 要求",
+      evidence: "简历证据",
+      validation: "追问 / 风险 / Offer",
+    },
+    detailTitle: "节点详情",
+    detailPlaceholder: "点击节点查看摘要、证据等级、验证问题和关联关系。",
+  };
+}
+
+function renderEvidenceGraphColumn(title, nodes) {
+  return `<div class="evidence-graph-column">
+    <strong>${escapeHtml(title)}</strong>
+    <div class="graph-node-list">
+      ${nodes.map(renderEvidenceGraphNode).join("") || `<p class="graph-node-empty">${currentLanguage === "en" ? "No nodes" : "暂无节点"}</p>`}
+    </div>
+  </div>`;
+}
+
+function renderEvidenceGraphNode(node) {
+  const meta = node.metadata || {};
+  const badge = meta.evidence_level_label || meta.severity || meta.adoption_status || node.type;
+  return `<button class="graph-node type-${escapeHtml(node.type)}" type="button" data-node-id="${escapeHtml(node.id)}">
+    <span>${escapeHtml(typeLabel(node.type))}</span>
+    <strong>${escapeHtml(node.label)}</strong>
+    <small>${escapeHtml(clip(node.summary || ""))}</small>
+    <em>${escapeHtml(String(badge || ""))}</em>
+  </button>`;
+}
+
+function typeLabel(type) {
+  const zh = {
+    job_requirement: "JD",
+    resume_evidence: "证据",
+    interview_question: "追问",
+    risk: "风险",
+    feedback: "反馈",
+    offer_signal: "Offer",
+  };
+  const en = {
+    job_requirement: "JD",
+    resume_evidence: "Evidence",
+    interview_question: "Question",
+    risk: "Risk",
+    feedback: "Feedback",
+    offer_signal: "Offer",
+  };
+  return (currentLanguage === "en" ? en : zh)[type] || type;
+}
+
+function renderEvidenceGraphDetail(node, edges, nodesById) {
+  const detailEl = evidenceGraphEl?.querySelector("#evidenceGraphDetail");
+  if (!detailEl) return;
+  const related = edges
+    .filter((edge) => edge.from === node.id || edge.to === node.id)
+    .slice(0, 8)
+    .map((edge) => {
+      const otherId = edge.from === node.id ? edge.to : edge.from;
+      const other = nodesById.get(otherId);
+      return `<li><strong>${escapeHtml(edge.type)}</strong> ${escapeHtml(other?.label || otherId)}<br><span>${escapeHtml(edge.note || "")}</span></li>`;
+    })
+    .join("");
+  const metadata = node.metadata ? Object.entries(node.metadata).slice(0, 6) : [];
+  detailEl.innerHTML = `<strong>${escapeHtml(node.label)}</strong>
+    <p>${escapeHtml(node.summary || "")}</p>
+    ${metadata.length ? `<dl>${metadata.map(([key, value]) => `<dt>${escapeHtml(key)}</dt><dd>${escapeHtml(String(value))}</dd>`).join("")}</dl>` : ""}
+    ${related ? `<ul>${related}</ul>` : `<p>${currentLanguage === "en" ? "No linked edges." : "暂无关联关系。"}</p>`}`;
+}
+
+function drawEvidenceGraphEdges(edges) {
+  if (!evidenceGraphEl) return;
+  const svg = evidenceGraphEl.querySelector(".evidence-graph-lines");
+  const canvas = evidenceGraphEl.querySelector(".evidence-graph-canvas");
+  if (!svg || !canvas) return;
+  const canvasRect = canvas.getBoundingClientRect();
+  svg.setAttribute("viewBox", `0 0 ${canvasRect.width} ${canvasRect.height}`);
+  svg.innerHTML = edges
+    .map((edge) => {
+      const fromEl = evidenceGraphEl.querySelector(`[data-node-id="${cssEscape(edge.from)}"]`);
+      const toEl = evidenceGraphEl.querySelector(`[data-node-id="${cssEscape(edge.to)}"]`);
+      if (!fromEl || !toEl) return "";
+      const from = fromEl.getBoundingClientRect();
+      const to = toEl.getBoundingClientRect();
+      const x1 = from.right - canvasRect.left;
+      const y1 = from.top + from.height / 2 - canvasRect.top;
+      const x2 = to.left - canvasRect.left;
+      const y2 = to.top + to.height / 2 - canvasRect.top;
+      const mid = Math.max(30, Math.abs(x2 - x1) / 2);
+      return `<path class="edge-${escapeHtml(edge.type)}" d="M ${x1} ${y1} C ${x1 + mid} ${y1}, ${x2 - mid} ${y2}, ${x2} ${y2}" />`;
+    })
+    .join("");
+}
+
+function cssEscape(value) {
+  if (window.CSS?.escape) return window.CSS.escape(value);
+  return String(value).replace(/["\\]/g, "\\$&");
 }
 
 function markdownToHtml(markdown) {
