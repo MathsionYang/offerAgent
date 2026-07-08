@@ -89,6 +89,33 @@
         "next_actions": { "type": "array", "items": { "type": "string" } }
       }
     },
+    "role_capability_matrix": {
+      "type": "object",
+      "properties": {
+        "role_id": { "type": "string" },
+        "role_label": { "type": "string" },
+        "source_kind": { "type": "string" },
+        "version": { "type": "string" },
+        "summary": { "type": "string" },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "capability": { "type": "string" },
+              "match_status": { "type": "string" },
+              "evidence_level": { "type": "number" },
+              "evidence_level_label": { "type": "string" },
+              "jd_anchor": { "type": "string" },
+              "resume_anchor": { "type": "string" },
+              "decision_path_ids": { "type": "array", "items": { "type": "string" } },
+              "next_validation": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
     "skill_registry": {
       "type": "array",
       "items": {
@@ -106,9 +133,75 @@
         }
       }
     },
+    "skill_selection_audit": {
+      "type": "object",
+      "properties": {
+        "registry_version": { "type": "string" },
+        "source_kind": { "type": "string" },
+        "target_role": { "type": "string" },
+        "selected_skills": { "type": "array", "items": { "type": "string" } },
+        "version_history": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "skill_id": { "type": "string" },
+              "version": { "type": "string" },
+              "adoption_status": { "type": "string" }
+            }
+          }
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "skill_id": { "type": "string" },
+              "version": { "type": "string" },
+              "adoption_status": { "type": "string" },
+              "selection_reason": { "type": "string" },
+              "contribution_summary": { "type": "string" },
+              "decision_path_ids": { "type": "array", "items": { "type": "string" } },
+              "source_kind": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
     "offer_simulation_run": { "$ref": "offer-simulation-run.schema.json" },
     "evidence_graph": { "$ref": "evidence-graph.schema.json" },
+    "evidence_decision_paths": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "capability": { "type": "string" },
+          "decision": { "type": "string" },
+          "route": { "type": "array", "items": { "type": "string" } },
+          "focus_node_id": { "type": "string" },
+          "confidence": { "type": "number" },
+          "source_kind": { "type": "string" }
+        }
+      }
+    },
     "feedback_distillation": { "$ref": "feedback-distillation.schema.json" },
+    "feedback_session_history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "signature": { "type": "string" },
+          "updated_at": { "type": "string" },
+          "agreement": { "type": "string" },
+          "question_use": { "type": "string" },
+          "evidence_sufficiency": { "type": "string" },
+          "risk_validation": { "type": "string" },
+          "notes": { "type": "string" }
+        }
+      }
+    },
     "human_feedback": {
       "type": "object",
       "properties": {

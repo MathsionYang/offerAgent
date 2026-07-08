@@ -30,9 +30,13 @@ const feedbackNotesEl = $("feedbackNotes");
 const appendFeedbackBtn = $("appendFeedbackBtn");
 const languageEl = $("language");
 const skillToggleEls = Array.from(document.querySelectorAll(".skill-toggle"));
+const audienceModeEls = Array.from(document.querySelectorAll("[data-audience-mode]"));
+const workspaceViewEls = Array.from(document.querySelectorAll("[data-workspace-view]"));
 
 let currentRun = null;
 let currentLanguage = languageEl?.value || "zh";
+let activeAudienceMode = document.body?.dataset.pageMode === "interviewer" ? "interviewer" : "candidate";
+let activeWorkspaceView = "workbench";
 
 const providerDefaults = {
   mock: { model: "mock-product-manager-v1", baseUrl: "" },
@@ -317,8 +321,8 @@ const i18n = {
       feedbackNotes: "人工补充意见",
       appendFeedback: "把反馈写入报告",
       reportTitle: "报告预览",
-      downloadCandidate: "导出候选人 PDF",
-      downloadInterviewer: "导出面试官 PDF",
+      downloadCandidate: "导出 PDF",
+      downloadInterviewer: "导出 PDF",
       downloadOffer: "导出 Offer 推演 PDF",
       footer: "面试准备助手第一版只做面试准备辅助，不输出自动录用或淘汰结论。",
     },
@@ -468,8 +472,8 @@ const i18n = {
       feedbackNotes: "Additional human notes",
       appendFeedback: "Append Feedback to Report",
       reportTitle: "Report Preview",
-      downloadCandidate: "Export Candidate PDF",
-      downloadInterviewer: "Export Interviewer PDF",
+      downloadCandidate: "Export PDF",
+      downloadInterviewer: "Export PDF",
       downloadOffer: "Export Offer Simulation PDF",
       footer: "The first version is an interview-prep assistant only and does not issue automatic hiring or rejection decisions.",
     },
@@ -788,6 +792,9 @@ const getText = () => i18n[currentLanguage] || i18n.zh;
 const getReportStages = () => reportStagesByLanguage[currentLanguage] || reportStagesByLanguage.zh;
 
 renderStreamProgress("", getText().progressWaiting, false);
+setAudienceMode(activeAudienceMode);
+setWorkspaceView("workbench");
+setReportDownloadsAvailable(false);
 
 providerEl.addEventListener("change", () => {
   const defaults = providerDefaults[providerEl.value] || providerDefaults.mock;
@@ -804,6 +811,14 @@ apiKeyEl.addEventListener("input", updateModelMode);
 if (languageEl) {
   languageEl.addEventListener("change", () => applyLanguage(languageEl.value));
 }
+
+workspaceViewEls.forEach((button) => {
+  button.addEventListener("click", () => setWorkspaceView(button.dataset.workspaceView));
+});
+
+audienceModeEls.forEach((button) => {
+  button.addEventListener("click", () => setAudienceMode(button.dataset.audienceMode));
+});
 
 bindClick("mockBtn", () => {
   const localizedSample = samples[currentLanguage] || samples.zh;
@@ -836,6 +851,7 @@ bindClick("clearBtn", () => {
   downloadMdBtn.disabled = true;
   setInterviewerDownloadDisabled(true);
   setOfferDownloadDisabled(true);
+  setReportDownloadsAvailable(false);
   appendFeedbackBtn.disabled = true;
   feedbackAgreementEl.value = "未反馈";
   feedbackQuestionUseEl.value = "未反馈";
@@ -843,6 +859,7 @@ bindClick("clearBtn", () => {
   feedbackEvidenceSufficiencyEl.value = "未反馈";
   feedbackRiskValidationEl.value = "未反馈";
   feedbackNotesEl.value = "";
+  setWorkspaceView("workbench");
   setStatus(getText().statusCleared);
 });
 
@@ -857,8 +874,10 @@ generateBtn.addEventListener("click", async () => {
   downloadMdBtn.disabled = true;
   setInterviewerDownloadDisabled(true);
   setOfferDownloadDisabled(true);
+  setReportDownloadsAvailable(false);
   appendFeedbackBtn.disabled = true;
   runBadgeEl.textContent = getText().runGenerating;
+  setWorkspaceView("graph");
   renderStreamingReport("", input.useRealModel ? getText().llmStreaming : getText().mockStreaming);
   setStatus(input.useRealModel ? getText().statusGeneratingLlm : getText().statusGeneratingMock);
 
@@ -896,7 +915,9 @@ generateBtn.addEventListener("click", async () => {
     downloadMdBtn.disabled = false;
     setInterviewerDownloadDisabled(false);
     setOfferDownloadDisabled(false);
+    setReportDownloadsAvailable(true);
     appendFeedbackBtn.disabled = false;
+    setWorkspaceView("graph");
     setStatus(input.useRealModel ? getText().statusLlmDone : getText().statusMockDone);
   } catch (error) {
     setStatus(formatGenerationError(error), true);
@@ -941,6 +962,9 @@ appendFeedbackBtn.addEventListener("click", () => {
   downloadMdBtn.disabled = false;
   setInterviewerDownloadDisabled(false);
   setOfferDownloadDisabled(false);
+  setReportDownloadsAvailable(true);
+  appendFeedbackBtn.disabled = false;
+  setWorkspaceView("graph");
   setStatus(getText().statusFeedback);
 });
 
@@ -974,6 +998,67 @@ function setInterviewerDownloadDisabled(disabled) {
 
 function setOfferDownloadDisabled(disabled) {
   if (downloadOfferBtn) downloadOfferBtn.disabled = disabled;
+}
+
+function getPageMode() {
+  return activeAudienceMode;
+}
+
+function setAudienceMode(mode) {
+  activeAudienceMode = mode === "interviewer" ? "interviewer" : "candidate";
+  if (document.body?.dataset) {
+    document.body.dataset.pageMode = activeAudienceMode;
+  }
+  applyInterviewerMode();
+  setReportDownloadsAvailable(Boolean(currentRun));
+}
+
+function applyInterviewerMode() {
+  const isInterviewer = getPageMode() === "interviewer";
+  document.body.classList.toggle("interviewer-mode", isInterviewer);
+  document.body.classList.toggle("candidate-mode", !isInterviewer);
+  audienceModeEls.forEach((button) => {
+    const isActive = button.dataset.audienceMode === getPageMode();
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-selected", isActive ? "true" : "false");
+  });
+}
+
+function setReportDownloadsAvailable(available) {
+  const pageMode = getPageMode();
+  document.body.classList.toggle("report-export-bar-ready", Boolean(available));
+  if (downloadMdBtn) {
+    downloadMdBtn.hidden = !available || pageMode !== "candidate";
+    downloadMdBtn.disabled = !available || pageMode !== "candidate";
+  }
+  if (downloadInterviewerBtn) {
+    downloadInterviewerBtn.hidden = !available || pageMode !== "interviewer";
+    downloadInterviewerBtn.disabled = !available || pageMode !== "interviewer";
+  }
+  if (downloadOfferBtn) {
+    downloadOfferBtn.hidden = true;
+    downloadOfferBtn.disabled = true;
+  }
+  applyInterviewerMode();
+}
+
+function setWorkspaceView(view) {
+  activeWorkspaceView = view === "graph" ? "graph" : "workbench";
+  applyWorkspaceView();
+  if (activeWorkspaceView === "graph") {
+    renderEvidenceGraph(currentRun);
+  }
+}
+
+function applyWorkspaceView() {
+  const isGraphView = activeWorkspaceView === "graph";
+  document.body.classList.toggle("view-workbench", !isGraphView);
+  document.body.classList.toggle("view-graph", isGraphView);
+  workspaceViewEls.forEach((button) => {
+    const isActive = button.dataset.workspaceView === activeWorkspaceView;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-selected", isActive ? "true" : "false");
+  });
 }
 
 function applyLanguage(language) {
@@ -1039,6 +1124,8 @@ function applyLanguage(language) {
   setText("#downloadMdBtn", text.labels.downloadCandidate);
   setText("#downloadInterviewerBtn", text.labels.downloadInterviewer);
   setText("#downloadOfferBtn", text.labels.downloadOffer);
+  setText('[data-audience-mode="candidate"]', currentLanguage === "en" ? "Candidate" : "候选人");
+  setText('[data-audience-mode="interviewer"]', currentLanguage === "en" ? "Interviewer" : "面试官");
   setText(".footer p", text.labels.footer);
 
   const subPanelHeads = document.querySelectorAll(".sub-panel-head");
@@ -1092,8 +1179,112 @@ function applyLanguage(language) {
   } else {
     renderReport(buildPreviewMarkdown(currentRun));
   }
+  applyCleanChineseCopy();
 }
 
+function applyCleanChineseCopy() {
+  if (currentLanguage === "en") return;
+
+  document.title = "OfferAgent 面试官评估";
+  setText(".brand strong", "OfferAgent 面试官评估");
+  setText(".brand span:not(.brand-mark)", "Offer 沙盘 + 面试官视角库");
+  setText('[data-workspace-view="workbench"]', "工作台");
+  setText('[data-workspace-view="graph"]', "图谱");
+  setText("#config-title", "临时配置模型");
+  setText("#mockBtn", "填充脱敏样例");
+  setText("#input-title", "输入简历与 JD");
+  setText("#clearBtn", "清空当前页面");
+  setText("#generateBtn", "生成面试官评估报告");
+  setText("#feedback-title", "人工反馈");
+  setText(".feedback-panel .run-badge", "仅当前页面有效");
+  setText("#report-title", "面试官评估报告");
+  setText("#graph-title", "证据关系图谱");
+  setText("#downloadMdBtn", "导出 PDF");
+  setText("#downloadInterviewerBtn", "导出 PDF");
+  setText("#downloadOfferBtn", "导出 Offer 推演 PDF");
+  setText('[data-audience-mode="candidate"]', "候选人");
+  setText('[data-audience-mode="interviewer"]', "面试官");
+  setText("#appendFeedbackBtn", "把反馈写入报告");
+
+  setFieldLabel(providerEl, "模型服务商");
+  setFieldLabel(modelEl, "模型名称");
+  setFieldLabel(apiKeyEl, "临时 API Key");
+  setFieldLabel(baseUrlEl, "代理 / 自定义 Base URL（可选）");
+  setFieldLabel(targetRoleEl, "目标岗位");
+  setFieldLabel(resumeEl, "候选人简历");
+  setFieldLabel(jobEl, "岗位 JD");
+  setFieldLabel(contextEl, "公司 / 面试上下文（可选）");
+  setFieldLabel(candidateStageEl, "候选人阶段");
+  setFieldLabel(targetLevelEl, "目标职级");
+  setFieldLabel(offerConstraintsEl, "Offer / 谈薪约束（可选）");
+  setFieldLabel(feedbackAgreementEl, "是否同意系统判断");
+  setFieldLabel(feedbackQuestionUseEl, "追问是否可采用");
+  setFieldLabel(feedbackDisagreementReasonEl, "不同意原因");
+  setFieldLabel(feedbackEvidenceSufficiencyEl, "证据是否充分");
+  setFieldLabel(feedbackRiskValidationEl, "面试后是否验证风险");
+  setFieldLabel(feedbackNotesEl, "人工补充意见");
+
+  setPlaceholder(apiKeyEl, providerEl.value === "mock" ? "Mock Demo 不需要填写 API Key" : "这里只做当前页面调用");
+  setPlaceholder(baseUrlEl, "例如 https://your-worker.workers.dev");
+  setPlaceholder(resumeEl, "粘贴候选人简历文本。不建议在公共设备输入真实敏感信息。");
+  setPlaceholder(jobEl, "粘贴目标岗位 JD。");
+  setPlaceholder(contextEl, "例如公司阶段、团队大小、面试关注点、业务背景。");
+  setPlaceholder(targetLevelEl, "例如中级产品经理 / 高级开发工程师");
+  setPlaceholder(offerConstraintsEl, "例如预算范围、候选人期望、竞品 Offer、到岗时间、团队紧急程度。");
+  setPlaceholder(feedbackNotesEl, "记录面试官的人工判断、新风险、被问到但报告遗漏的问题。");
+
+  setOptionText(providerEl, "mock", "Mock Demo");
+  setOptionText(providerEl, "openai", "OpenAI 官方接口");
+  setOptionText(providerEl, "deepseek", "DeepSeek 官方接口");
+  setOptionText(providerEl, "qwen", "通义千问 OpenAI-Compatible");
+  setOptionText(providerEl, "kimi", "Kimi 官方接口");
+  setOptionText(providerEl, "custom", "代理 / 自定义接口");
+
+  setOptionText(targetRoleEl, "product_manager", "产品经理");
+  setOptionText(targetRoleEl, "developer", "开发人员");
+  setOptionText(targetRoleEl, "technical_support", "技术支持人员");
+  setOptionText(targetRoleEl, "sales", "销售人员");
+
+  setOptionText(candidateStageEl, "简历筛选", "简历筛选");
+  setOptionText(candidateStageEl, "一面前", "一面前");
+  setOptionText(candidateStageEl, "业务一面", "业务一面");
+  setOptionText(candidateStageEl, "二面 / 终面", "二面 / 终面");
+  setOptionText(candidateStageEl, "Offer 前", "Offer 前");
+
+  const subPanelHeads = document.querySelectorAll(".sub-panel-head");
+  if (subPanelHeads[0]) {
+    subPanelHeads[0].querySelector("span").textContent = "Offer 沙盘";
+    subPanelHeads[0].querySelector("small").textContent = "用于模拟面试推进、录用风险和谈薪约束";
+  }
+  if (subPanelHeads[1]) {
+    subPanelHeads[1].querySelector("span").textContent = "面试官视角库";
+    subPanelHeads[1].querySelector("small").textContent = "不同面试角色的问题视角，供候选人准备和面试官挑选";
+  }
+
+  const skillCopy = {
+    hr: ["虚拟 HR 面试官", "深挖动机、岗位偏好、到岗约束和风险边界。"],
+    business: ["虚拟业务负责人", "结合 JD 思索业务判断、指标口径和结果归因。"],
+    project: ["虚拟项目推进面试官", "结合项目经历深挖里程碑、资源协调和复盘机制。"],
+    negotiation: ["虚拟谈薪顾问", "深挖机会选择标准、竞争 Offer、入职概率和谈薪策略。"],
+    decision: ["决策层压力官", "用预算削减、战略取舍和 ROI 压力测试判断依据。"],
+  };
+  document.querySelectorAll(".skill-card").forEach((card) => {
+    const id = card.querySelector(".skill-toggle")?.value;
+    const copy = skillCopy[id];
+    if (!copy) return;
+    const title = card.querySelector("strong");
+    const body = card.querySelector("small");
+    if (title) title.textContent = copy[0];
+    if (body) body.textContent = copy[1];
+  });
+
+  if (!currentRun && reportEl?.classList.contains("empty")) {
+    reportEl.innerHTML = '<div class="empty-state"><span class="empty-mark">OA</span><h3>等待生成面试官评估报告</h3><p>报告会覆盖岗位匹配、Offer 沙盘推演、面试官候选问题库、证据链、图谱和人工反馈建议，并支持导出 PDF。</p></div>';
+    runBadgeEl.textContent = "尚未生成";
+    setStatus("准备就绪。未配置 Key 时会使用 Mock Demo。");
+  }
+  updateModelMode();
+}
 function setText(selector, value) {
   const element = document.querySelector(selector);
   if (element) element.textContent = value;
@@ -1142,24 +1333,52 @@ function collectFeedback() {
   };
 }
 
+function buildHumanFeedbackMarkdown(run) {
+  const feedback = run?.human_feedback;
+  if (!feedback) return "";
+
+  if (getRunLanguage(run) === "en") {
+    return `## Human Feedback
+
+| Item | Feedback |
+| --- | --- |
+| Agreement with system judgment | ${feedback.agreement || "Not provided"} |
+| Question usability | ${feedback.question_use || "Not provided"} |
+| Disagreement reason | ${feedback.disagreement_reason || "Not provided"} |
+| Evidence sufficiency | ${feedback.evidence_sufficiency || "Not provided"} |
+| Risk validation after interview | ${feedback.risk_validation || "Not provided"} |
+| Notes | ${feedback.notes || "Not provided"} |
+| Updated at | ${feedback.updated_at || "Not provided"} |`;
+  }
+
+  return `## 人工反馈记录
+
+| 项目 | 反馈 |
+| --- | --- |
+| 是否同意系统判断 | ${feedback.agreement || "未提供"} |
+| 追问是否可采用 | ${feedback.question_use || "未提供"} |
+| 不同意原因 | ${feedback.disagreement_reason || "未提供"} |
+| 证据是否充分 | ${feedback.evidence_sufficiency || "未提供"} |
+| 面试后是否验证风险 | ${feedback.risk_validation || "未提供"} |
+| 人工补充意见 | ${feedback.notes || "未填写"} |
+| 记录时间 | ${feedback.updated_at || "未提供"} |`;
+}
 function appendFeedbackToReport(report, feedback) {
   const marker = "## 人工反馈记录";
   const feedbackMarkdown = `${marker}
 
-- 是否同意系统判断：${feedback.agreement}
-- 追问是否可采用：${feedback.question_use}
-- 不同意原因：${feedback.disagreement_reason}
-- 证据是否充分：${feedback.evidence_sufficiency}
-- 面试后是否验证风险：${feedback.risk_validation}
+- 是否同意系统判断：${feedback.agreement || "未提供"}
+- 追问是否可采用：${feedback.question_use || "未提供"}
+- 不同意原因：${feedback.disagreement_reason || "未提供"}
+- 证据是否充分：${feedback.evidence_sufficiency || "未提供"}
+- 面试后是否验证风险：${feedback.risk_validation || "未提供"}
 - 人工补充意见：${feedback.notes || "未填写"}
-- 记录时间：${feedback.updated_at}
+- 记录时间：${feedback.updated_at || "未提供"}
 
 ### 建议回填到题库
-
 - 将实际被问到但报告遗漏的问题，回填到“面试官候选问题库”。
 - 将被证实或被推翻的证据，更新到证据可信度等级。
-- 将新暴露的失败复盘、冲突处理、指标口径问题，更新到“风险与待验证”。
-`;
+- 将新暴露的失败复盘、冲突处理、指标口径问题，更新到“风险与待验证”。`;
 
   if (report.includes(marker)) {
     return report.replace(new RegExp(`${marker}[\\s\\S]*$`), feedbackMarkdown);
@@ -1167,7 +1386,6 @@ function appendFeedbackToReport(report, feedback) {
 
   return `${report.trim()}\n\n${feedbackMarkdown}`;
 }
-
 function enrichEvaluationRun(run) {
   const snapshot = normalizeSnapshot(run.input_snapshot || {});
   const requirementRows = buildRequirementEvidenceRows(snapshot);
@@ -4451,7 +4669,9 @@ ${buildConcreteCandidateQuestions(snapshot)}
 
 ${buildPressureInterviewGuide(snapshot)}
 
-${body}`;
+${body}
+
+${buildHumanFeedbackMarkdown(run)}`;
   }
 
   if (audience === "interviewer") {
@@ -4568,7 +4788,9 @@ function buildAudienceMarkdownEn(run, audience) {
 | Main risk | Contribution boundary and metric definitions need validation | Resume: ${snapshot.resume ? clip(snapshot.resume) : "Not provided"} | Prepare denominator, period, before/after comparison, personal action, and retrospective. |
 | Offer leverage | ${translateOfferRating(offerLeverage.rating)} | ${offerLeverage.summary} | Convert only verified impact into negotiation leverage. |
 
-${body || report}`;
+${body || report}
+
+${buildHumanFeedbackMarkdown(run)}`;
   }
 
   if (audience === "interviewer") {

@@ -16,6 +16,8 @@ def read(path):
 def static_checks():
     files = {
         "index": ROOT / "apps" / "web" / "index.html",
+        "candidate": ROOT / "apps" / "web" / "candidate.html",
+        "interviewer": ROOT / "apps" / "web" / "interviewer.html",
         "app": ROOT / "apps" / "web" / "app.js",
         "css": ROOT / "apps" / "web" / "styles.css",
         "readme": ROOT / "README.md",
@@ -37,6 +39,10 @@ def static_checks():
     all_text = "\n".join(content.values())
 
     checks = {
+        "utf8_visible_copy_is_clean": not re.search(
+            r"�|鍊|闈|瀵|娌欩洏|铏氭嫙|绛夊緟|鐢熸垚|涓存椂|妯″瀷|鍥捐氨|宸ヤ綔",
+            content["index"] + content["candidate"] + content["interviewer"] + content["app"],
+        ),
         "product_shape_visible_in_ui": all(
             term in content["index"]
             for term in ["Offer 沙盘 + 面试官视角库", "Offer 沙盘", "面试官视角库"]
@@ -126,9 +132,188 @@ def static_checks():
             ]
         ),
         "two_report_modules_exist": "downloadInterviewerBtn" in content["app"] + content["index"]
-        and "导出候选人 PDF" in content["index"]
-        and "导出面试官 PDF" in content["index"]
+        and "导出 PDF" in content["index"]
         and "buildAudienceMarkdown" in content["app"],
+        "candidate_interviewer_pages_exist": all(
+            term in content["index"] + content["candidate"] + content["interviewer"] + content["app"]
+            for term in [
+                'data-page-mode="candidate"',
+                'data-page-mode="interviewer"',
+                'data-workspace-view="workbench"',
+                'data-workspace-view="graph"',
+                'data-audience-mode="candidate"',
+                'data-audience-mode="interviewer"',
+                "audience-switch",
+                "setWorkspaceView",
+                "setAudienceMode",
+                "applyInterviewerMode",
+                "view-workbench",
+                "view-graph",
+                "candidate-mode",
+                "interviewer-mode",
+            ]
+        )
+        and all(
+            term not in content["index"] + content["candidate"] + content["interviewer"]
+            for term in ["data-module-link", "module-nav", 'data-page-mode="full"']
+        ),
+        "dashboard_layout_refinement_exists": all(
+            term in content["css"]
+            for term in [
+                "top titlebar dashboard refinement",
+                "grid-template-areas:",
+                '"nav"',
+                '"workspace"',
+                ".page .nav",
+                "position: fixed",
+                "left: 0",
+                "right: 0",
+                "top: 0",
+                "--exportbar-height",
+                ".page .report-export-bar",
+                "position: fixed",
+                ".page .workspace",
+                ".page .layout",
+                "display: none !important",
+                ".page .report-panel",
+                ".page .module-nav",
+                ".page .language-switch",
+                "@media (max-width: 960px)",
+            ]
+        ),
+        "hero_titlebar_removed": all(
+            '<header class="hero">' not in content[name]
+            and "hero-subtitle" not in content[name]
+            for name in ["index", "candidate", "interviewer"]
+        ),
+        "export_bar_fixed_and_conditional": all(
+            term in content["app"] + content["css"]
+            for term in [
+                "setReportDownloadsAvailable",
+                "report-export-bar-ready",
+                "getPageMode",
+                "downloadInterviewerBtn.hidden",
+                "downloadMdBtn.hidden",
+                "activeAudienceMode",
+                "downloadOfferBtn.hidden = true",
+                "top: var(--topbar-height)",
+                "body:not(.report-export-bar-ready) .page .report-export-bar",
+                "height: calc(100vh - var(--topbar-height) - var(--exportbar-height) - 32px)",
+                "min-height: calc(100vh - var(--topbar-height) - var(--exportbar-height) - 32px)",
+                "max-height: calc(100vh - var(--topbar-height) - var(--exportbar-height) - 32px)",
+            ]
+        ),
+        "audience_switch_uses_green_segmented_buttons": all(
+            term in content["index"] + content["candidate"] + content["interviewer"] + content["app"] + content["css"]
+            for term in [
+                'role="tablist" aria-label="\u53d7\u4f17"',
+                'data-audience-mode="candidate"',
+                'data-audience-mode="interviewer"',
+                ".page .audience-switch",
+                ".page .audience-switch button.active",
+                "background: #059669",
+                "setAttribute(\"aria-selected\"",
+            ]
+        )
+        and "interviewer-switch" not in content["css"]
+        and 'id="interviewerMode"' not in content["index"] + content["candidate"] + content["interviewer"],
+        "sidebar_navigation_removed": all(
+            term not in content["css"]
+            for term in [
+                "compact left navigation",
+                "grid-template-columns: 252px minmax(0, 1fr)",
+                '"nav hero"',
+                '"nav workspace"',
+                "border-right: 1px solid #dfe7ef",
+            ]
+        ),
+        "removed_marketing_cards": all(
+            term not in content["index"] + content["candidate"] + content["interviewer"]
+            for term in [
+                'class="hero-summary"',
+                'class="cap-card"',
+                'class="workflow"',
+                'class="step-card"',
+            ]
+        ),
+        "compact_skill_selector_exists": all(
+            term in content["css"]
+            for term in [
+                "compact skill selector refinement",
+                ".page .interviewer-feedback-row",
+                ".page .skill-panel",
+                "grid-template-columns: minmax(0, 1fr)",
+                ".mode-candidate .page .interviewer-feedback-row",
+                "grid-template-columns: repeat(5, minmax(150px, 1fr))",
+                ".page .skill-card",
+                "min-height: 52px",
+                ".page .skill-card small",
+                ".page .generate-actions",
+                ".page .status",
+            ]
+        ),
+        "compact_feedback_panel_exists": all(
+            term in content["css"]
+            for term in [
+                "compact feedback panel refinement",
+                ".page .feedback-panel",
+                ".page .feedback-panel .grid.two",
+                ".page .feedback-panel textarea",
+                "max-height: 48px",
+                ".page .feedback-panel .run-badge",
+                ".page .feedback-panel .actions",
+            ]
+        ),
+        "compact_report_progress_exists": all(
+            term in content["css"]
+            for term in [
+                "compact report progress refinement",
+                ".page .report-progress",
+                ".page .report-progress .stream-steps",
+                ".page .report-progress .stream-step",
+                "min-height: 46px",
+                ".page .report-progress .stream-step small",
+                "-webkit-line-clamp: 1",
+            ]
+        ),
+        "compact_config_panel_exists": all(
+            term in content["css"]
+            for term in [
+                "compact config panel refinement",
+                ".page .config-panel",
+                ".page .config-panel .panel-head",
+                ".page .config-panel .grid.two",
+                "grid-template-columns: repeat(4, minmax(0, 1fr))",
+                ".page .config-panel input",
+                ".page .config-panel .mode-indicator",
+                "min-height: 32px",
+            ]
+        ),
+        "resume_jd_left_right_exists": all(
+            'class="resume-jd-row"' in content[name]
+            for name in ["index", "candidate", "interviewer"]
+        )
+        and all(
+            term in content["css"]
+            for term in [
+                ".page .resume-jd-row",
+                "grid-template-columns: minmax(0, 1fr) minmax(0, 1fr)",
+                ".page .resume-jd-row textarea",
+                "min-height: 170px",
+            ]
+        ),
+        "export_after_feedback_flow_exists": all(
+            content[name].find('class="report-export-bar"') != -1
+            and content[name].find('class="panel feedback-panel"') != -1
+            and content[name].find('class="panel report-panel"') != -1
+            for name in ["index", "candidate", "interviewer"]
+        ),
+        "candidate_skill_panel_visible": all(
+            'aria-labelledby="skill-title"' in content[name]
+            and "skill-card" in content[name]
+            for name in ["index", "candidate", "interviewer"]
+        )
+        and "module-hidden" not in content["app"],
         "structured_run_state_exists": all(
             term in content["app"] + content["schema_run"]
             for term in [
@@ -171,6 +356,27 @@ def static_checks():
                 "graph-report-link",
                 "report-focus",
                 "证据关系图谱",
+            ]
+        ),
+        "non_sample_enhancements_exist": all(
+            term in content["css"] + content["schema_run"] + content["schema_offer"]
+            for term in [
+                "role-capability-matrix",
+                "offer-backfill-panel",
+                "feedback-history-panel",
+                "skill-audit-panel",
+                "feedback_session_history",
+                "state_backfill",
+                "version_history",
+                "source_kind",
+            ]
+        ),
+        "sample_evaluation_still_deferred": all(
+            term not in content["app"] + content["index"]
+            for term in [
+                "realSampleEvaluation",
+                "真实样本评测入口",
+                "sampleEvaluationUpload",
             ]
         ),
         "mirofish_nuwa_structures_exist": all(
