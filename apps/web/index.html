@@ -165,7 +165,7 @@
 
             <label>
               <span>岗位 JD</span>
-              <textarea id="jobDescription" rows="8" placeholder="粘贴产品经理岗位 JD。"></textarea>
+              <textarea id="jobDescription" rows="8" placeholder="粘贴目标岗位 JD。"></textarea>
             </label>
 
             <label>
@@ -183,7 +183,17 @@
                 <small>用于模拟面试推进、录用风险和谈薪约束</small>
               </div>
 
-              <div class="grid two">
+              <div class="grid three">
+                <label>
+                  <span>目标岗位</span>
+                  <select id="targetRole">
+                    <option value="product_manager">产品经理</option>
+                    <option value="developer">开发人员</option>
+                    <option value="technical_support">技术支持人员</option>
+                    <option value="sales">销售人员</option>
+                  </select>
+                </label>
+
                 <label>
                   <span>候选人阶段</span>
                   <select id="candidateStage">
@@ -196,7 +206,7 @@
 
                 <label>
                   <span>目标职级</span>
-                  <input id="targetLevel" type="text" placeholder="例如 P6 / 中级产品经理" autocomplete="off" />
+                  <input id="targetLevel" type="text" placeholder="例如 P6 / 中级岗位 / 高级开发工程师" autocomplete="off" />
                 </label>
               </div>
 
@@ -373,9 +383,6 @@
             </button>
             <button id="downloadOfferBtn" class="secondary-btn" type="button" disabled>
               导出 Offer 推演 PDF
-            </button>
-            <button id="downloadJsonBtn" class="secondary-btn" type="button" disabled>
-              导出评测 JSON
             </button>
           </div>
         </section>

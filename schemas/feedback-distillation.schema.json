@@ -14,7 +14,9 @@
           "id": { "type": "string" },
           "when": { "type": "string" },
           "then": { "type": "string" },
-          "target": { "type": "string" }
+          "target": { "type": "string" },
+          "priority": { "type": "number" },
+          "conflict_policy": { "type": "string" }
         }
       }
     },
@@ -29,6 +31,31 @@
             "enum": ["promote_question", "rewrite_question", "demote_question", "raise_risk_weight", "lower_risk_weight", "downgrade_claim", "add_regression_case"]
           },
           "target_id": { "type": "string" },
+          "reason": { "type": "string" },
+          "status": { "type": "string" }
+        }
+      }
+    },
+    "impact_diff": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "target": { "type": "string" },
+          "before": { "type": "string" },
+          "after": { "type": "string" },
+          "affected_ids": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "skill_update_suggestions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "skill_id": { "type": "string" },
+          "version": { "type": "string" },
+          "suggestion": { "type": "string" },
           "reason": { "type": "string" },
           "status": { "type": "string" }
         }

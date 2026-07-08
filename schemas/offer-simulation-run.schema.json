@@ -8,6 +8,30 @@
     "id": { "type": "string" },
     "evaluation_run_id": { "type": "string" },
     "created_at": { "type": "string" },
+    "version": { "type": "string" },
+    "lifecycle_state": { "type": "string" },
+    "lifecycle_steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "label": { "type": "string" },
+          "status": { "type": "string" }
+        }
+      }
+    },
+    "history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "at": { "type": "string" },
+          "event": { "type": "string" },
+          "summary": { "type": "string" }
+        }
+      }
+    },
     "stage": { "type": "string" },
     "target_level": { "type": "string" },
     "readiness": { "type": "string" },
@@ -45,6 +69,26 @@
           "value": { "type": "string" },
           "action": { "type": "string" }
         }
+      }
+    },
+    "scenario_comparison": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "probability": { "type": "number" },
+          "assumption": { "type": "string" },
+          "next_action": { "type": "string" }
+        }
+      }
+    },
+    "state_backfill": {
+      "type": "object",
+      "properties": {
+        "next_question_focus": { "type": "array", "items": { "type": "string" } },
+        "risk_inputs": { "type": "array", "items": { "type": "string" } },
+        "negotiation_inputs": { "type": "array", "items": { "type": "string" } }
       }
     },
     "final_decision_hint": { "type": "string" }

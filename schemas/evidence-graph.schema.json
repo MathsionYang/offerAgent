@@ -20,7 +20,8 @@
               "interview_question",
               "risk",
               "feedback",
-              "offer_signal"
+              "offer_signal",
+              "skill"
             ]
           },
           "label": { "type": "string" },
@@ -45,10 +46,13 @@
               "contradicts",
               "validates",
               "updates",
-              "impacts_offer"
+              "impacts_offer",
+              "generates"
             ]
           },
           "weight": { "type": "number" },
+          "confidence": { "type": "number" },
+          "source": { "type": "string" },
           "note": { "type": "string" }
         }
       }

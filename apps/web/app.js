@@ -4,6 +4,7 @@ const providerEl = $("provider");
 const modelEl = $("model");
 const apiKeyEl = $("apiKey");
 const baseUrlEl = $("baseUrl");
+const targetRoleEl = $("targetRole");
 const resumeEl = $("resume");
 const jobEl = $("jobDescription");
 const contextEl = $("companyContext");
@@ -20,7 +21,6 @@ const generateBtn = $("generateBtn");
 const downloadMdBtn = $("downloadMdBtn");
 const downloadInterviewerBtn = $("downloadInterviewerBtn");
 const downloadOfferBtn = $("downloadOfferBtn");
-const downloadJsonBtn = $("downloadJsonBtn");
 const feedbackAgreementEl = $("feedbackAgreement");
 const feedbackQuestionUseEl = $("feedbackQuestionUse");
 const feedbackDisagreementReasonEl = $("feedbackDisagreementReason");
@@ -45,6 +45,7 @@ const providerDefaults = {
 
 const samples = {
   zh: {
+    targetRole: "product_manager",
     resume:
       "候选人：张三，5 年 B 端 SaaS 产品经验。曾负责客户成功平台、工单系统和数据看板。主导过从 0 到 1 的功能规划，推动研发、设计、运营协作，上线后工单平均响应时长下降 28%。在另一个项目中负责数据看板需求梳理，但简历未说明指标口径和业务复盘方式。候选人期望负责更完整的产品模块，并希望团队业务增长确定性更强。",
     job:
@@ -69,6 +70,7 @@ const samples = {
     targetLevel: "中级产品经理",
   },
   en: {
+    targetRole: "product_manager",
     resume:
       "Candidate: Alex Chen, 5 years of B2B SaaS product experience. Owned a customer success platform, ticketing workflow, and analytics dashboard. Led 0-to-1 feature planning, coordinated engineering, design, and operations, and reduced average ticket response time by 28% after launch. Also handled analytics dashboard requirement discovery, but the resume does not clarify metric definitions, personal contribution boundaries, or post-launch review methods. The candidate wants to own a more complete product module and prefers a team with clearer business growth visibility.",
     job:
@@ -95,6 +97,176 @@ Requirements:
 };
 
 const sample = samples.zh;
+
+const roleProfiles = {
+  product_manager: {
+    label: "产品经理",
+    labelEn: "Product Manager",
+    summary: "围绕场景理解、产品规划、客户需求、研发协同、创新探索和交付质量评估候选人。",
+    summaryEn:
+      "Evaluates scenario understanding, product planning, customer needs, engineering collaboration, innovation, and delivery quality.",
+    requirements: [
+      {
+        capability: "行业场景理解",
+        keywords: ["智慧矿山", "smart mining", "GIS", "矿山", "mining", "冶金", "矿产", "行业", "industry", "B 端", "B端", "B2B", "SaaS", "企业", "enterprise"],
+        verificationFocus: "目标行业、客户角色、业务约束和可迁移经验",
+      },
+      {
+        capability: "产品规划与生命周期管理",
+        keywords: ["产品规划", "product planning", "lifecycle", "生命周期", "0-1", "0-to-1", "0 到 1", "从零", "产品设计", "product design", "规划", "roadmap"],
+        verificationFocus: "路线图取舍、版本节奏、从 0 到 1 的闭环和复盘",
+      },
+      {
+        capability: "客户需求分析与方案设计",
+        keywords: ["客户", "customer", "requirement", "需求分析", "技术交流", "technical communication", "方案设计", "solution", "consulting", "咨询", "调研", "research", "需求梳理"],
+        verificationFocus: "需求真伪判断、方案边界、客户沟通和落地结果",
+      },
+      {
+        capability: "技术架构与研发协同",
+        keywords: ["架构", "architecture", "研发", "R&D", "engineering", "C++", "Java", "JavaScript", "database", "数据库", "operating system", "操作系统", "前后端", "backend", "frontend", "技术"],
+        verificationFocus: "技术约束理解、研发协同、方案取舍和风险控制",
+      },
+      {
+        capability: "技术选型与创新探索",
+        keywords: ["前瞻", "forward-looking", "技术选型", "technology selection", "新功能", "new feature", "专利", "patent", "技术探索", "innovation", "创新", "开源", "open source"],
+        verificationFocus: "技术趋势判断、创新来源、验证方式和商业化路径",
+      },
+      {
+        capability: "成本、进度、质量控制",
+        keywords: ["成本", "cost", "进度", "schedule", "quality", "质量", "风险控制", "risk control", "协调", "coordination", "推进", "delivery", "延期", "delay", "milestone", "里程碑", "retrospective", "复盘"],
+        verificationFocus: "里程碑、资源约束、质量标准、延期处理和复盘机制",
+      },
+    ],
+  },
+  developer: {
+    label: "开发人员",
+    labelEn: "Developer",
+    summary: "围绕工程实现、系统设计、代码质量、排障、性能安全和交付协作评估候选人。",
+    summaryEn:
+      "Evaluates implementation depth, system design, code quality, debugging, performance/security, and delivery collaboration.",
+    requirements: [
+      {
+        capability: "编程语言与工程实现",
+        keywords: ["Java", "Python", "Go", "Golang", "C++", "C#", "JavaScript", "TypeScript", "前端", "后端", "frontend", "backend", "API", "接口", "编码", "开发", "implementation"],
+        verificationFocus: "核心语言熟练度、关键模块实现、代码边界和个人贡献",
+      },
+      {
+        capability: "系统设计与架构理解",
+        keywords: ["架构", "architecture", "system design", "微服务", "microservice", "分布式", "缓存", "cache", "消息队列", "MQ", "数据库", "database", "高并发", "scalable"],
+        verificationFocus: "架构取舍、容量预估、数据流、接口边界和演进成本",
+      },
+      {
+        capability: "代码质量与测试习惯",
+        keywords: ["测试", "test", "unit test", "单元测试", "集成测试", "CI", "CD", "code review", "重构", "refactor", "质量", "覆盖率", "lint"],
+        verificationFocus: "测试策略、代码评审、缺陷预防和质量度量",
+      },
+      {
+        capability: "问题排查与线上稳定性",
+        keywords: ["排障", "debug", "故障", "incident", "线上", "生产", "监控", "monitoring", "日志", "log", "告警", "rollback", "回滚", "SRE"],
+        verificationFocus: "事故时间线、定位方法、止血动作、根因和长期修复",
+      },
+      {
+        capability: "性能、安全与可维护性",
+        keywords: ["性能", "performance", "优化", "latency", "延迟", "吞吐", "QPS", "安全", "security", "权限", "auth", "可维护", "observability"],
+        verificationFocus: "性能瓶颈、安全边界、可观测性和维护成本",
+      },
+      {
+        capability: "交付协作与需求理解",
+        keywords: ["需求", "PRD", "协作", "沟通", "delivery", "交付", "敏捷", "scrum", "迭代", "排期", "项目推进", "跨团队"],
+        verificationFocus: "需求澄清、排期承诺、跨角色协作和交付风险",
+      },
+    ],
+  },
+  technical_support: {
+    label: "技术支持人员",
+    labelEn: "Technical Support",
+    summary: "围绕问题分诊、故障定位、客户沟通、SLA、升级协作和知识沉淀评估候选人。",
+    summaryEn:
+      "Evaluates triage, troubleshooting, customer communication, SLA ownership, escalation, and knowledge management.",
+    requirements: [
+      {
+        capability: "问题分诊与优先级判断",
+        keywords: ["分诊", "triage", "优先级", "priority", "工单", "ticket", "case", "问题分类", "影响范围", "严重级别", "P0", "P1"],
+        verificationFocus: "影响范围、严重级别、客户紧急度和处理顺序",
+      },
+      {
+        capability: "技术排查与复现能力",
+        keywords: ["排查", "troubleshoot", "复现", "reproduce", "日志", "log", "抓包", "诊断", "debug", "配置", "环境", "root cause"],
+        verificationFocus: "复现路径、日志证据、排查假设和根因确认",
+      },
+      {
+        capability: "客户沟通与预期管理",
+        keywords: ["客户沟通", "customer communication", "预期管理", "解释", "安抚", "汇报", "同步", "stakeholder", "满意度", "CSAT"],
+        verificationFocus: "客户语言转换、进展同步、风险解释和满意度维护",
+      },
+      {
+        capability: "SLA 响应与服务质量",
+        keywords: ["SLA", "响应时间", "response time", "解决时长", "MTTR", "服务质量", "时效", "on-call", "值班", "升级"],
+        verificationFocus: "响应节奏、超时处理、服务指标和质量复盘",
+      },
+      {
+        capability: "升级协作与跨团队推进",
+        keywords: ["升级", "escalation", "研发", "产品", "运维", "协作", "跨团队", "推动", "缺陷", "bug", "hotfix", "补丁"],
+        verificationFocus: "升级标准、协作对象、推动方式和闭环结果",
+      },
+      {
+        capability: "知识库与流程沉淀",
+        keywords: ["知识库", "knowledge base", "FAQ", "文档", "SOP", "流程", "沉淀", "培训", "复盘", "自助"],
+        verificationFocus: "文档沉淀、流程改进、复用效果和培训覆盖",
+      },
+    ],
+  },
+  sales: {
+    label: "销售人员",
+    labelEn: "Sales",
+    summary: "围绕线索发现、客户开发、商机推进、异议处理、业绩达成和管道纪律评估候选人。",
+    summaryEn:
+      "Evaluates lead discovery, customer development, deal progression, objection handling, quota achievement, and pipeline discipline.",
+    requirements: [
+      {
+        capability: "线索发现与客户画像",
+        keywords: ["线索", "lead", "leads", "客户画像", "ICP", "获客", "prospecting", "名单", "商机来源", "渠道", "拓客"],
+        verificationFocus: "线索来源、客户筛选标准、触达策略和转化数据",
+      },
+      {
+        capability: "客户开发与需求挖掘",
+        keywords: ["客户开发", "BD", "拜访", "访谈", "需求挖掘", "痛点", "discovery", "客户关系", "决策链", "stakeholder"],
+        verificationFocus: "客户角色、痛点验证、决策链和真实预算",
+      },
+      {
+        capability: "商机推进与方案呈现",
+        keywords: ["商机", "opportunity", "pipeline", "推进", "demo", "演示", "方案", "proposal", "POC", "试点", "招投标"],
+        verificationFocus: "阶段推进、方案匹配、关键动作和赢单障碍",
+      },
+      {
+        capability: "谈判与异议处理",
+        keywords: ["谈判", "negotiation", "异议", "objection", "价格", "报价", "折扣", "采购", "合同", "竞品", "竞争"],
+        verificationFocus: "价格边界、竞品对比、异议拆解和成交策略",
+      },
+      {
+        capability: "业绩达成与收入贡献",
+        keywords: ["业绩", "quota", "ARR", "MRR", "收入", "revenue", "GMV", "回款", "签约", "成单", "赢单", "目标达成", "%"],
+        verificationFocus: "目标口径、个人贡献、签约金额、回款和可复现打法",
+      },
+      {
+        capability: "CRM 管理与销售纪律",
+        keywords: ["CRM", "Salesforce", "HubSpot", "纷享销客", "销售漏斗", "forecast", "预测", "复盘", "跟进", "next step"],
+        verificationFocus: "管道更新、预测准确性、跟进节奏和复盘机制",
+      },
+    ],
+  },
+};
+
+const defaultRoleId = "product_manager";
+
+function getRoleProfile(roleId) {
+  return roleProfiles[roleId] || roleProfiles[defaultRoleId];
+}
+
+function getRoleLabel(roleId, language = currentLanguage) {
+  const profile = getRoleProfile(roleId);
+  return language === "en" ? profile.labelEn : profile.label;
+}
 
 const i18n = {
   zh: {
@@ -123,6 +295,7 @@ const i18n = {
       baseUrl: "代理 / 自定义 Base URL（可选）",
       inputTitle: "输入简历与 JD",
       clearBtn: "清空当前页面",
+      targetRole: "目标岗位",
       resume: "候选人简历",
       job: "岗位 JD",
       context: "公司 / 面试上下文（可选）",
@@ -147,7 +320,6 @@ const i18n = {
       downloadCandidate: "导出候选人 PDF",
       downloadInterviewer: "导出面试官 PDF",
       downloadOffer: "导出 Offer 推演 PDF",
-      downloadJson: "导出评测 JSON",
       footer: "面试准备助手第一版只做面试准备辅助，不输出自动录用或淘汰结论。",
     },
     placeholders: {
@@ -155,9 +327,9 @@ const i18n = {
       apiKeyReal: "仅保存在当前页面内存，刷新后丢失",
       baseUrl: "例如 https://your-worker.workers.dev",
       resume: "粘贴候选人简历文本。不建议在公共设备输入真实敏感信息。",
-      job: "粘贴产品经理岗位 JD。",
+      job: "粘贴目标岗位 JD。",
       context: "例如公司阶段、业务方向、目标职级、面试重点、薪资约束等。",
-      targetLevel: "例如 P6 / 中级产品经理",
+      targetLevel: "例如 P6 / 中级岗位 / 高级开发工程师",
       offerConstraints: "例如预算范围、候选人期望、竞品 Offer、到岗时间、团队紧急程度。",
       feedbackNotes: "例如：哪些结论不准确、哪些问题更适合、还需要验证什么。",
     },
@@ -171,6 +343,12 @@ const i18n = {
       "业务一面": "业务一面",
       "业务终面": "业务终面",
       "Offer 前": "Offer 前",
+    },
+    roleOptions: {
+      product_manager: "产品经理",
+      developer: "开发人员",
+      technical_support: "技术支持人员",
+      sales: "销售人员",
     },
     feedbackOptions: {
       "未反馈": "未反馈",
@@ -224,7 +402,6 @@ const i18n = {
     statusNeedReport: "请先生成报告，再写入人工反馈。",
     statusFeedback: "人工反馈已写入当前报告。请下载保存，刷新页面后不会保留。",
     statusPdf: "正在生成 PDF，请稍候...",
-    statusJson: "结构化评测 JSON 已导出。",
     statusDownloaded: (filename) => `已下载 ${filename}。`,
     statusPdfFallback: "直接下载 PDF 失败，已打开打印窗口作为降级方案。",
     statusPopupBlocked: "PDF 窗口被浏览器拦截，请允许弹窗后重试。",
@@ -269,6 +446,7 @@ const i18n = {
       baseUrl: "Proxy / Custom Base URL (optional)",
       inputTitle: "Resume and JD Input",
       clearBtn: "Clear Page",
+      targetRole: "Target Role",
       resume: "Candidate Resume",
       job: "Job Description",
       context: "Company / Interview Context (optional)",
@@ -293,7 +471,6 @@ const i18n = {
       downloadCandidate: "Export Candidate PDF",
       downloadInterviewer: "Export Interviewer PDF",
       downloadOffer: "Export Offer Simulation PDF",
-      downloadJson: "Export Evaluation JSON",
       footer: "The first version is an interview-prep assistant only and does not issue automatic hiring or rejection decisions.",
     },
     placeholders: {
@@ -301,9 +478,9 @@ const i18n = {
       apiKeyReal: "Stored only in current page memory and lost after refresh",
       baseUrl: "Example: https://your-worker.workers.dev",
       resume: "Paste candidate resume text. Avoid entering sensitive real data on public devices.",
-      job: "Paste the product manager job description.",
+      job: "Paste the target role job description.",
       context: "Example: company stage, business direction, target level, interview focus, salary constraints.",
-      targetLevel: "Example: P6 / Mid-level Product Manager",
+      targetLevel: "Example: P6 / mid-level role / senior software engineer",
       offerConstraints: "Example: budget range, candidate expectation, competing offer, start date, team urgency.",
       feedbackNotes: "Example: inaccurate conclusions, better questions, or remaining validation needs.",
     },
@@ -317,6 +494,12 @@ const i18n = {
       "业务一面": "First business interview",
       "业务终面": "Final business interview",
       "Offer 前": "Pre-offer",
+    },
+    roleOptions: {
+      product_manager: "Product Manager",
+      developer: "Developer",
+      technical_support: "Technical Support",
+      sales: "Sales",
     },
     feedbackOptions: {
       "未反馈": "No feedback",
@@ -370,7 +553,6 @@ const i18n = {
     statusNeedReport: "Please generate a report before appending human feedback.",
     statusFeedback: "Human feedback appended to the current report. Download it before refreshing.",
     statusPdf: "Generating PDF, please wait...",
-    statusJson: "Structured evaluation JSON exported.",
     statusDownloaded: (filename) => `Downloaded ${filename}.`,
     statusPdfFallback: "Direct PDF download failed. Opened a print window as fallback.",
     statusPopupBlocked: "PDF window was blocked by the browser. Please allow pop-ups and retry.",
@@ -625,6 +807,7 @@ if (languageEl) {
 
 bindClick("mockBtn", () => {
   const localizedSample = samples[currentLanguage] || samples.zh;
+  if (targetRoleEl) targetRoleEl.value = localizedSample.targetRole || defaultRoleId;
   resumeEl.value = localizedSample.resume;
   jobEl.value = localizedSample.job;
   contextEl.value = localizedSample.context;
@@ -638,6 +821,7 @@ bindClick("mockBtn", () => {
 
 bindClick("clearBtn", () => {
   apiKeyEl.value = "";
+  if (targetRoleEl) targetRoleEl.value = defaultRoleId;
   resumeEl.value = "";
   jobEl.value = "";
   contextEl.value = "";
@@ -652,7 +836,6 @@ bindClick("clearBtn", () => {
   downloadMdBtn.disabled = true;
   setInterviewerDownloadDisabled(true);
   setOfferDownloadDisabled(true);
-  setJsonDownloadDisabled(true);
   appendFeedbackBtn.disabled = true;
   feedbackAgreementEl.value = "未反馈";
   feedbackQuestionUseEl.value = "未反馈";
@@ -674,7 +857,6 @@ generateBtn.addEventListener("click", async () => {
   downloadMdBtn.disabled = true;
   setInterviewerDownloadDisabled(true);
   setOfferDownloadDisabled(true);
-  setJsonDownloadDisabled(true);
   appendFeedbackBtn.disabled = true;
   runBadgeEl.textContent = getText().runGenerating;
   renderStreamingReport("", input.useRealModel ? getText().llmStreaming : getText().mockStreaming);
@@ -695,6 +877,7 @@ generateBtn.addEventListener("click", async () => {
       model: input.model,
       mode: input.useRealModel ? "llm" : "mock",
       input_snapshot: {
+        target_role: input.targetRole,
         resume: input.resume,
         job_description: input.jobDescription,
         company_context: input.companyContext,
@@ -713,7 +896,6 @@ generateBtn.addEventListener("click", async () => {
     downloadMdBtn.disabled = false;
     setInterviewerDownloadDisabled(false);
     setOfferDownloadDisabled(false);
-    setJsonDownloadDisabled(false);
     appendFeedbackBtn.disabled = false;
     setStatus(input.useRealModel ? getText().statusLlmDone : getText().statusMockDone);
   } catch (error) {
@@ -745,17 +927,6 @@ if (downloadOfferBtn) {
   });
 }
 
-if (downloadJsonBtn) {
-  downloadJsonBtn.addEventListener("click", () => {
-    if (!currentRun) return;
-    currentRun.human_feedback = collectFeedback();
-    currentRun = enrichEvaluationRun(currentRun);
-    const filename = `evaluation-run-${currentRun.id}.json`;
-    downloadFile(filename, JSON.stringify(currentRun, null, 2), "application/json;charset=utf-8");
-    setStatus(getText().statusJson);
-  });
-}
-
 appendFeedbackBtn.addEventListener("click", () => {
   if (!currentRun) {
     setStatus(getText().statusNeedReport, true);
@@ -770,7 +941,6 @@ appendFeedbackBtn.addEventListener("click", () => {
   downloadMdBtn.disabled = false;
   setInterviewerDownloadDisabled(false);
   setOfferDownloadDisabled(false);
-  setJsonDownloadDisabled(false);
   setStatus(getText().statusFeedback);
 });
 
@@ -780,6 +950,7 @@ function collectInput() {
     model: modelEl.value.trim(),
     apiKey: apiKeyEl.value.trim(),
     baseUrl: baseUrlEl.value.trim(),
+    targetRole: targetRoleEl?.value || defaultRoleId,
     resume: resumeEl.value.trim(),
     jobDescription: jobEl.value.trim(),
     companyContext: contextEl.value.trim(),
@@ -803,10 +974,6 @@ function setInterviewerDownloadDisabled(disabled) {
 
 function setOfferDownloadDisabled(disabled) {
   if (downloadOfferBtn) downloadOfferBtn.disabled = disabled;
-}
-
-function setJsonDownloadDisabled(disabled) {
-  if (downloadJsonBtn) downloadJsonBtn.disabled = disabled;
 }
 
 function applyLanguage(language) {
@@ -851,6 +1018,7 @@ function applyLanguage(language) {
   setFieldLabel(baseUrlEl, text.labels.baseUrl);
   setText("#input-title", text.labels.inputTitle);
   setText("#clearBtn", text.labels.clearBtn);
+  setFieldLabel(targetRoleEl, text.labels.targetRole);
   setFieldLabel(resumeEl, text.labels.resume);
   setFieldLabel(jobEl, text.labels.job);
   setFieldLabel(contextEl, text.labels.context);
@@ -871,7 +1039,6 @@ function applyLanguage(language) {
   setText("#downloadMdBtn", text.labels.downloadCandidate);
   setText("#downloadInterviewerBtn", text.labels.downloadInterviewer);
   setText("#downloadOfferBtn", text.labels.downloadOffer);
-  setText("#downloadJsonBtn", text.labels.downloadJson);
   setText(".footer p", text.labels.footer);
 
   const subPanelHeads = document.querySelectorAll(".sub-panel-head");
@@ -896,6 +1063,7 @@ function applyLanguage(language) {
   setOptionText(providerEl, "mock", text.providerOptions.mock);
   setOptionText(providerEl, "qwen", text.providerOptions.qwen);
   setOptionText(providerEl, "custom", text.providerOptions.custom);
+  Object.entries(text.roleOptions).forEach(([value, label]) => setOptionText(targetRoleEl, value, label));
   Object.entries(text.stageOptions).forEach(([value, label]) => setOptionText(candidateStageEl, value, label));
   Object.entries(text.feedbackOptions).forEach(([value, label]) => {
     setOptionText(feedbackAgreementEl, value, label);
@@ -1006,6 +1174,8 @@ function enrichEvaluationRun(run) {
   const gate = buildGateAssessment(snapshot, requirementRows);
   const offerLeverage = buildOfferLeverage(snapshot);
   const feedback = run.human_feedback || null;
+  const offerSimulationRun = buildOfferSimulationRun(run, snapshot, gate, offerLeverage, requirementRows, feedback);
+  const feedbackDistillation = buildFeedbackDistillation(feedback, requirementRows, snapshot);
 
   return {
     ...run,
@@ -1018,9 +1188,10 @@ function enrichEvaluationRun(run) {
     interview_questions: buildStructuredInterviewQuestions(snapshot, requirementRows, feedback),
     offer_sandbox: buildStructuredOfferSandbox(snapshot, gate, offerLeverage, requirementRows),
     evidence: buildStructuredEvidence(snapshot, requirementRows),
-    offer_simulation_run: buildOfferSimulationRun(run, snapshot, gate, offerLeverage, requirementRows, feedback),
+    skill_registry: buildSkillRegistry(snapshot, requirementRows),
+    offer_simulation_run: offerSimulationRun,
     evidence_graph: buildEvidenceGraph(snapshot, requirementRows, feedback),
-    feedback_distillation: buildFeedbackDistillation(feedback, requirementRows),
+    feedback_distillation: feedbackDistillation,
   };
 }
 
@@ -1164,6 +1335,25 @@ function buildOfferSimulationRun(run, snapshot, gate, offerLeverage, rows, feedb
     id: `offer_${run.id}`,
     evaluation_run_id: run.id,
     created_at: run.created_at,
+    version: "offer_simulation_run.v2",
+    lifecycle_state: feedback ? "feedback_distilled" : gate.enterSandbox ? "offer_probability" : "evidence_validation",
+    lifecycle_steps: buildOfferLifecycleSteps(gate, feedback),
+    history: [
+      {
+        at: run.created_at,
+        event: "run_created",
+        summary: "生成评估报告、证据图谱和 Offer 推演初始状态",
+      },
+      ...(feedback
+        ? [
+            {
+              at: feedback.updated_at,
+              event: "feedback_applied",
+              summary: `人工反馈已回填：${feedback.agreement} / ${feedback.question_use} / ${feedback.risk_validation}`,
+            },
+          ]
+        : []),
+    ],
     stage: snapshot.candidate_stage || "",
     target_level: snapshot.target_level || "",
     readiness: gate.result,
@@ -1194,15 +1384,65 @@ function buildOfferSimulationRun(run, snapshot, gate, offerLeverage, rows, feedb
           { field: "risk_validation", value: feedback.risk_validation, action: "更新 Offer 风险状态" },
         ]
       : [],
+    scenario_comparison: buildOfferScenarios(gate, offerLeverage, riskRows, feedback),
+    state_backfill: {
+      next_question_focus: riskRows.slice(0, 3).map((row) => row.capability),
+      risk_inputs: riskRows.map((row, index) => `offer_risk_${index + 1}`),
+      negotiation_inputs: [
+        offerLeverage.rating,
+        snapshot.offer_constraints || "Offer / 谈薪约束未充分提供",
+        feedback?.risk_validation || "风险仍待验证",
+      ],
+    },
     final_decision_hint: gate.enterSandbox
       ? "可作为下一轮面试准备和谈薪前验证输入，不代表自动录用结论"
       : "建议先补项目闭环、个人贡献和岗位匹配证据，再进入 Offer 沙盘",
   };
 }
 
+function buildOfferLifecycleSteps(gate, feedback) {
+  return [
+    { id: "resume_evaluation", label: "简历评估", status: "done" },
+    { id: "question_generation", label: "面试问题", status: "done" },
+    { id: "feedback_distillation", label: "反馈修正", status: feedback ? "done" : "pending" },
+    { id: "offer_probability", label: "Offer 概率", status: gate.enterSandbox ? "active" : "blocked" },
+    { id: "negotiation_strategy", label: "谈判策略", status: feedback && gate.enterSandbox ? "active" : "pending" },
+  ];
+}
+
+function buildOfferScenarios(gate, offerLeverage, riskRows, feedback) {
+  const highRiskCount = riskRows.filter((row) => row.isMissing || row.evidenceLevel >= 3).length;
+  const baseProbability = gate.enterSandbox ? 58 : 32;
+  const leverageBump = offerLeverage.rating === "high" ? 10 : offerLeverage.rating === "medium" ? 4 : -4;
+  const feedbackBump = feedback?.risk_validation === "已证实" ? -10 : feedback?.risk_validation === "已推翻" ? 8 : 0;
+  const riskPenalty = Math.min(22, highRiskCount * 6);
+  const base = Math.max(5, Math.min(90, baseProbability + leverageBump + feedbackBump - riskPenalty));
+  return [
+    {
+      name: "Base",
+      probability: base,
+      assumption: "按当前证据等级、风险验证状态和 Offer 约束推进",
+      next_action: gate.nextStep,
+    },
+    {
+      name: "Optimistic",
+      probability: Math.min(95, base + 18),
+      assumption: "关键追问验证通过，低可信证据升级，候选人接受条件清晰",
+      next_action: "优先复核一级证据和谈薪约束，准备推进话术",
+    },
+    {
+      name: "Conservative",
+      probability: Math.max(3, base - 20),
+      assumption: "风险被证实或候选人约束后置暴露，面试问题未能补证",
+      next_action: "先补证据缺口，再决定是否进入 Offer 沙盘",
+    },
+  ];
+}
+
 function buildEvidenceGraph(snapshot, rows, feedback) {
   const nodes = [];
   const edges = [];
+  const skillRegistry = buildSkillRegistry(snapshot, rows);
 
   rows.forEach((row, index) => {
     const requirementId = `req_${index + 1}`;
@@ -1215,7 +1455,11 @@ function buildEvidenceGraph(snapshot, rows, feedback) {
       type: "job_requirement",
       label: row.capability,
       summary: row.jdEvidence,
-      metadata: { match_status: row.matchStatus },
+      metadata: {
+        match_status: row.matchStatus,
+        report_anchor: reportAnchorForNodeType("job_requirement"),
+        source: "job_description",
+      },
     });
     nodes.push({
       id: evidenceId,
@@ -1226,6 +1470,8 @@ function buildEvidenceGraph(snapshot, rows, feedback) {
         evidence_level: row.evidenceLevel,
         evidence_level_label: row.evidenceLevelLabel,
         evidence_reason: row.evidenceReason,
+        report_anchor: reportAnchorForNodeType("resume_evidence"),
+        source: row.isMissing ? "missing_resume_evidence" : "resume_requirement_match",
       },
     });
     nodes.push({
@@ -1233,7 +1479,12 @@ function buildEvidenceGraph(snapshot, rows, feedback) {
       type: "interview_question",
       label: `${row.capability} 验证问题`,
       summary: row.verificationQuestion,
-      metadata: { lens: interviewerLens(index), adoption_status: feedback?.question_use || "未反馈" },
+      metadata: {
+        lens: interviewerLens(index),
+        adoption_status: feedback?.question_use || "未反馈",
+        report_anchor: reportAnchorForNodeType("interview_question"),
+        source: "generated_question_bank",
+      },
     });
 
     edges.push({
@@ -1241,6 +1492,8 @@ function buildEvidenceGraph(snapshot, rows, feedback) {
       to: requirementId,
       type: row.isMissing ? "contradicts" : "supports",
       weight: row.evidenceLevel === 1 ? 0.85 : row.evidenceLevel === 2 ? 0.55 : 0.25,
+      confidence: row.evidenceLevel === 1 ? 0.85 : row.evidenceLevel === 2 ? 0.55 : 0.25,
+      source: row.isMissing ? "missing_resume_evidence" : "resume_requirement_match",
       note: row.evidenceReason,
     });
     edges.push({
@@ -1248,6 +1501,8 @@ function buildEvidenceGraph(snapshot, rows, feedback) {
       to: evidenceId,
       type: "questions",
       weight: 0.7,
+      confidence: 0.7,
+      source: "generated_interview_question",
       note: "面试问题用于验证该证据的真实角色、指标口径和结果归因",
     });
 
@@ -1257,13 +1512,19 @@ function buildEvidenceGraph(snapshot, rows, feedback) {
         type: "risk",
         label: `${row.capability} 风险`,
         summary: row.evidenceReason,
-        metadata: { severity: "high" },
+        metadata: {
+          severity: "high",
+          report_anchor: reportAnchorForNodeType("risk"),
+          source: "evidence_gap_detection",
+        },
       });
       edges.push({
         from: evidenceId,
         to: riskId,
         type: "supports",
         weight: 0.8,
+        confidence: 0.8,
+        source: "risk_rule",
         note: "低可信或缺失证据支撑风险提示",
       });
       edges.push({
@@ -1271,9 +1532,36 @@ function buildEvidenceGraph(snapshot, rows, feedback) {
         to: "offer_signal_1",
         type: "impacts_offer",
         weight: 0.65,
+        confidence: 0.65,
+        source: "offer_simulation_rule",
         note: "该风险会影响是否进入下一轮、定级或谈薪",
       });
     }
+  });
+
+  skillRegistry.forEach((skill) => {
+    nodes.push({
+      id: `skill_${skill.id}`,
+      type: "skill",
+      label: skill.name,
+      summary: `${skill.focus}；${skill.audit.contribution}`,
+      metadata: {
+        version: skill.version,
+        adoption_status: skill.adoption_status,
+        report_anchor: reportAnchorForNodeType("skill"),
+        source: "skill_registry",
+      },
+    });
+    const targetQuestion = `q_${(skill.priority % rows.length) + 1}`;
+    edges.push({
+      from: `skill_${skill.id}`,
+      to: targetQuestion,
+      type: "generates",
+      weight: skill.priority >= 4 ? 0.8 : 0.6,
+      confidence: skill.priority >= 4 ? 0.8 : 0.6,
+      source: "skill_registry",
+      note: skill.audit.contribution,
+    });
   });
 
   nodes.push({
@@ -1281,7 +1569,12 @@ function buildEvidenceGraph(snapshot, rows, feedback) {
     type: "offer_signal",
     label: "Offer 推进信号",
     summary: snapshot.offer_constraints || "未提供 Offer / 谈薪约束",
-    metadata: { target_level: snapshot.target_level, stage: snapshot.candidate_stage },
+    metadata: {
+      target_level: snapshot.target_level,
+      stage: snapshot.candidate_stage,
+      report_anchor: reportAnchorForNodeType("offer_signal"),
+      source: "offer_constraints",
+    },
   });
 
   if (feedback) {
@@ -1290,7 +1583,7 @@ function buildEvidenceGraph(snapshot, rows, feedback) {
       type: "feedback",
       label: "人工反馈",
       summary: feedback.notes || "未填写人工补充意见",
-      metadata: feedback,
+      metadata: { ...feedback, report_anchor: reportAnchorForNodeType("feedback") },
     });
     rows.forEach((_, index) => {
       edges.push({
@@ -1298,6 +1591,8 @@ function buildEvidenceGraph(snapshot, rows, feedback) {
         to: `q_${index + 1}`,
         type: "updates",
         weight: feedback.question_use === "采用" || feedback.question_use === "改写采用" ? 0.8 : 0.35,
+        confidence: feedback.question_use === "采用" || feedback.question_use === "改写采用" ? 0.8 : 0.35,
+        source: "human_feedback",
         note: `追问采用状态：${feedback.question_use}`,
       });
       edges.push({
@@ -1305,6 +1600,8 @@ function buildEvidenceGraph(snapshot, rows, feedback) {
         to: `ev_req_${index + 1}`,
         type: feedback.risk_validation === "已推翻" ? "contradicts" : "validates",
         weight: feedback.risk_validation === "已证实" ? 0.8 : feedback.risk_validation === "已推翻" ? 0.7 : 0.4,
+        confidence: feedback.risk_validation === "已证实" ? 0.8 : feedback.risk_validation === "已推翻" ? 0.7 : 0.4,
+        source: "human_feedback",
         note: `风险验证状态：${feedback.risk_validation}`,
       });
     });
@@ -1313,42 +1610,102 @@ function buildEvidenceGraph(snapshot, rows, feedback) {
   return { nodes, edges };
 }
 
-function buildFeedbackDistillation(feedback, rows) {
+function reportAnchorForNodeType(type) {
+  const zh = {
+    job_requirement: "岗位匹配",
+    resume_evidence: "证据链",
+    interview_question: "面试官候选问题库（供挑选）",
+    risk: "风险与待验证",
+    offer_signal: "Offer 沙盘推演",
+    feedback: "人工反馈校准",
+    skill: "面试官视角库",
+  };
+  const en = {
+    job_requirement: "Role Match",
+    resume_evidence: "Evidence Chain",
+    interview_question: "Interviewer Question Bank",
+    risk: "Risks and Validation Needed",
+    offer_signal: "Offer Simulation",
+    feedback: "Human Feedback Calibration",
+    skill: "Interviewer Lens Library",
+  };
+  return currentLanguage === "en" ? en[type] : zh[type];
+}
+
+function buildSkillRegistry(snapshot, rows) {
+  const selected = snapshot.selected_skills?.length ? snapshot.selected_skills : ["hr", "business", "project", "decision"];
+  const roleLabel = getRoleLabel(snapshot.target_role || defaultRoleId, "zh");
+  return selected
+    .map((id, index) => {
+      const skill = skillLibrary[id];
+      if (!skill) return null;
+      const highRiskRows = rows.filter((row) => row.isMissing || row.evidenceLevel >= 3);
+      return {
+        id,
+        name: skill.name,
+        version: `skill.${id}.v1`,
+        role_id: snapshot.target_role || defaultRoleId,
+        role_label: roleLabel,
+        focus: skill.focus,
+        adoption_status: snapshot.selected_skills?.includes(id) ? "selected" : "auto_selected",
+        priority: id === "decision" || id === "business" ? 5 : 3 + index,
+        audit: {
+          contribution: `${skill.name} 贡献 ${skill.questions.length} 个基础问题，并针对 ${highRiskRows.slice(0, 2).map((row) => row.capability).join("、") || "当前核心证据"} 生成追问视角`,
+          evidence_edges: highRiskRows.slice(0, 3).map((row) => `ev_req_${rows.indexOf(row) + 1}`),
+          question_edges: rows.slice(index, index + 2).map((row) => `q_${rows.indexOf(row) + 1}`),
+        },
+      };
+    })
+    .filter(Boolean);
+}
+
+function buildFeedbackDistillation(feedback, rows, snapshot = {}) {
   const rules = [
     {
       id: "rule_promote_adopted_question",
       when: "question_use = 采用 或 改写采用",
       then: "将相关问题升级为高价值候选追问",
       target: "interview_questions",
+      priority: 80,
+      conflict_policy: "人工采用优先，但若 evidence_sufficiency = 不充分，则仅升级问题，不升级结论",
     },
     {
       id: "rule_demote_rejected_question",
       when: "question_use = 未采用",
       then: "将相关问题标记为低价值并进入重写池",
       target: "interview_questions",
+      priority: 75,
+      conflict_policy: "未采用优先于自动生成题库权重",
     },
     {
       id: "rule_raise_confirmed_risk",
       when: "risk_validation = 已证实",
       then: "提高相关风险规则权重并保留为回归样本",
       target: "risk",
+      priority: 90,
+      conflict_policy: "风险已证实时覆盖乐观 Offer 场景",
     },
     {
       id: "rule_lower_disproved_risk",
       when: "risk_validation = 已推翻",
       then: "降低相关风险规则权重并补充反例",
       target: "risk",
+      priority: 70,
+      conflict_policy: "风险被推翻时保留原始证据，但降低风险权重",
     },
     {
       id: "rule_downgrade_insufficient_evidence",
       when: "evidence_sufficiency = 不充分",
       then: "将相关结论降级为待验证",
       target: "evidence",
+      priority: 85,
+      conflict_policy: "证据不足优先于系统匹配结论",
     },
   ];
 
   const actions = [];
-  if (!feedback) return { rules, actions };
+  const skill_update_suggestions = buildSkillUpdateSuggestions(feedback, rows, snapshot);
+  if (!feedback) return { rules, actions, impact_diff: [], skill_update_suggestions };
 
   if (feedback.question_use === "采用" || feedback.question_use === "改写采用") {
     actions.push({
@@ -1415,7 +1772,57 @@ function buildFeedbackDistillation(feedback, rows) {
     });
   }
 
-  return { rules, actions };
+  return {
+    rules,
+    actions,
+    impact_diff: buildFeedbackImpactDiff(feedback, rows),
+    skill_update_suggestions,
+  };
+}
+
+function buildFeedbackImpactDiff(feedback, rows) {
+  const weakRows = rows.filter((row) => row.isMissing || row.evidenceLevel >= 2).slice(0, 4);
+  return [
+    {
+      target: "interview_questions",
+      before: "系统生成问题默认为待验证",
+      after: `追问采用状态回填为：${feedback.question_use}`,
+      affected_ids: weakRows.map((row) => `q_${rows.indexOf(row) + 1}`),
+    },
+    {
+      target: "offer_simulation_run.risks",
+      before: "Offer 风险默认为待验证",
+      after: `风险验证状态回填为：${feedback.risk_validation}`,
+      affected_ids: weakRows.map((row) => `offer_risk_${rows.indexOf(row) + 1}`),
+    },
+    {
+      target: "evidence_graph",
+      before: "证据边由系统置信度计算",
+      after: `人工证据充分性回填为：${feedback.evidence_sufficiency}`,
+      affected_ids: weakRows.map((row) => `ev_req_${rows.indexOf(row) + 1}`),
+    },
+  ];
+}
+
+function buildSkillUpdateSuggestions(feedback, rows, snapshot = {}) {
+  const selected = snapshot.selected_skills?.length ? snapshot.selected_skills : ["hr", "business", "project", "decision"];
+  const weakRows = rows.filter((row) => row.isMissing || row.evidenceLevel >= 2);
+  if (!feedback) {
+    return selected.map((id) => ({
+      skill_id: id,
+      version: `skill.${id}.v1`,
+      suggestion: "等待人工反馈后再沉淀题库权重",
+      reason: "当前仅有系统生成结果，尚无面试后校准信号",
+      status: "waiting_feedback",
+    }));
+  }
+  return selected.map((id) => ({
+    skill_id: id,
+    version: `skill.${id}.v1`,
+    suggestion: feedback.question_use === "未采用" ? "重写该视角的问题模板" : "保留高价值追问并补充反例",
+    reason: `${feedback.disagreement_reason}；受影响能力：${weakRows.slice(0, 2).map((row) => row.capability).join("、") || "暂无明显缺口"}`,
+    status: "pending_review",
+  }));
 }
 
 async function generateWithLLM(input, onDelta = () => {}) {
@@ -1474,9 +1881,17 @@ Additional output-language requirement:
 }
 
 function buildLlmUserPrompt(input) {
+  const roleLabel = getRoleLabel(input.targetRole, input.language);
+  const roleProfile = getRoleProfile(input.targetRole);
   if (input.language === "en") {
     return `# Output Language
 English
+
+# Target Role
+${roleLabel}
+
+# Role Evaluation Focus
+${roleProfile.summaryEn}
 
 # Resume
 ${input.resume}
@@ -1496,7 +1911,13 @@ Offer / negotiation constraints: ${input.offerConstraints || "Not provided"}
 ${formatSelectedSkills(input.selectedSkills)}`;
   }
 
-  return `# 简历
+  return `# 目标岗位
+${roleLabel}
+
+# 岗位评估重点
+${roleProfile.summary}
+
+# 简历
 ${input.resume}
 
 # JD
@@ -1579,6 +2000,8 @@ function resolveBaseUrl(input) {
 
 function generateMockReport(input) {
   const snapshot = normalizeSnapshot(input);
+  const roleProfile = getRoleProfile(snapshot.target_role);
+  const roleLabel = getRoleLabel(snapshot.target_role, "zh");
   const rows = buildRequirementEvidenceRows(snapshot);
   const gate = buildGateAssessment(snapshot, rows);
   const offerLeverage = buildOfferLeverage(snapshot);
@@ -1602,6 +2025,7 @@ function generateMockReport(input) {
 
 | 模块 | 结论 | 候选人准备动作 |
 | --- | --- | --- |
+| 目标岗位 | ${roleLabel} | ${roleProfile.summary} |
 | 岗位匹配倾向 | ${match} | 用 2 个项目证明 JD 核心职责 |
 | 项目匹配闸口 | ${gate.result} | ${gate.nextStep} |
 | 证据可信度 | ${buildEvidenceSummary(rows)} | 面试中优先补一级证据和可复核口径 |
@@ -1616,7 +2040,7 @@ function generateMockReport(input) {
 
 | 结论 | 证据 | 详细说明 | 下一步 |
 | --- | --- | --- | --- |
-| 企业需要候选人具备行业/业务场景理解 | JD 证据：${clip(input.jobDescription)} | 候选人需要证明自己理解目标行业、客户场景和业务约束 | 准备最接近 JD 场景的项目 |
+| 企业正在招聘 ${roleLabel} | JD 证据：${clip(input.jobDescription)} | ${roleProfile.summary} | 按该岗位能力项准备最接近 JD 的项目 |
 | 企业需要候选人具备项目闭环能力 | JD 中出现产品规划、推进、复盘或生命周期相关要求 | 仅说“参与/负责”不够，需要讲清从需求到上线复盘的闭环 | 准备完整项目链路 |
 | 当前简历与岗位职责匹配程度：${matchLevel} | 简历证据：${clip(input.resume)} | 当前匹配度来自行业线索、指标线索和跨团队推进线索三类证据 | 补齐缺失证据并准备追问 |
 
@@ -1833,6 +2257,8 @@ function cleanReportMarkdown(markdown) {
 
 function generateMockReportEn(input) {
   const snapshot = normalizeSnapshot({ ...input, language: "en" });
+  const roleProfile = getRoleProfile(snapshot.target_role);
+  const roleLabel = getRoleLabel(snapshot.target_role, "en");
   const rows = buildRequirementEvidenceRows(snapshot);
   const gate = buildGateAssessment(snapshot, rows);
   const offerLeverage = buildOfferLeverage(snapshot);
@@ -1861,6 +2287,7 @@ function generateMockReportEn(input) {
 
 | Module | Conclusion | Evidence | Next Step |
 | --- | --- | --- | --- |
+| Target role | ${roleLabel} | ${roleProfile.summaryEn} | Prepare evidence against this role profile. |
 | Project match gate | ${translateGateResult(gate.result)} | ${gateSummary} | ${gate.enterSandbox ? "Proceed to evidence validation, anti-packaging questions, and offer constraints." : "Request complete project-loop evidence before further interview simulation."} |
 | Evidence credibility | ${evidenceSummary} | Resume snapshot: ${clip(input.resume)} | Prioritize first-level evidence: denominator, period, before/after comparison, and direct contribution. |
 | Key strength | ${gate.bestEvidence} | Resume evidence | Convert the strongest project into a problem, target, constraint, action, result, and retrospective story. |
@@ -2195,6 +2622,9 @@ function renderEvidenceGraph(run) {
   const nodesById = new Map(graph.nodes.map((node) => [node.id, node]));
   const grouped = groupEvidenceGraphNodes(graph.nodes);
   const labels = getEvidenceGraphLabels();
+  const gaps = detectEvidenceGraphGaps(graph);
+  const feedbackDistillation = run?.feedback_distillation || { rules: [], actions: [], impact_diff: [], skill_update_suggestions: [] };
+  const offerRun = run?.offer_simulation_run || null;
   evidenceGraphEl.className = "evidence-graph";
   evidenceGraphEl.innerHTML = `<div class="evidence-graph-head">
       <div>
@@ -2203,6 +2633,9 @@ function renderEvidenceGraph(run) {
       </div>
       <span>${escapeHtml(labels.count(graph.nodes.length, graph.edges.length))}</span>
     </div>
+    ${renderEvidenceGraphFilters(labels)}
+    ${renderEvidenceGraphGaps(gaps, labels)}
+    ${renderOfferRunPanel(offerRun, labels)}
     <div class="evidence-graph-canvas">
       <svg class="evidence-graph-lines" aria-hidden="true"></svg>
       <div class="evidence-graph-columns">
@@ -2211,6 +2644,7 @@ function renderEvidenceGraph(run) {
         ${renderEvidenceGraphColumn(labels.columns.validation, grouped.validation)}
       </div>
     </div>
+    ${renderFeedbackDistillationPanel(feedbackDistillation, labels)}
     <div class="evidence-graph-detail" id="evidenceGraphDetail">
       <strong>${escapeHtml(labels.detailTitle)}</strong>
       <p>${escapeHtml(labels.detailPlaceholder)}</p>
@@ -2223,6 +2657,25 @@ function renderEvidenceGraph(run) {
       evidenceGraphEl.querySelectorAll(".graph-node").forEach((item) => item.classList.remove("active"));
       nodeEl.classList.add("active");
       renderEvidenceGraphDetail(node, graph.edges, nodesById);
+      scrollReportToGraphNode(node);
+    });
+  });
+
+  evidenceGraphEl.querySelectorAll(".graph-filter").forEach((filterEl) => {
+    filterEl.addEventListener("click", () => {
+      const type = filterEl.dataset.filterType;
+      evidenceGraphEl.querySelectorAll(".graph-filter").forEach((item) => item.classList.remove("active"));
+      filterEl.classList.add("active");
+      applyEvidenceGraphFilter(type);
+      window.setTimeout(() => drawEvidenceGraphEdges(graph.edges), 0);
+    });
+  });
+
+  evidenceGraphEl.querySelectorAll(".evidence-gap-item").forEach((gapEl) => {
+    gapEl.addEventListener("click", () => {
+      const target = evidenceGraphEl.querySelector(`[data-node-id="${cssEscape(gapEl.dataset.gapNodeId)}"]`);
+      target?.click();
+      target?.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
     });
   });
 
@@ -2243,27 +2696,155 @@ function getEvidenceGraphLabels() {
       eyebrow: "Traceability",
       title: "Evidence Graph",
       count: (nodes, edges) => `${nodes} nodes / ${edges} links`,
+      filters: [
+        ["all", "All"],
+        ["job_requirement", "JD"],
+        ["resume_evidence", "Evidence"],
+        ["interview_question", "Questions"],
+        ["risk", "Risks"],
+        ["offer_signal", "Offer"],
+        ["feedback", "Feedback"],
+        ["skill", "Skills"],
+      ],
+      gapTitle: "Evidence gaps",
+      gapEmpty: "No obvious evidence gaps detected.",
+      gapAction: "Click to inspect",
       columns: {
         requirements: "JD Requirements",
         evidence: "Resume Evidence",
         validation: "Questions / Risks / Offer",
       },
       detailTitle: "Node details",
-      detailPlaceholder: "Click a node to inspect evidence, questions, and linked risks.",
+      detailPlaceholder: "Click a node to inspect evidence, questions, linked risks, and report location.",
+      reportAnchor: "Report section",
+      offerRunTitle: "Offer run state",
+      feedbackTitle: "Feedback distillation",
+      noFeedbackActions: "No feedback actions yet.",
+      edgeMeta: "Edge confidence",
     };
   }
   return {
     eyebrow: "可追溯关系",
     title: "证据关系图谱",
     count: (nodes, edges) => `${nodes} 个节点 / ${edges} 条关系`,
+    filters: [
+      ["all", "全部"],
+      ["job_requirement", "JD"],
+      ["resume_evidence", "证据"],
+      ["interview_question", "追问"],
+      ["risk", "风险"],
+      ["offer_signal", "Offer"],
+      ["feedback", "反馈"],
+      ["skill", "Skill"],
+    ],
+    gapTitle: "证据缺口",
+    gapEmpty: "暂未发现明显证据缺口。",
+    gapAction: "点击查看",
     columns: {
       requirements: "JD 要求",
       evidence: "简历证据",
       validation: "追问 / 风险 / Offer",
     },
     detailTitle: "节点详情",
-    detailPlaceholder: "点击节点查看摘要、证据等级、验证问题和关联关系。",
+    detailPlaceholder: "点击节点查看摘要、证据等级、验证问题、关联关系和报告位置。",
+    reportAnchor: "报告定位",
+    offerRunTitle: "Offer 推演状态",
+    feedbackTitle: "反馈蒸馏",
+    noFeedbackActions: "暂无反馈动作。",
+    edgeMeta: "关系置信度",
   };
+}
+
+function renderEvidenceGraphFilters(labels) {
+  return `<div class="evidence-graph-filters">
+    ${labels.filters.map(([type, label], index) => `<button class="graph-filter ${index === 0 ? "active" : ""}" type="button" data-filter-type="${escapeHtml(type)}">${escapeHtml(label)}</button>`).join("")}
+  </div>`;
+}
+
+function applyEvidenceGraphFilter(type) {
+  const isAll = type === "all";
+  evidenceGraphEl.querySelectorAll(".graph-node").forEach((nodeEl) => {
+    const visible = isAll || nodeEl.dataset.nodeType === type;
+    nodeEl.classList.toggle("graph-node-hidden", !visible);
+  });
+  evidenceGraphEl.querySelectorAll(".evidence-graph-column").forEach((columnEl) => {
+    const visibleNodes = Array.from(columnEl.querySelectorAll(".graph-node")).filter((nodeEl) => !nodeEl.classList.contains("graph-node-hidden"));
+    columnEl.classList.toggle("graph-column-dimmed", !isAll && visibleNodes.length === 0);
+  });
+}
+
+function renderOfferRunPanel(offerRun, labels) {
+  if (!offerRun) return "";
+  const scenarios = offerRun.scenario_comparison || [];
+  const steps = offerRun.lifecycle_steps || [];
+  return `<div class="offer-run-panel">
+    <div>
+      <strong>${escapeHtml(labels.offerRunTitle)}</strong>
+      <span>${escapeHtml(offerRun.lifecycle_state || "")} · ${escapeHtml(offerRun.version || "")}</span>
+    </div>
+    <div class="offer-lifecycle">
+      ${steps.map((step) => `<span class="state-${escapeHtml(step.status)}">${escapeHtml(step.label)}</span>`).join("")}
+    </div>
+    <div class="offer-scenarios">
+      ${scenarios.map((scenario) => `<article>
+        <strong>${escapeHtml(scenario.name)}</strong>
+        <b>${escapeHtml(String(scenario.probability))}%</b>
+        <span>${escapeHtml(scenario.assumption)}</span>
+      </article>`).join("")}
+    </div>
+  </div>`;
+}
+
+function renderFeedbackDistillationPanel(distillation, labels) {
+  const actions = distillation.actions || [];
+  const diffs = distillation.impact_diff || [];
+  const suggestions = distillation.skill_update_suggestions || [];
+  return `<div class="feedback-distillation-panel">
+    <strong>${escapeHtml(labels.feedbackTitle)}</strong>
+    <div class="feedback-action-list">
+      ${
+        actions.length
+          ? actions.slice(0, 5).map((action) => `<article>
+              <span>${escapeHtml(action.type)}</span>
+              <strong>${escapeHtml(action.target_id || "")}</strong>
+              <small>${escapeHtml(action.reason || "")}</small>
+            </article>`).join("")
+          : `<p>${escapeHtml(labels.noFeedbackActions)}</p>`
+      }
+    </div>
+    ${diffs.length ? `<div class="feedback-diff-list">${diffs.slice(0, 3).map((diff) => `<p><strong>${escapeHtml(diff.target)}</strong> ${escapeHtml(diff.before)} → ${escapeHtml(diff.after)}</p>`).join("")}</div>` : ""}
+    ${suggestions.length ? `<div class="skill-suggestion-list">${suggestions.slice(0, 4).map((item) => `<p><strong>${escapeHtml(item.skill_id)}</strong> ${escapeHtml(item.suggestion)} · ${escapeHtml(item.status)}</p>`).join("")}</div>` : ""}
+  </div>`;
+}
+
+function detectEvidenceGraphGaps(graph) {
+  const edges = graph.edges || [];
+  return (graph.nodes || [])
+    .filter((node) => {
+      const meta = node.metadata || {};
+      const linkedEdges = edges.filter((edge) => edge.from === node.id || edge.to === node.id);
+      const hasSupport = edges.some((edge) => edge.to === node.id && ["supports", "validates"].includes(edge.type));
+      const hasQuestion = linkedEdges.some((edge) => edge.type === "questions");
+      if (node.type === "job_requirement") return !hasSupport;
+      if (node.type === "resume_evidence") return meta.evidence_level >= 3 || /缺证|低|不足|missing|weak/i.test(String(meta.evidence_level_label || node.label));
+      if (node.type === "risk") return meta.severity === "high" && !hasQuestion;
+      return false;
+    })
+    .slice(0, 6);
+}
+
+function renderEvidenceGraphGaps(gaps, labels) {
+  const items = gaps.length
+    ? gaps.map((node) => `<button class="evidence-gap-item" type="button" data-gap-node-id="${escapeHtml(node.id)}">
+        <strong>${escapeHtml(node.label)}</strong>
+        <span>${escapeHtml(typeLabel(node.type))} · ${escapeHtml(clip(node.summary || ""))}</span>
+        <em>${escapeHtml(labels.gapAction)}</em>
+      </button>`).join("")
+    : `<p>${escapeHtml(labels.gapEmpty)}</p>`;
+  return `<div class="evidence-graph-gaps">
+    <strong>${escapeHtml(labels.gapTitle)}</strong>
+    <div>${items}</div>
+  </div>`;
 }
 
 function renderEvidenceGraphColumn(title, nodes) {
@@ -2278,7 +2859,7 @@ function renderEvidenceGraphColumn(title, nodes) {
 function renderEvidenceGraphNode(node) {
   const meta = node.metadata || {};
   const badge = meta.evidence_level_label || meta.severity || meta.adoption_status || node.type;
-  return `<button class="graph-node type-${escapeHtml(node.type)}" type="button" data-node-id="${escapeHtml(node.id)}">
+  return `<button class="graph-node type-${escapeHtml(node.type)}" type="button" data-node-id="${escapeHtml(node.id)}" data-node-type="${escapeHtml(node.type)}">
     <span>${escapeHtml(typeLabel(node.type))}</span>
     <strong>${escapeHtml(node.label)}</strong>
     <small>${escapeHtml(clip(node.summary || ""))}</small>
@@ -2294,6 +2875,7 @@ function typeLabel(type) {
     risk: "风险",
     feedback: "反馈",
     offer_signal: "Offer",
+    skill: "Skill",
   };
   const en = {
     job_requirement: "JD",
@@ -2302,6 +2884,7 @@ function typeLabel(type) {
     risk: "Risk",
     feedback: "Feedback",
     offer_signal: "Offer",
+    skill: "Skill",
   };
   return (currentLanguage === "en" ? en : zh)[type] || type;
 }
@@ -2309,20 +2892,53 @@ function typeLabel(type) {
 function renderEvidenceGraphDetail(node, edges, nodesById) {
   const detailEl = evidenceGraphEl?.querySelector("#evidenceGraphDetail");
   if (!detailEl) return;
+  const labels = getEvidenceGraphLabels();
   const related = edges
     .filter((edge) => edge.from === node.id || edge.to === node.id)
     .slice(0, 8)
     .map((edge) => {
       const otherId = edge.from === node.id ? edge.to : edge.from;
       const other = nodesById.get(otherId);
-      return `<li><strong>${escapeHtml(edge.type)}</strong> ${escapeHtml(other?.label || otherId)}<br><span>${escapeHtml(edge.note || "")}</span></li>`;
+      const confidence = edge.confidence ?? edge.weight ?? 0;
+      return `<li><strong>${escapeHtml(edge.type)}</strong> ${escapeHtml(other?.label || otherId)}<br><span>${escapeHtml(edge.note || "")}</span><em>${escapeHtml(labels.edgeMeta)} ${(confidence * 100).toFixed(0)}% · ${escapeHtml(edge.source || "")}</em></li>`;
     })
     .join("");
   const metadata = node.metadata ? Object.entries(node.metadata).slice(0, 6) : [];
+  const anchor = node.metadata?.report_anchor;
   detailEl.innerHTML = `<strong>${escapeHtml(node.label)}</strong>
     <p>${escapeHtml(node.summary || "")}</p>
+    ${anchor ? `<button class="graph-report-link" type="button" data-report-anchor="${escapeHtml(anchor)}">${escapeHtml(labels.reportAnchor)}：${escapeHtml(anchor)}</button>` : ""}
     ${metadata.length ? `<dl>${metadata.map(([key, value]) => `<dt>${escapeHtml(key)}</dt><dd>${escapeHtml(String(value))}</dd>`).join("")}</dl>` : ""}
     ${related ? `<ul>${related}</ul>` : `<p>${currentLanguage === "en" ? "No linked edges." : "暂无关联关系。"}</p>`}`;
+  detailEl.querySelector(".graph-report-link")?.addEventListener("click", () => scrollReportToGraphNode(node));
+}
+
+function scrollReportToGraphNode(node) {
+  const anchor = node.metadata?.report_anchor || node.label;
+  const heading = findReportHeading(anchor);
+  const target = heading || findReportText(node.label) || findReportText(node.summary);
+  if (!target) return;
+  reportEl.querySelectorAll(".report-focus").forEach((item) => item.classList.remove("report-focus"));
+  target.classList.add("report-focus");
+  target.scrollIntoView({ behavior: "smooth", block: "center" });
+  window.setTimeout(() => target.classList.remove("report-focus"), 1800);
+}
+
+function findReportHeading(text) {
+  if (!text) return null;
+  const normalized = normalizeSearchText(text);
+  return Array.from(reportEl.querySelectorAll("h2, h3, h4")).find((element) => normalizeSearchText(element.textContent).includes(normalized));
+}
+
+function findReportText(text) {
+  if (!text) return null;
+  const normalized = normalizeSearchText(clip(text, 32));
+  if (!normalized) return null;
+  return Array.from(reportEl.querySelectorAll("h2, h3, h4, p, li, td")).find((element) => normalizeSearchText(element.textContent).includes(normalized));
+}
+
+function normalizeSearchText(value) {
+  return String(value || "").replace(/\s+/g, "").toLowerCase();
 }
 
 function drawEvidenceGraphEdges(edges) {
@@ -2344,7 +2960,10 @@ function drawEvidenceGraphEdges(edges) {
       const x2 = to.left - canvasRect.left;
       const y2 = to.top + to.height / 2 - canvasRect.top;
       const mid = Math.max(30, Math.abs(x2 - x1) / 2);
-      return `<path class="edge-${escapeHtml(edge.type)}" d="M ${x1} ${y1} C ${x1 + mid} ${y1}, ${x2 - mid} ${y2}, ${x2} ${y2}" />`;
+      const confidence = edge.confidence ?? edge.weight ?? 0.5;
+      const width = 1 + confidence * 2.4;
+      const opacity = 0.25 + confidence * 0.65;
+      return `<path class="edge-${escapeHtml(edge.type)}" style="stroke-width:${width};opacity:${opacity}" d="M ${x1} ${y1} C ${x1 + mid} ${y1}, ${x2 - mid} ${y2}, ${x2} ${y2}" />`;
     })
     .join("");
 }
@@ -4778,14 +5397,8 @@ function buildRequirementEvidenceRows(snapshot) {
   const normalized = normalizeSnapshot(snapshot);
   const jd = normalized.job_description || "";
   const resume = normalized.resume || "";
-  const requirements = [
-    { capability: "行业场景理解", keywords: ["智慧矿山", "smart mining", "GIS", "矿山", "mining", "冶金", "矿产", "行业", "industry", "B 端", "B端", "B2B", "SaaS", "企业", "enterprise"] },
-    { capability: "产品规划与生命周期管理", keywords: ["产品规划", "product planning", "lifecycle", "生命周期", "0-1", "0-to-1", "0 到 1", "从零", "产品设计", "product design", "规划", "roadmap"] },
-    { capability: "客户需求分析与方案设计", keywords: ["客户", "customer", "requirement", "需求分析", "技术交流", "technical communication", "方案设计", "solution", "consulting", "咨询", "调研", "research", "需求梳理"] },
-    { capability: "技术架构与研发协同", keywords: ["架构", "architecture", "研发", "R&D", "engineering", "C++", "Java", "JavaScript", "database", "数据库", "operating system", "操作系统", "前后端", "backend", "frontend", "技术"] },
-    { capability: "技术选型与创新探索", keywords: ["前瞻", "forward-looking", "技术选型", "technology selection", "新功能", "new feature", "专利", "patent", "技术探索", "innovation", "创新", "开源", "open source"] },
-    { capability: "成本、进度、质量控制", keywords: ["成本", "cost", "进度", "schedule", "quality", "质量", "风险控制", "risk control", "协调", "coordination", "推进", "delivery", "延期", "delay", "milestone", "里程碑", "retrospective", "复盘"] },
-  ];
+  const roleProfile = getRoleProfile(normalized.target_role);
+  const requirements = roleProfile.requirements;
   return requirements.map((requirement) => {
     const resumeEvidence = findEvidence(resume, requirement.keywords) || "简历未体现明确证据";
     const evidenceLevel = classifyEvidenceLevel(resumeEvidence);
@@ -4799,13 +5412,14 @@ function buildRequirementEvidenceRows(snapshot) {
       evidenceLevelLabel: evidenceLevelLabel(evidenceLevel),
       evidenceReason: evidenceLevelReason(evidenceLevel, resumeEvidence),
       matchStatus: isMissing ? "不匹配 / 待补证" : evidenceLevel === 1 ? "匹配但仍需复核口径" : "部分匹配 / 需追问验证",
-      verificationQuestion: buildVerificationQuestion(requirement.capability, resumeEvidence, evidenceLevel),
+      verificationQuestion: buildVerificationQuestion(requirement.capability, resumeEvidence, evidenceLevel, requirement.verificationFocus),
     };
   });
 }
 
 function normalizeSnapshot(input) {
   return {
+    target_role: input.target_role || input.targetRole || defaultRoleId,
     resume: input.resume || "",
     job_description: input.job_description || input.jobDescription || "",
     company_context: input.company_context || input.companyContext || "",
@@ -4842,16 +5456,17 @@ function evidenceLevelReason(level, evidenceText) {
 }
 
 function buildVerificationQuestion(capability, evidenceText, level) {
+  const focusSuffix = arguments[3] ? `重点验证：${arguments[3]}。` : "";
   if (!evidenceText || evidenceText === "简历未体现明确证据") {
-    return `请补充一个能证明“${capability}”的项目，说明背景、目标、个人动作、结果和复盘。`;
+    return `请补充一个能证明“${capability}”的项目，说明背景、目标、个人动作、结果和复盘。${focusSuffix}`;
   }
   if (level === 1) {
-    return `围绕“${capability}”说明指标分母、统计周期、上线前后对比和你的直接贡献。`;
+    return `围绕“${capability}”说明指标分母、统计周期、上线前后对比和你的直接贡献。${focusSuffix}`;
   }
   if (level === 2) {
-    return `你提到“${clip(evidenceText)}”，请拆解真实角色、关键决策、协作对象和结果归因。`;
+    return `你提到“${clip(evidenceText)}”，请拆解真实角色、关键决策、协作对象和结果归因。${focusSuffix}`;
   }
-  return `这段经历更像模糊团队成果，请说明你个人做了什么、为什么由你负责、失败点是什么。`;
+  return `这段经历更像模糊团队成果，请说明你个人做了什么、为什么由你负责、失败点是什么。${focusSuffix}`;
 }
 
 function buildEvidenceSummary(rows) {
@@ -4867,13 +5482,18 @@ function buildEvidenceSummary(rows) {
 
 function buildGateAssessment(snapshot, rows = buildRequirementEvidenceRows(snapshot)) {
   const normalized = normalizeSnapshot(snapshot);
+  const roleProfile = getRoleProfile(normalized.target_role);
   const matchedRows = rows.filter((row) => !row.isMissing);
   const strongRows = rows.filter((row) => row.evidenceLevel === 1);
   const resume = normalized.resume || "";
   const jd = normalized.job_description || "";
-  const hasTargetIndustry = /智慧矿山|矿山|GIS|冶金|矿产/i.test(resume);
-  const jdNeedsTargetIndustry = /智慧矿山|矿山|GIS|冶金|矿产/i.test(jd);
-  const hasTransferableSignals = /B\s*端|B端|SaaS|企业|客户|方案|架构|研发|平台|系统|0-1|0 到 1|上线|交付|推进|数据|指标|项目/i.test(resume);
+  const roleKeywords = roleProfile.requirements.flatMap((item) => item.keywords || []);
+  const roleSignalHits = roleKeywords.filter((keyword) => resume.toLowerCase().includes(String(keyword).toLowerCase())).length;
+  const hasTargetIndustry = normalized.target_role === "product_manager" && /智慧矿山|矿山|GIS|冶金|矿产/i.test(resume);
+  const jdNeedsTargetIndustry = normalized.target_role === "product_manager" && /智慧矿山|矿山|GIS|冶金|矿产/i.test(jd);
+  const hasTransferableSignals =
+    roleSignalHits >= 2 ||
+    /B\s*端|B端|SaaS|企业|客户|方案|架构|研发|平台|系统|0-1|0 到 1|上线|交付|推进|数据|指标|项目|销售|工单|SLA|CRM|pipeline|测试|debug|代码|收入/i.test(resume);
   const bestEvidence = matchedRows[0]?.resumeEvidence || "简历尚未提供可直接支撑 JD 的项目证据";
 
   if (matchedRows.length >= 4 && (!jdNeedsTargetIndustry || hasTargetIndustry || strongRows.length >= 2)) {
@@ -4894,8 +5514,8 @@ function buildGateAssessment(snapshot, rows = buildRequirementEvidenceRows(snaps
       enterSandbox: true,
       matchedCount: matchedRows.length,
       bestEvidence,
-      summary: `行业或目标场景证据不足，但有 ${matchedRows.length}/${rows.length} 项可迁移能力线索，可进入条件性沙盘验证。`,
-      nextStep: "使用能力迁移话术进入验证，但必须补齐行业场景、客户需求和技术方案证据",
+      summary: `目标岗位证据不足，但有 ${matchedRows.length}/${rows.length} 项可迁移能力线索，可进入条件性沙盘验证。`,
+      nextStep: `使用能力迁移话术进入验证，但必须补齐 ${roleProfile.requirements.slice(0, 3).map((row) => row.capability).join("、")} 证据`,
       transferPitch: buildTransferPitch(normalized, matchedRows),
     };
   }

@@ -42,7 +42,23 @@ def static_checks():
             for term in ["Offer 沙盘 + 面试官视角库", "Offer 沙盘", "面试官视角库"]
         ),
         "offer_sandbox_inputs_exist": all(
-            item in ids for item in ["candidateStage", "targetLevel", "offerConstraints"]
+            item in ids for item in ["targetRole", "candidateStage", "targetLevel", "offerConstraints"]
+        ),
+        "role_profile_extension_exists": all(
+            term in content["app"] + content["index"] + content["schema_run"]
+            for term in [
+                "roleProfiles",
+                "getRoleProfile",
+                "targetRole",
+                "target_role",
+                "product_manager",
+                "developer",
+                "technical_support",
+                "sales",
+                "编程语言与工程实现",
+                "问题分诊与优先级判断",
+                "线索发现与客户画像",
+            ]
         ),
         "skill_library_inputs_exist": "skill-toggle" in content["index"]
         and all(
@@ -113,12 +129,9 @@ def static_checks():
         and "导出候选人 PDF" in content["index"]
         and "导出面试官 PDF" in content["index"]
         and "buildAudienceMarkdown" in content["app"],
-        "structured_json_export_exists": all(
-            term in content["app"] + content["index"]
+        "structured_run_state_exists": all(
+            term in content["app"] + content["schema_run"]
             for term in [
-                "downloadJsonBtn",
-                "导出评测 JSON",
-                "Export Evaluation JSON",
                 "enrichEvaluationRun",
                 "evaluation_summary",
                 "requirement_matches",
@@ -126,6 +139,14 @@ def static_checks():
                 "offer_simulation_run",
                 "evidence_graph",
                 "feedback_distillation",
+            ]
+        ),
+        "evaluation_json_export_removed": all(
+            term not in content["app"] + content["index"]
+            for term in [
+                "downloadJsonBtn",
+                "导出评测 JSON",
+                "Export Evaluation JSON",
                 "application/json;charset=utf-8",
             ]
         ),
@@ -135,9 +156,20 @@ def static_checks():
                 "evidenceGraph",
                 "renderEvidenceGraph",
                 "drawEvidenceGraphEdges",
+                "detectEvidenceGraphGaps",
+                "scrollReportToGraphNode",
+                "renderEvidenceGraphFilters",
+                "renderOfferRunPanel",
+                "renderFeedbackDistillationPanel",
                 "evidence-graph",
+                "evidence-graph-gaps",
+                "evidence-graph-filters",
+                "offer-run-panel",
+                "feedback-distillation-panel",
                 "evidence-graph-lines",
                 "graph-node",
+                "graph-report-link",
+                "report-focus",
                 "证据关系图谱",
             ]
         ),
@@ -147,6 +179,7 @@ def static_checks():
                 "buildOfferSimulationRun",
                 "buildEvidenceGraph",
                 "buildFeedbackDistillation",
+                "buildSkillRegistry",
                 "offer-simulation-run.schema.json",
                 "evidence-graph.schema.json",
                 "feedback-distillation.schema.json",
@@ -154,15 +187,15 @@ def static_checks():
         ),
         "offer_simulation_schema_exists": all(
             term in content["schema_offer"]
-            for term in ["OfferSimulationRun", "evaluation_run_id", "offer_leverage", "feedback_updates", "final_decision_hint"]
+            for term in ["OfferSimulationRun", "evaluation_run_id", "offer_leverage", "feedback_updates", "scenario_comparison", "lifecycle_steps", "state_backfill", "final_decision_hint"]
         ),
         "evidence_graph_schema_exists": all(
             term in content["schema_graph"]
-            for term in ["EvidenceGraph", "job_requirement", "resume_evidence", "interview_question", "impacts_offer"]
+            for term in ["EvidenceGraph", "job_requirement", "resume_evidence", "interview_question", "impacts_offer", "confidence", "source", "skill"]
         ),
         "feedback_distillation_schema_exists": all(
             term in content["schema_feedback"]
-            for term in ["FeedbackDistillation", "promote_question", "demote_question", "raise_risk_weight", "downgrade_claim"]
+            for term in ["FeedbackDistillation", "promote_question", "demote_question", "raise_risk_weight", "downgrade_claim", "impact_diff", "skill_update_suggestions", "conflict_policy"]
         ),
         "skill_definition_examples_exist": all(
             term in "\n".join(
@@ -209,6 +242,7 @@ def static_checks():
             term in content["schema_run"]
             for term in [
                 "candidate_stage",
+                "target_role",
                 "target_level",
                 "offer_constraints",
                 "selected_skills",

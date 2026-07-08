@@ -13,6 +13,7 @@
     "input_snapshot": {
       "type": "object",
       "properties": {
+        "target_role": { "type": "string" },
         "resume": { "type": "string" },
         "job_description": { "type": "string" },
         "company_context": { "type": "string" },
@@ -86,6 +87,23 @@
         "leverage_detail": { "type": "string" },
         "risks": { "type": "array", "items": { "type": "string" } },
         "next_actions": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "skill_registry": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "version": { "type": "string" },
+          "role_id": { "type": "string" },
+          "role_label": { "type": "string" },
+          "focus": { "type": "string" },
+          "adoption_status": { "type": "string" },
+          "priority": { "type": "number" },
+          "audit": { "type": "object" }
+        }
       }
     },
     "offer_simulation_run": { "$ref": "offer-simulation-run.schema.json" },
