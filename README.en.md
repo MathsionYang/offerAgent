@@ -8,19 +8,19 @@ Live demo: [https://mathsionyang.github.io/offerAgent/](https://mathsionyang.git
 
 ## Screenshots
 
-<img src="https://mathsionyang.github.io/offerAgent/img/06.png" alt="OfferAgent screenshot 06" width="900" />
+<img src="img/06.png" alt="OfferAgent screenshot 06" width="900" />
 
-<img src="https://mathsionyang.github.io/offerAgent/img/07.png" alt="OfferAgent screenshot 07" width="900" />
+<img src="img/07.png" alt="OfferAgent screenshot 07" width="900" />
 
-<img src="https://mathsionyang.github.io/offerAgent/img/08.png" alt="OfferAgent screenshot 08" width="900" />
+<img src="img/08.png" alt="OfferAgent screenshot 08" width="900" />
 
-<img src="https://mathsionyang.github.io/offerAgent/img/09.png" alt="OfferAgent screenshot 09" width="900" />
+<img src="img/09.png" alt="OfferAgent screenshot 09" width="900" />
 
-<img src="https://mathsionyang.github.io/offerAgent/img/010.png" alt="OfferAgent screenshot 010" width="900" />
+<img src="img/010.png" alt="OfferAgent screenshot 010" width="900" />
 
-<img src="https://mathsionyang.github.io/offerAgent/img/011.png" alt="OfferAgent screenshot 011" width="900" />
+<img src="img/011.png" alt="OfferAgent screenshot 011" width="900" />
 
-<img src="https://mathsionyang.github.io/offerAgent/img/012.png" alt="OfferAgent screenshot 012" width="900" />
+<img src="img/012.png" alt="OfferAgent screenshot 012" width="900" />
 
 OfferAgent is a static Web MVP for interview preparation and recruiting decision support. It does not replace human hiring decisions. It turns “target role + candidate resume + job description + interview context” into traceable candidate reports, interviewer reports, offer simulations, virtual panel summaries, and an evidence graph.
 
