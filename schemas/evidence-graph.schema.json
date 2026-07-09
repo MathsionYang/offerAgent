@@ -21,7 +21,8 @@
               "risk",
               "feedback",
               "offer_signal",
-              "skill"
+              "skill",
+              "agent_persona"
             ]
           },
           "label": { "type": "string" },
@@ -47,7 +48,10 @@
               "validates",
               "updates",
               "impacts_offer",
-              "generates"
+              "generates",
+              "reads_memory",
+              "discusses",
+              "challenges"
             ]
           },
           "weight": { "type": "number" },

@@ -7,6 +7,11 @@
   "properties": {
     "id": { "type": "string" },
     "created_at": { "type": "string" },
+    "schema_version": { "type": "string" },
+    "input_fingerprint": { "type": "string" },
+    "cache_status": { "type": "string", "enum": ["hit", "miss", "stored"] },
+    "cached_at": { "type": "string" },
+    "restored_at": { "type": "string" },
     "provider": { "type": "string" },
     "model": { "type": "string" },
     "mode": { "type": "string", "enum": ["mock", "llm"] },
@@ -89,6 +94,22 @@
         "next_actions": { "type": "array", "items": { "type": "string" } }
       }
     },
+    "structured_evaluation": {
+      "type": "object",
+      "description": "Deterministic JSON intermediate layer used before rendering reports, graphs, and offer state.",
+      "properties": {
+        "schema_version": { "type": "string" },
+        "target_role": { "type": "string" },
+        "language": { "type": "string" },
+        "summary": { "type": "object" },
+        "requirement_matches": { "type": "array", "items": { "type": "object" } },
+        "interview_questions": { "type": "array", "items": { "type": "object" } },
+        "offer_sandbox": { "type": "object" },
+        "evidence": { "type": "array", "items": { "type": "object" } },
+        "decision_basis": { "type": "object" },
+        "feedback_status": { "type": ["object", "null"] }
+      }
+    },
     "role_capability_matrix": {
       "type": "object",
       "properties": {
@@ -166,6 +187,67 @@
             }
           }
         }
+      }
+    },
+    "virtual_panel": {
+      "type": "array",
+      "description": "VirtualPanel: MiroFish-inspired interviewer personas generated from JD, resume, role, and selected skills.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "skill_id": { "type": "string" },
+          "name": { "type": "string" },
+          "role_label": { "type": "string" },
+          "persona": { "type": "string" },
+          "focus": { "type": "string" },
+          "stance": { "type": "string", "enum": ["supportive", "opposing", "neutral", "observer"] },
+          "activity_level": { "type": "number" },
+          "influence_weight": { "type": "number" },
+          "memory_scope": { "type": "object" },
+          "audit": { "type": "object" }
+        }
+      }
+    },
+    "panel_discussion_rounds": {
+      "type": "array",
+      "description": "PanelDiscussionRound: lightweight simulated discussion turns among virtual interviewer personas.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "stage": { "type": "string" },
+          "topic": { "type": "string" },
+          "turns": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "agent_id": { "type": "string" },
+                "stance": { "type": "string" },
+                "claim": { "type": "string" },
+                "evidence_ids": { "type": "array", "items": { "type": "string" } },
+                "question_ids": { "type": "array", "items": { "type": "string" } },
+                "impact": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "moderator_summary": {
+      "type": "object",
+      "description": "ModeratorSummary: report-agent-style synthesis of panel consensus, disagreement, and offer impact.",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string" },
+        "consensus": { "type": "string" },
+        "disagreement_count": { "type": "number" },
+        "support_count": { "type": "number" },
+        "lead_agent_id": { "type": "string" },
+        "final_recommendation": { "type": "string" },
+        "offer_impact": { "type": "string" },
+        "feedback_impact": { "type": "string" }
       }
     },
     "offer_simulation_run": { "$ref": "offer-simulation-run.schema.json" },

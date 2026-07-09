@@ -382,6 +382,22 @@ def static_checks():
         "mirofish_nuwa_structures_exist": all(
             term in content["app"] + content["schema_run"]
             for term in [
+                "MIROFISH_REFERENCE_WORKFLOW",
+                "VirtualPanel",
+                "PanelDiscussionRound",
+                "ModeratorSummary",
+                "buildVirtualInterviewPanel",
+                "buildPanelDiscussionRounds",
+                "buildModeratorSummary",
+                "virtual_panel",
+                "panel_discussion_rounds",
+                "moderator_summary",
+                "agent_persona",
+                "reads_memory",
+                "discusses",
+                "challenges",
+                "persona_generation",
+                "agent_configuration",
                 "buildOfferSimulationRun",
                 "buildEvidenceGraph",
                 "buildFeedbackDistillation",
@@ -430,8 +446,30 @@ def static_checks():
                 "risk_validation",
             ]
         ),
-        "privacy_no_persistence_api": not re.search(
-            r"localStorage|sessionStorage|indexedDB|document\.cookie|setItem\(|getItem\(",
+        "consistency_mode_exists": all(
+            term in content["app"] + content["schema_run"]
+            for term in [
+                "CONSISTENCY_SCHEMA_VERSION",
+                "RUN_CACHE_PREFIX",
+                "buildInputFingerprint",
+                "buildCanonicalInputForFingerprint",
+                "buildStructuredEvaluation",
+                "structured_evaluation",
+                "restoreCachedRun",
+                "persistRunCache",
+                "input_fingerprint",
+                "cache_status",
+                "temperature: 0",
+                "seed:",
+            ]
+        ),
+        "privacy_cache_does_not_store_api_key": "stripRuntimeOnlyCacheFields" in content["app"]
+        and re.search(r"\{\s*[\s\S]{0,120}apiKey,\s*[\s\S]{0,120}\.\.\.safeRun", content["app"])
+        and "input.apiKey" not in "\n".join(
+            line for line in content["app"].splitlines() if "localStorage" in line or "persistRunCache" in line
+        ),
+        "privacy_no_non_cache_persistence_api": not re.search(
+            r"sessionStorage|indexedDB|document\.cookie",
             content["app"] + content["index"],
             re.I,
         ),

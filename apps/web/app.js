@@ -38,6 +38,17 @@ let currentLanguage = languageEl?.value || "zh";
 let activeAudienceMode = document.body?.dataset.pageMode === "interviewer" ? "interviewer" : "candidate";
 let activeWorkspaceView = "workbench";
 const MODEL_REQUEST_TIMEOUT_MS = 90000;
+const CONSISTENCY_SCHEMA_VERSION = "offeragent.consistency.v1";
+const RUN_CACHE_PREFIX = "offeragent:run:";
+const RUN_CACHE_LIMIT = 12;
+const MIROFISH_REFERENCE_WORKFLOW = [
+  "seed_extraction",
+  "graph_memory",
+  "persona_generation",
+  "agent_configuration",
+  "panel_simulation",
+  "moderator_report",
+];
 
 const providerDefaults = {
   mock: { model: "mock-product-manager-v1", baseUrl: "" },
@@ -404,6 +415,7 @@ const i18n = {
     statusGeneratingLlm: "正在流式生成报告...",
     statusMockDone: "Mock 沙盘报告已生成。请下载到本地保存。",
     statusLlmDone: "真实模型报告已生成。请下载到本地保存。",
+    statusCacheHit: "已复用相同输入的缓存报告，未重新调用模型。",
     statusNeedReport: "请先生成报告，再写入人工反馈。",
     statusFeedback: "人工反馈已写入当前报告。请下载保存，刷新页面后不会保留。",
     statusPdf: "正在生成 PDF，请稍候...",
@@ -555,6 +567,7 @@ const i18n = {
     statusGeneratingLlm: "Streaming the report from the model...",
     statusMockDone: "Mock sandbox report generated. Download it locally to save.",
     statusLlmDone: "Live model report generated. Download it locally to save.",
+    statusCacheHit: "Reused the cached report for the same input without calling the model again.",
     statusNeedReport: "Please generate a report before appending human feedback.",
     statusFeedback: "Human feedback appended to the current report. Download it before refreshing.",
     statusPdf: "Generating PDF, please wait...",
@@ -870,6 +883,7 @@ generateBtn.addEventListener("click", async () => {
     setStatus(getText().statusMissingInput, true);
     return;
   }
+  const inputFingerprint = await buildInputFingerprint(input);
 
   generateBtn.disabled = true;
   downloadMdBtn.disabled = true;
@@ -883,6 +897,25 @@ generateBtn.addEventListener("click", async () => {
   setStatus(input.useRealModel ? getText().statusGeneratingLlm : getText().statusGeneratingMock);
 
   try {
+    const cachedRun = restoreCachedRun(inputFingerprint);
+    if (cachedRun) {
+      currentRun = enrichEvaluationRun({
+        ...cachedRun,
+        cache_status: "hit",
+        restored_at: new Date().toISOString(),
+      });
+      renderStreamingReport(buildPreviewMarkdown(currentRun), getText().reportUpdated, true);
+      runBadgeEl.textContent = currentRun.id;
+      downloadMdBtn.disabled = false;
+      setInterviewerDownloadDisabled(false);
+      setOfferDownloadDisabled(false);
+      setReportDownloadsAvailable(true);
+      appendFeedbackBtn.disabled = false;
+      setWorkspaceView("graph");
+      setStatus(getText().statusCacheHit);
+      return;
+    }
+
     const report = input.useRealModel
       ? await generateWithLLM(input, (partial) => {
           renderStreamingReport(cleanReportMarkdown(partial), getText().llmStreaming);
@@ -893,6 +926,9 @@ generateBtn.addEventListener("click", async () => {
     currentRun = {
       id: `run_${Date.now()}`,
       created_at: new Date().toISOString(),
+      schema_version: CONSISTENCY_SCHEMA_VERSION,
+      input_fingerprint: inputFingerprint,
+      cache_status: "miss",
       provider: input.provider,
       model: input.model,
       mode: input.useRealModel ? "llm" : "mock",
@@ -910,6 +946,7 @@ generateBtn.addEventListener("click", async () => {
       report: cleanedReport,
     };
     currentRun = enrichEvaluationRun(currentRun);
+    persistRunCache(currentRun);
 
     renderStreamingReport(buildPreviewMarkdown(currentRun), input.useRealModel ? getText().llmDone : getText().mockDone, true);
     runBadgeEl.textContent = currentRun.id;
@@ -988,6 +1025,110 @@ function collectInput() {
     language: currentLanguage,
     useRealModel: providerEl.value !== "mock" && Boolean(apiKeyEl.value.trim()),
   };
+}
+
+function buildCanonicalInputForFingerprint(input) {
+  return {
+    schema_version: CONSISTENCY_SCHEMA_VERSION,
+    provider: input.provider || "mock",
+    model: normalizeFingerprintText(input.model || providerDefaults[input.provider]?.model || ""),
+    base_url: normalizeBaseUrlForFingerprint(input.baseUrl || providerDefaults[input.provider]?.baseUrl || ""),
+    target_role: input.targetRole || defaultRoleId,
+    resume: normalizeFingerprintText(input.resume),
+    job_description: normalizeFingerprintText(input.jobDescription),
+    company_context: normalizeFingerprintText(input.companyContext),
+    candidate_stage: normalizeFingerprintText(input.candidateStage),
+    target_level: normalizeFingerprintText(input.targetLevel),
+    offer_constraints: normalizeFingerprintText(input.offerConstraints),
+    selected_skills: [...(input.selectedSkills || [])].sort(),
+    language: input.language || "zh",
+    mode: input.useRealModel ? "llm" : "mock",
+  };
+}
+
+async function buildInputFingerprint(input) {
+  const canonical = stableStringify(buildCanonicalInputForFingerprint(input));
+  if (window.crypto?.subtle) {
+    const bytes = new TextEncoder().encode(canonical);
+    const digest = await window.crypto.subtle.digest("SHA-256", bytes);
+    return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  }
+  let hash = 0;
+  for (let index = 0; index < canonical.length; index += 1) {
+    hash = Math.imul(31, hash) + canonical.charCodeAt(index) | 0;
+  }
+  return `fallback_${Math.abs(hash).toString(16)}`;
+}
+
+function stableStringify(value) {
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value ?? "");
+}
+
+function normalizeFingerprintText(value) {
+  return String(value || "").replace(/\r\n/g, "\n").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+function normalizeBaseUrlForFingerprint(value) {
+  return normalizeFingerprintText(value).replace(/\/+$/, "").replace(/\/chat\/completions$/i, "");
+}
+
+function restoreCachedRun(inputFingerprint) {
+  try {
+    const raw = localStorage.getItem(`${RUN_CACHE_PREFIX}${inputFingerprint}`);
+    if (!raw) return null;
+    const run = JSON.parse(raw);
+    if (run?.input_fingerprint !== inputFingerprint) return null;
+    if (run?.schema_version !== CONSISTENCY_SCHEMA_VERSION) return null;
+    return stripRuntimeOnlyCacheFields(run);
+  } catch {
+    return null;
+  }
+}
+
+function persistRunCache(run) {
+  if (!run?.input_fingerprint) return;
+  try {
+    const cacheRun = stripRuntimeOnlyCacheFields({
+      ...run,
+      cache_status: "stored",
+      cached_at: new Date().toISOString(),
+    });
+    localStorage.setItem(`${RUN_CACHE_PREFIX}${run.input_fingerprint}`, JSON.stringify(cacheRun));
+    pruneRunCache();
+  } catch {
+    // Ignore storage quota and private-mode failures; report generation should still work.
+  }
+}
+
+function stripRuntimeOnlyCacheFields(run) {
+  const {
+    human_feedback,
+    feedback_session_history,
+    restored_at,
+    apiKey,
+    ...safeRun
+  } = run || {};
+  return safeRun;
+}
+
+function pruneRunCache() {
+  const keys = Object.keys(localStorage).filter((key) => key.startsWith(RUN_CACHE_PREFIX));
+  if (keys.length <= RUN_CACHE_LIMIT) return;
+  const ordered = keys
+    .map((key) => {
+      try {
+        const run = JSON.parse(localStorage.getItem(key) || "{}");
+        return { key, at: run.cached_at || run.created_at || "" };
+      } catch {
+        return { key, at: "" };
+      }
+    })
+    .sort((a, b) => String(b.at).localeCompare(String(a.at)));
+  ordered.slice(RUN_CACHE_LIMIT).forEach((item) => localStorage.removeItem(item.key));
 }
 
 function bindClick(id, handler) {
@@ -1397,6 +1538,9 @@ function enrichEvaluationRun(run) {
   const feedback = run.human_feedback || null;
   const offerSimulationRun = buildOfferSimulationRun(run, snapshot, gate, offerLeverage, requirementRows, feedback);
   const feedbackDistillation = buildFeedbackDistillation(feedback, requirementRows, snapshot);
+  const virtualPanel = buildVirtualInterviewPanel(snapshot, requirementRows, gate);
+  const panelDiscussionRounds = buildPanelDiscussionRounds(virtualPanel, requirementRows, gate, offerLeverage, feedback);
+  const moderatorSummary = buildModeratorSummary(virtualPanel, panelDiscussionRounds, gate, offerLeverage, feedback);
 
   return {
     ...run,
@@ -1409,9 +1553,13 @@ function enrichEvaluationRun(run) {
     interview_questions: buildStructuredInterviewQuestions(snapshot, requirementRows, feedback),
     offer_sandbox: buildStructuredOfferSandbox(snapshot, gate, offerLeverage, requirementRows),
     evidence: buildStructuredEvidence(snapshot, requirementRows),
+    structured_evaluation: buildStructuredEvaluation(snapshot, requirementRows, gate, offerLeverage, feedback),
     skill_registry: buildSkillRegistry(snapshot, requirementRows),
+    virtual_panel: virtualPanel,
+    panel_discussion_rounds: panelDiscussionRounds,
+    moderator_summary: moderatorSummary,
     offer_simulation_run: offerSimulationRun,
-    evidence_graph: buildEvidenceGraph(snapshot, requirementRows, feedback),
+    evidence_graph: buildEvidenceGraph(snapshot, requirementRows, feedback, virtualPanel, panelDiscussionRounds),
     feedback_distillation: feedbackDistillation,
   };
 }
@@ -1543,6 +1691,152 @@ function buildStructuredEvidence(snapshot, rows) {
   return [...baseEvidence, ...requirementEvidence];
 }
 
+function buildStructuredEvaluation(snapshot, rows, gate, offerLeverage, feedback) {
+  return {
+    schema_version: CONSISTENCY_SCHEMA_VERSION,
+    target_role: snapshot.target_role || defaultRoleId,
+    language: snapshot.language || currentLanguage,
+    summary: buildEvaluationSummary(gate, rows, offerLeverage, feedback),
+    requirement_matches: buildRequirementMatches(rows),
+    interview_questions: buildStructuredInterviewQuestions(snapshot, rows, feedback),
+    offer_sandbox: buildStructuredOfferSandbox(snapshot, gate, offerLeverage, rows),
+    evidence: buildStructuredEvidence(snapshot, rows),
+    decision_basis: {
+      gate_result: gate.result,
+      gate_summary: gate.summary,
+      next_step: gate.nextStep,
+      offer_leverage_rating: offerLeverage.rating,
+      offer_leverage_detail: offerLeverage.detail,
+    },
+    feedback_status: feedback
+      ? {
+          agreement: feedback.agreement,
+          question_use: feedback.question_use,
+          evidence_sufficiency: feedback.evidence_sufficiency,
+          risk_validation: feedback.risk_validation,
+        }
+      : null,
+  };
+}
+
+/**
+ * VirtualPanel / PanelDiscussionRound / ModeratorSummary are a lightweight
+ * MiroFish-inspired layer: seed materials become graph memory, skill lenses
+ * become agent personas, and panel rounds make each persona's contribution
+ * auditable without introducing a backend simulation runtime.
+ */
+function buildVirtualInterviewPanel(snapshot, rows, gate) {
+  const selected = snapshot.selected_skills?.length ? snapshot.selected_skills : ["hr", "business", "project", "decision"];
+  const roleLabel = getRoleLabel(snapshot.target_role || defaultRoleId, "zh");
+  const weakRows = rows.filter((row) => row.isMissing || row.evidenceLevel >= 2);
+  return selected
+    .map((id, index) => {
+      const skill = skillLibrary[id];
+      if (!skill) return null;
+      const focusRow = weakRows[index % Math.max(weakRows.length, 1)] || rows[index % Math.max(rows.length, 1)];
+      const stance = focusRow?.isMissing || focusRow?.evidenceLevel >= 3
+        ? "opposing"
+        : id === "negotiation"
+          ? "observer"
+          : gate.enterSandbox
+            ? "supportive"
+            : "neutral";
+      const influenceWeight = id === "decision" ? 3 : id === "business" ? 2.5 : id === "project" ? 2 : 1.5;
+      return {
+        id: `agent_${id}`,
+        skill_id: id,
+        name: skill.name,
+        role_label: roleLabel,
+        persona: `${skill.name} / ${roleLabel}`,
+        focus: skill.focus,
+        stance,
+        activity_level: Math.min(1, 0.45 + influenceWeight / 8),
+        influence_weight: influenceWeight,
+        memory_scope: {
+          seed_sources: ["resume", "job_description", "company_context", "offer_constraints"],
+          graph_memory_nodes: focusRow ? [`req_${rows.indexOf(focusRow) + 1}`, `ev_req_${rows.indexOf(focusRow) + 1}`] : [],
+          workflow_mapping: MIROFISH_REFERENCE_WORKFLOW,
+        },
+        audit: {
+          source: "persona_generation",
+          agent_configuration: {
+            stance,
+            influence_weight: influenceWeight,
+            activity_level: Math.min(1, 0.45 + influenceWeight / 8),
+          },
+        },
+      };
+    })
+    .filter(Boolean);
+}
+
+function buildPanelDiscussionRounds(panel, rows, gate, offerLeverage, feedback) {
+  const weakRows = rows.filter((row) => row.isMissing || row.evidenceLevel >= 2);
+  const focusRows = weakRows.length ? weakRows : rows;
+  return [
+    {
+      id: "round_seed_reading",
+      stage: "seed_extraction",
+      topic: "JD / resume seed reading",
+      turns: panel.map((agent, index) => buildPanelTurn(agent, focusRows[index % Math.max(focusRows.length, 1)], rows, "seed_reading")),
+    },
+    {
+      id: "round_risk_challenge",
+      stage: "panel_simulation",
+      topic: "risk challenge and counter-evidence",
+      turns: panel.map((agent, index) => buildPanelTurn(agent, focusRows[(index + 1) % Math.max(focusRows.length, 1)], rows, "risk_challenge")),
+    },
+    {
+      id: "round_offer_alignment",
+      stage: "moderator_report",
+      topic: "offer readiness alignment",
+      turns: panel.map((agent, index) => ({
+        agent_id: agent.id,
+        stance: agent.stance,
+        claim: `${agent.name} links ${offerLeverage.rating} offer leverage to ${gate.result}`,
+        evidence_ids: focusRows.slice(index, index + 2).map((row) => `ev_req_${rows.indexOf(row) + 1}`),
+        question_ids: focusRows.slice(index, index + 2).map((row) => `q_${rows.indexOf(row) + 1}`),
+        impact: feedback ? "recalibrate_with_human_feedback" : "feed_offer_simulation",
+      })),
+    },
+  ];
+}
+
+function buildPanelTurn(agent, row, rows, mode) {
+  const rowIndex = Math.max(0, rows.indexOf(row));
+  const weakClaim = row?.isMissing || row?.evidenceLevel >= 2;
+  return {
+    agent_id: agent.id,
+    stance: agent.stance,
+    claim: mode === "seed_reading"
+      ? `${agent.name} reads ${row?.capability || "core role evidence"} as ${weakClaim ? "pending validation" : "usable evidence"}`
+      : `${agent.name} challenges whether ${row?.capability || "the candidate story"} has first-hand evidence`,
+    evidence_ids: row ? [`ev_req_${rowIndex + 1}`] : [],
+    question_ids: row ? [`q_${rowIndex + 1}`] : [],
+    impact: weakClaim ? "raise_follow_up_priority" : "keep_as_supporting_evidence",
+  };
+}
+
+function buildModeratorSummary(panel, rounds, gate, offerLeverage, feedback) {
+  const turns = rounds.flatMap((round) => round.turns || []);
+  const challengeCount = turns.filter((turn) => turn.impact === "raise_follow_up_priority").length;
+  const supportCount = turns.filter((turn) => turn.impact === "keep_as_supporting_evidence").length;
+  const highestInfluence = [...panel].sort((a, b) => b.influence_weight - a.influence_weight)[0];
+  return {
+    id: "moderator_summary_1",
+    type: "ModeratorSummary",
+    consensus: gate.enterSandbox ? "conditional_progress" : "evidence_first",
+    disagreement_count: challengeCount,
+    support_count: supportCount,
+    lead_agent_id: highestInfluence?.id || "",
+    final_recommendation: gate.enterSandbox
+      ? "Enter the next interview or offer sandbox only after validating the highest-risk evidence nodes."
+      : "Pause offer progression and request stronger project-loop evidence before deep interview questions.",
+    offer_impact: offerLeverage.rating,
+    feedback_impact: feedback ? "human_feedback_applied_to_panel_summary" : "waiting_for_human_feedback",
+  };
+}
+
 function buildOfferSimulationRun(run, snapshot, gate, offerLeverage, rows, feedback) {
   const missingRows = rows.filter((row) => row.isMissing || row.evidenceLevel >= 3);
   const mediumRows = rows.filter((row) => row.evidenceLevel === 2);
@@ -1660,7 +1954,7 @@ function buildOfferScenarios(gate, offerLeverage, riskRows, feedback) {
   ];
 }
 
-function buildEvidenceGraph(snapshot, rows, feedback) {
+function buildEvidenceGraph(snapshot, rows, feedback, virtualPanel = [], panelDiscussionRounds = []) {
   const nodes = [];
   const edges = [];
   const skillRegistry = buildSkillRegistry(snapshot, rows);
@@ -1785,6 +2079,60 @@ function buildEvidenceGraph(snapshot, rows, feedback) {
     });
   });
 
+  virtualPanel.forEach((agent) => {
+    nodes.push({
+      id: agent.id,
+      type: "agent_persona",
+      label: agent.name,
+      summary: `${agent.persona} / ${agent.focus}`,
+      metadata: {
+        stance: agent.stance,
+        activity_level: agent.activity_level,
+        influence_weight: agent.influence_weight,
+        report_anchor: reportAnchorForNodeType("agent_persona"),
+        source: "mirofish_persona_generation",
+      },
+    });
+    (agent.memory_scope?.graph_memory_nodes || []).forEach((nodeId) => {
+      edges.push({
+        from: agent.id,
+        to: nodeId,
+        type: "reads_memory",
+        weight: Math.min(0.9, 0.45 + agent.influence_weight / 10),
+        confidence: Math.min(0.9, 0.45 + agent.influence_weight / 10),
+        source: "virtual_panel_memory",
+        note: "MiroFish-style persona reads seed-derived graph memory",
+      });
+    });
+  });
+
+  panelDiscussionRounds.forEach((round) => {
+    (round.turns || []).forEach((turn) => {
+      (turn.question_ids || []).forEach((questionId) => {
+        edges.push({
+          from: turn.agent_id,
+          to: questionId,
+          type: "discusses",
+          weight: turn.impact === "raise_follow_up_priority" ? 0.82 : 0.55,
+          confidence: turn.impact === "raise_follow_up_priority" ? 0.78 : 0.58,
+          source: round.stage || "panel_simulation",
+          note: turn.claim,
+        });
+      });
+      (turn.evidence_ids || []).forEach((evidenceId) => {
+        edges.push({
+          from: turn.agent_id,
+          to: evidenceId,
+          type: turn.impact === "raise_follow_up_priority" ? "challenges" : "validates",
+          weight: turn.impact === "raise_follow_up_priority" ? 0.78 : 0.62,
+          confidence: turn.impact === "raise_follow_up_priority" ? 0.72 : 0.64,
+          source: round.stage || "panel_simulation",
+          note: turn.claim,
+        });
+      });
+    });
+  });
+
   nodes.push({
     id: "offer_signal_1",
     type: "offer_signal",
@@ -1840,6 +2188,7 @@ function reportAnchorForNodeType(type) {
     offer_signal: "Offer 沙盘推演",
     feedback: "人工反馈校准",
     skill: "面试官视角库",
+    agent_persona: "虚拟面试委员会",
   };
   const en = {
     job_requirement: "Role Match",
@@ -1849,6 +2198,7 @@ function reportAnchorForNodeType(type) {
     offer_signal: "Offer Simulation",
     feedback: "Human Feedback Calibration",
     skill: "Interviewer Lens Library",
+    agent_persona: "Virtual Interview Panel",
   };
   return currentLanguage === "en" ? en[type] : zh[type];
 }
@@ -2057,7 +2407,8 @@ async function generateWithLLM(input, onDelta = () => {}) {
         content: buildLlmUserPrompt(input),
       },
     ],
-    temperature: 0.2,
+    temperature: 0,
+    seed: 20260709,
     stream: true,
   };
 
@@ -2970,6 +3321,7 @@ function getEvidenceGraphLabels() {
         ["offer_signal", "Offer"],
         ["feedback", "Feedback"],
         ["skill", "Skills"],
+        ["agent_persona", "Agents"],
       ],
       gapTitle: "Evidence gaps",
       gapEmpty: "No obvious evidence gaps detected.",
@@ -3001,6 +3353,7 @@ function getEvidenceGraphLabels() {
       ["offer_signal", "Offer"],
       ["feedback", "反馈"],
       ["skill", "Skill"],
+      ["agent_persona", "Agent"],
     ],
     gapTitle: "证据缺口",
     gapEmpty: "暂未发现明显证据缺口。",
@@ -3141,6 +3494,7 @@ function typeLabel(type) {
     feedback: "反馈",
     offer_signal: "Offer",
     skill: "Skill",
+    agent_persona: "Agent",
   };
   const en = {
     job_requirement: "JD",
@@ -4798,6 +5152,8 @@ ${directConclusion.blockQuestions ? `## 面试官处理建议
 ${buildConcreteInterviewerQuestions(snapshot)}
 `}
 
+${buildVirtualPanelMarkdown(run)}
+
 ${body}`;
   }
 
@@ -4858,12 +5214,48 @@ ${buildHumanFeedbackMarkdown(run)}`;
 | Can this person do the job? | ${gate.matchedCount >= 4 ? "Likely, but verify true ownership" : gate.matchedCount >= 2 ? "Possible adjacent fit, verify transfer boundary" : "Evidence is insufficient"} | Resume: ${snapshot.resume ? clip(snapshot.resume) : "Not provided"} | Ask for a complete project loop and anti-packaging details. |
 | Offer risk | ${translateOfferRating(offerLeverage.rating)} | ${offerLeverage.summary} | Update competing offers, start date, level expectation, and compensation constraints after interview. |
 
+${buildVirtualPanelMarkdown(run)}
+
 ${body || report}`;
   }
 
   if (audience === "offer") return buildOfferSandboxMarkdownEn(run);
 
   return report;
+}
+
+function buildVirtualPanelMarkdown(run) {
+  const panel = run.virtual_panel || [];
+  const rounds = run.panel_discussion_rounds || [];
+  const summary = run.moderator_summary || {};
+  if (!panel.length) return "";
+  const panelRows = panel
+    .map((agent) => `| ${agent.name} | ${agent.stance} | ${agent.influence_weight} | ${agent.focus} |`)
+    .join("\n");
+  const turnRows = rounds
+    .flatMap((round) => (round.turns || []).slice(0, 3).map((turn) => {
+      const agent = panel.find((item) => item.id === turn.agent_id);
+      return `| ${round.stage} | ${agent?.name || turn.agent_id} | ${turn.impact} | ${turn.claim} |`;
+    }))
+    .slice(0, 8)
+    .join("\n");
+  return `## Virtual Interview Panel
+
+| Persona | Stance | Influence | Focus |
+| --- | --- | --- | --- |
+${panelRows}
+
+| Round | Persona | Impact | Claim |
+| --- | --- | --- | --- |
+${turnRows}
+
+| Moderator Summary | Value |
+| --- | --- |
+| Consensus | ${summary.consensus || ""} |
+| Lead persona | ${summary.lead_agent_id || ""} |
+| Final recommendation | ${summary.final_recommendation || ""} |
+| Offer impact | ${summary.offer_impact || ""} |
+| Feedback impact | ${summary.feedback_impact || ""} |`;
 }
 
 function buildOfferSandboxMarkdownEn(run) {
