@@ -6,6 +6,16 @@
 
 在线 Demo：[https://mathsionyang.github.io/offerAgent/](https://mathsionyang.github.io/offerAgent/)
 
+## 页面截图
+
+![OfferAgent 页面截图 06](img/06.png)
+
+![OfferAgent 页面截图 07](img/07.png)
+
+![OfferAgent 页面截图 08](img/08.png)
+
+![OfferAgent 页面截图 09](img/09.png)
+
 OfferAgent 是一个面向候选人与面试官的静态 Web MVP。它不替代人工招聘决策，而是把“目标岗位 + 候选人简历 + 岗位 JD + 面试上下文”转成可追问、可复盘、可导出的候选人报告、面试官报告、Offer 沙盘和证据关系图谱。
 
 当前版本支持四类目标岗位：产品经理、开发人员、技术支持人员、销售人员。
