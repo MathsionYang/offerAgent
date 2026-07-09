@@ -1,4 +1,4 @@
-# OfferAgent Interview Evaluation Assistant
+﻿# OfferAgent Interview Evaluation Assistant
 
 Language: [中文](README.md) | English
 
@@ -186,20 +186,20 @@ In Interviewer mode, human feedback can be written into the report. Feedback is 
 4. Skill Registry is still an example-driven frontend structure, not a complete plugin or marketplace system.
 5. EvidenceGraph is a minimal usable graph, not a full knowledge-graph database.
 6. The virtual interview panel is a lightweight rule-driven layer, not a full multi-agent simulation engine.
-7. Most logic is still centralized in `apps/web2/app.js`; modularization is a future priority.
+7. Most logic is still centralized in `apps/web/app.js`; modularization is a future priority.
 
 ## Local Usage
 
 Open the static page directly:
 
 ```text
-apps/web2/index.html
+apps/web/index.html
 ```
 
 Or run a static server:
 
 ```bash
-python -m http.server 5173 -d apps/web2
+python -m http.server 5173 -d apps/web
 ```
 
 Then visit:
@@ -211,7 +211,7 @@ http://localhost:5173
 ## Verification
 
 ```bash
-node --check apps/web2/app.js
+node --check apps/web/app.js
 python scripts/smoke_test.py
 git diff --check
 ```

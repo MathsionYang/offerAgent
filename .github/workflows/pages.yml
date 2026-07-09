@@ -1,4 +1,4 @@
-name: Deploy static MVP to GitHub Pages
+﻿name: Deploy static MVP to GitHub Pages
 
 on:
   push:
@@ -28,7 +28,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: apps/web2
+          path: apps/web
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

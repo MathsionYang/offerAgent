@@ -1,10 +1,10 @@
-# OfferAgent 功能差距评估报告
+﻿# OfferAgent 功能差距评估报告
 
 更新时间：2026-07-09
 
 ## 一、评估方法
 
-本报告对照 `开发路线.md` 中定义的 P0-P5 优先级清单，逐项验证 `apps/web2/app.js`、`apps/web2/styles.css`、`scripts/smoke_test.py`、`schemas/` 目录 5 个 JSON Schema 与 GitHub Pages workflow 的实际实现状态。
+本报告对照 `开发路线.md` 中定义的 P0-P5 优先级清单，逐项验证 `apps/web/app.js`、`apps/web/styles.css`、`scripts/smoke_test.py`、`schemas/` 目录 5 个 JSON Schema 与 GitHub Pages workflow 的实际实现状态。
 
 验证手段：代码关键词检索 + 函数签名确认 + Schema 字段比对 + 线路文档交叉比对。
 
@@ -16,7 +16,7 @@
 
 | 能力域 | 验证结果 | 代码证据 |
 |--------|----------|----------|
-| Web 工作台 | ✅ 完整 | `apps/web2/index.html` + `apps/web2/app.js` 顶部 DOM 绑定 |
+| Web 工作台 | ✅ 完整 | `apps/web/index.html` + `apps/web/app.js` 顶部 DOM 绑定 |
 | 候选人/面试官双模式 | ✅ 完整 | `setAudienceMode()` / `applyInterviewerMode()` |
 | 4 类 RoleProfile | ✅ 完整 | `roleProfiles` 对象含 product_manager / developer / technical_support / sales |
 | 13 项报告能力 | ✅ 完整 | `reportStagesByLanguage` 含全部阶段定义 |
@@ -123,7 +123,7 @@
 | feedback.js | ❌ 未拆分 | ~200 行（FeedbackDistillation） |
 | offer.js | ❌ 未拆分 | ~400 行（OfferSimulationRun + 七步推理） |
 | consistency.js | ❌ 未拆分 | ~300 行（指纹 + 缓存 + 结构化中间层） |
-| virtual-panel.js | ❌ 未拆分 | 虚拟委员会、讨论、主持人总结仍集中在 `apps/web2/app.js` |
+| virtual-panel.js | ❌ 未拆分 | 虚拟委员会、讨论、主持人总结仍集中在 `apps/web/app.js` |
 
 **影响**：6826 行单文件是当前最大的工程债。任何修改都需要在全文中搜索定位，代码复用困难，新成员上手成本高，且无法做模块级单元测试。
 

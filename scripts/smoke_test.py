@@ -1,4 +1,4 @@
-import argparse
+﻿import argparse
 import json
 import re
 import sys
@@ -14,7 +14,7 @@ def read(path):
 
 
 def static_checks():
-    web_root = ROOT / "apps" / "web2"
+    web_root = ROOT / "apps" / "web"
     files = {
         "index": web_root / "index.html",
         "candidate": web_root / "index.html",

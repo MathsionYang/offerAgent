@@ -16,7 +16,7 @@
       --shadow-md: 0 8px 24px rgba(0,0,0,0.08);
       --shadow-lg: 0 16px 48px rgba(0,0,0,0.1);
 
-      /* Default light theme. web2 does not run the template's inline theme manager. */
+      /* Default light theme. The static app does not run the template's inline theme manager. */
       --bg: #f5f7fb;
       --bg-card: #ffffff;
       --bg-card-hover: #fafbfd;

@@ -1,4 +1,4 @@
-import argparse
+﻿import argparse
 import json
 import re
 import threading
@@ -9,7 +9,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-WEB_ROOT = ROOT / "apps" / "web2"
+WEB_ROOT = ROOT / "apps" / "web"
 
 
 def read_key_file(path):

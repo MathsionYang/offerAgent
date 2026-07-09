@@ -1,4 +1,4 @@
-# 【开源实战】纯前端 6000 行代码，我做了一个"让证据可点击"的面试评估沙盘（附 4 张截图）
+﻿# 【开源实战】纯前端 6000 行代码，我做了一个"让证据可点击"的面试评估沙盘（附 4 张截图）
 
 > 在线 Demo：https://mathsionyang.github.io/offerAgent/
 > GitHub：https://github.com/MathsionYang/offerAgent
@@ -183,10 +183,10 @@ OfferAgent 加了一致性模式：
 
 ## 十一、技术实现：纯前端 6000 行的取舍
 
-整个 Web 端核心入口已经迁移到 `apps/web2`：
+整个 Web 端核心入口已经迁移到 `apps/web`：
 
 ```text
-apps/web2/
+apps/web/
 ├── index.html         (302 行)
 ├── styles.css         (2202 行)
 ├── app.js             (8151 行)
@@ -223,7 +223,7 @@ apps/web2/
 
 ```bash
 git clone https://github.com/MathsionYang/offerAgent.git
-cd offerAgent/apps/web2
+cd offerAgent/apps/web
 python -m http.server 5173
 # 浏览器打开 http://localhost:5173
 ```

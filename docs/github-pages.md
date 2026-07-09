@@ -1,4 +1,4 @@
-# GitHub Pages 托管步骤
+﻿# GitHub Pages 托管步骤
 
 第一版是纯静态 Web MVP，可以直接托管到 GitHub Pages。你只需要自己在 GitHub 上配置仓库和 Pages。
 
@@ -35,7 +35,7 @@ git push -u origin master
 4. 在 `Build and deployment` 中选择 `GitHub Actions`。
 5. 等待 `.github/workflows/pages.yml` 自动部署完成。
 
-当前 workflow 会发布 `apps/web2` 目录，这是最新 Web 界面入口。
+当前 workflow 会发布 `apps/web` 目录，这是最新 Web 界面入口。
 
 部署成功后，GitHub 会给出访问地址，通常类似：
 
