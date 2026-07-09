@@ -408,6 +408,17 @@ def static_checks():
                 "feedback-distillation.schema.json",
             ]
         ),
+        "virtual_panel_chat_stream_exists": all(
+            term in content["index"] + content["app"] + content["css"]
+            for term in [
+                "virtualPanelChat",
+                "renderVirtualPanelChat",
+                "buildVirtualPanelChatMessages",
+                "playVirtualPanelChat",
+                "virtual-panel-chat",
+                "chat-bubble",
+            ]
+        ),
         "offer_simulation_schema_exists": all(
             term in content["schema_offer"]
             for term in ["OfferSimulationRun", "evaluation_run_id", "offer_leverage", "feedback_updates", "scenario_comparison", "lifecycle_steps", "state_backfill", "final_decision_hint"]
@@ -485,6 +496,7 @@ def static_checks():
                 "双模式 PDF 导出",
                 "报告分块流式输出",
                 "虚拟面试委员会",
+                "气泡流",
                 "一致性模式",
             ]
         ),

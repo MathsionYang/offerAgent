@@ -14,6 +14,8 @@ const offerConstraintsEl = $("offerConstraints");
 const reportEl = $("report");
 const reportProgressEl = $("reportProgress");
 const evidenceGraphEl = $("evidenceGraph");
+const virtualPanelChatEl = $("virtualPanelChat");
+const virtualPanelChatStatusEl = $("virtualPanelChatStatus");
 const statusEl = $("status");
 const modelModeEl = $("modelMode");
 const runBadgeEl = $("runBadge");
@@ -37,6 +39,7 @@ let currentRun = null;
 let currentLanguage = languageEl?.value || "zh";
 let activeAudienceMode = document.body?.dataset.pageMode === "interviewer" ? "interviewer" : "candidate";
 let activeWorkspaceView = "workbench";
+let virtualPanelChatTimer = null;
 const MODEL_REQUEST_TIMEOUT_MS = 90000;
 const CONSISTENCY_SCHEMA_VERSION = "offeragent.consistency.v1";
 const RUN_CACHE_PREFIX = "offeragent:run:";
@@ -333,6 +336,7 @@ const i18n = {
       feedbackNotes: "人工补充意见",
       appendFeedback: "把反馈写入报告",
       reportTitle: "报告预览",
+      panelChatTitle: "虚拟面试委员会",
       downloadCandidate: "导出 PDF",
       downloadInterviewer: "导出 PDF",
       downloadOffer: "导出 Offer 推演 PDF",
@@ -399,6 +403,12 @@ const i18n = {
     streamPlaceholder: "正在建立候选人、岗位、沙盘与面试官视角证据索引...",
     streamDone: "已完成",
     streaming: "分块输出中",
+    panelChatWaiting: "等待生成",
+    panelChatThinking: "读取材料中",
+    panelChatDone: "讨论完成",
+    panelChatEmpty: "生成报告后，这里会像群聊一样展示虚拟面试官的逐条讨论。",
+    panelChatSeed: "正在读取 JD、简历、Skill 和证据图谱，准备生成多角色讨论...",
+    panelChatModerator: "主持人",
     modeMock: "当前模式：Mock Demo",
     modeReal: "当前模式：真实模型调用",
     runPending: "尚未生成",
@@ -485,6 +495,7 @@ const i18n = {
       feedbackNotes: "Additional human notes",
       appendFeedback: "Append Feedback to Report",
       reportTitle: "Report Preview",
+      panelChatTitle: "Virtual Interview Panel",
       downloadCandidate: "Export PDF",
       downloadInterviewer: "Export PDF",
       downloadOffer: "Export Offer Simulation PDF",
@@ -551,6 +562,12 @@ const i18n = {
     streamPlaceholder: "Building the evidence index across candidate, role, offer sandbox, and interviewer lenses...",
     streamDone: "Completed",
     streaming: "Streaming blocks",
+    panelChatWaiting: "Waiting",
+    panelChatThinking: "Reading inputs",
+    panelChatDone: "Discussion complete",
+    panelChatEmpty: "After generation, virtual interviewers will appear here as a streaming group chat.",
+    panelChatSeed: "Reading the JD, resume, skills, and evidence graph before the panel discussion...",
+    panelChatModerator: "Moderator",
     modeMock: "Current mode: Mock Demo",
     modeReal: "Current mode: Live model call",
     runPending: "Not generated",
@@ -861,6 +878,7 @@ bindClick("clearBtn", () => {
   reportEl.className = "report empty";
   renderEmptyReport();
   renderStreamProgress("", getText().progressWaiting, false);
+  renderVirtualPanelChat(null);
   runBadgeEl.textContent = getText().runPending;
   downloadMdBtn.disabled = true;
   setInterviewerDownloadDisabled(true);
@@ -893,6 +911,7 @@ generateBtn.addEventListener("click", async () => {
   appendFeedbackBtn.disabled = true;
   runBadgeEl.textContent = getText().runGenerating;
   setWorkspaceView("graph");
+  renderVirtualPanelChat(null, { pending: true });
   renderStreamingReport("", input.useRealModel ? getText().llmStreaming : getText().mockStreaming);
   setStatus(input.useRealModel ? getText().statusGeneratingLlm : getText().statusGeneratingMock);
 
@@ -905,6 +924,7 @@ generateBtn.addEventListener("click", async () => {
         restored_at: new Date().toISOString(),
       });
       renderStreamingReport(buildPreviewMarkdown(currentRun), getText().reportUpdated, true);
+      playVirtualPanelChat(currentRun);
       runBadgeEl.textContent = currentRun.id;
       downloadMdBtn.disabled = false;
       setInterviewerDownloadDisabled(false);
@@ -949,6 +969,7 @@ generateBtn.addEventListener("click", async () => {
     persistRunCache(currentRun);
 
     renderStreamingReport(buildPreviewMarkdown(currentRun), input.useRealModel ? getText().llmDone : getText().mockDone, true);
+    playVirtualPanelChat(currentRun);
     runBadgeEl.textContent = currentRun.id;
     downloadMdBtn.disabled = false;
     setInterviewerDownloadDisabled(false);
@@ -999,6 +1020,7 @@ appendFeedbackBtn.addEventListener("click", () => {
   currentRun.report = appendFeedbackToReport(currentRun.report, feedback);
   currentRun = enrichEvaluationRun(currentRun);
   renderReport(buildPreviewMarkdown(currentRun));
+  playVirtualPanelChat(currentRun);
   downloadMdBtn.disabled = false;
   setInterviewerDownloadDisabled(false);
   setOfferDownloadDisabled(false);
@@ -1265,6 +1287,7 @@ function applyLanguage(language) {
   setFieldLabel(feedbackNotesEl, text.labels.feedbackNotes);
   setText("#appendFeedbackBtn", text.labels.appendFeedback);
   setText("#report-title", text.labels.reportTitle);
+  setText("#virtual-panel-title", text.labels.panelChatTitle);
   setText("#downloadMdBtn", text.labels.downloadCandidate);
   setText("#downloadInterviewerBtn", text.labels.downloadInterviewer);
   setText("#downloadOfferBtn", text.labels.downloadOffer);
@@ -1318,10 +1341,12 @@ function applyLanguage(language) {
   if (!currentRun) {
     renderEmptyReport();
     renderStreamProgress("", text.progressWaiting, false);
+    renderVirtualPanelChat(null);
     runBadgeEl.textContent = text.runPending;
     setStatus(text.statusReady);
   } else {
     renderReport(buildPreviewMarkdown(currentRun));
+    renderVirtualPanelChat(currentRun);
   }
   applyCleanChineseCopy();
 }
@@ -1343,6 +1368,7 @@ function applyCleanChineseCopy() {
   setText(".feedback-panel .run-badge", "仅当前页面有效");
   setText("#report-title", "面试官评估报告");
   setText("#graph-title", "证据关系图谱");
+  setText("#virtual-panel-title", "虚拟面试委员会");
   setText("#downloadMdBtn", "导出 PDF");
   setText("#downloadInterviewerBtn", "导出 PDF");
   setText("#downloadOfferBtn", "导出 Offer 推演 PDF");
@@ -3296,6 +3322,153 @@ function renderEvidenceGraph(run) {
   });
 
   window.setTimeout(() => drawEvidenceGraphEdges(graph.edges), 0);
+}
+
+function renderVirtualPanelChat(run, options = {}) {
+  if (!virtualPanelChatEl) return;
+  stopVirtualPanelChat();
+  const text = getText();
+  if (options.pending) {
+    virtualPanelChatStatusEl.textContent = text.panelChatThinking;
+    virtualPanelChatEl.innerHTML = `<div class="chat-bubble system">
+      <span>${escapeHtml(text.panelChatThinking)}</span>
+      <p>${escapeHtml(text.panelChatSeed)}</p>
+    </div>`;
+    return;
+  }
+
+  const messages = buildVirtualPanelChatMessages(run);
+  virtualPanelChatStatusEl.textContent = messages.length ? text.panelChatDone : text.panelChatWaiting;
+  virtualPanelChatEl.innerHTML = messages.length
+    ? messages.map(renderVirtualPanelChatMessage).join("")
+    : `<div class="chat-bubble system">
+        <span>${escapeHtml(text.panelChatWaiting)}</span>
+        <p>${escapeHtml(text.panelChatEmpty)}</p>
+      </div>`;
+  virtualPanelChatEl.scrollTop = virtualPanelChatEl.scrollHeight;
+}
+
+function playVirtualPanelChat(run) {
+  if (!virtualPanelChatEl) return;
+  stopVirtualPanelChat();
+  const text = getText();
+  const messages = buildVirtualPanelChatMessages(run);
+  if (!messages.length) {
+    renderVirtualPanelChat(run);
+    return;
+  }
+
+  virtualPanelChatStatusEl.textContent = text.panelChatThinking;
+  virtualPanelChatEl.innerHTML = "";
+  let index = 0;
+  const appendNext = () => {
+    const message = messages[index];
+    if (!message) {
+      virtualPanelChatStatusEl.textContent = text.panelChatDone;
+      virtualPanelChatTimer = null;
+      return;
+    }
+    virtualPanelChatEl.insertAdjacentHTML("beforeend", renderVirtualPanelChatMessage(message));
+    virtualPanelChatEl.scrollTop = virtualPanelChatEl.scrollHeight;
+    index += 1;
+    virtualPanelChatTimer = window.setTimeout(appendNext, index < 3 ? 180 : 260);
+  };
+  appendNext();
+}
+
+function stopVirtualPanelChat() {
+  if (virtualPanelChatTimer) {
+    window.clearTimeout(virtualPanelChatTimer);
+    virtualPanelChatTimer = null;
+  }
+}
+
+function buildVirtualPanelChatMessages(run) {
+  const panel = run?.virtual_panel || [];
+  const rounds = run?.panel_discussion_rounds || [];
+  const agentsById = new Map(panel.map((agent) => [agent.id, agent]));
+  const messages = [];
+
+  rounds.forEach((round, roundIndex) => {
+    messages.push({
+      id: `${round.id || "round"}_intro`,
+      type: "system",
+      name: currentLanguage === "en" ? `Round ${roundIndex + 1}` : `第 ${roundIndex + 1} 轮`,
+      role: round.stage || "",
+      text: round.topic || round.stage || "",
+      meta: round.stage || "",
+    });
+    (round.turns || []).forEach((turn, turnIndex) => {
+      const agent = agentsById.get(turn.agent_id) || {};
+      messages.push({
+        id: `${round.id || "round"}_${turn.agent_id || "agent"}_${turnIndex}`,
+        type: "agent",
+        agentId: turn.agent_id,
+        name: agent.name || turn.agent_id || "Agent",
+        role: agent.focus || agent.persona || "",
+        stance: turn.stance || agent.stance || "",
+        text: localizePanelClaim(turn.claim),
+        meta: buildPanelMessageMeta(turn),
+      });
+    });
+  });
+
+  if (run?.moderator_summary) {
+    const summary = run.moderator_summary;
+    messages.push({
+      id: summary.id || "moderator_summary",
+      type: "moderator",
+      name: getText().panelChatModerator,
+      role: summary.consensus || "",
+      stance: summary.offer_impact || "",
+      text: localizePanelClaim(summary.final_recommendation || ""),
+      meta: currentLanguage === "en"
+        ? `${summary.disagreement_count || 0} challenges / ${summary.support_count || 0} supports`
+        : `${summary.disagreement_count || 0} 个挑战 / ${summary.support_count || 0} 个支持`,
+    });
+  }
+
+  return messages;
+}
+
+function renderVirtualPanelChatMessage(message) {
+  const initial = (message.name || "A").trim().slice(0, 1).toUpperCase();
+  return `<article class="chat-bubble ${escapeHtml(message.type || "agent")}">
+    <div class="chat-avatar">${escapeHtml(initial)}</div>
+    <div class="chat-message">
+      <div class="chat-meta">
+        <strong>${escapeHtml(message.name || "")}</strong>
+        <span>${escapeHtml(message.role || message.stance || "")}</span>
+      </div>
+      <p>${escapeHtml(message.text || "")}</p>
+      ${message.meta ? `<small>${escapeHtml(message.meta)}</small>` : ""}
+    </div>
+  </article>`;
+}
+
+function buildPanelMessageMeta(turn) {
+  const evidenceCount = turn.evidence_ids?.length || 0;
+  const questionCount = turn.question_ids?.length || 0;
+  if (currentLanguage === "en") {
+    return `${turn.impact || "panel_signal"} · ${evidenceCount} evidence · ${questionCount} questions`;
+  }
+  return `${turn.impact || "委员会信号"} · ${evidenceCount} 条证据 · ${questionCount} 个问题`;
+}
+
+function localizePanelClaim(claim) {
+  if (!claim) return "";
+  if (currentLanguage === "en") return claim;
+  return claim
+    .replaceAll(" reads ", " 读取 ")
+    .replaceAll(" as ", "，判断为 ")
+    .replaceAll("pending validation", "待验证")
+    .replaceAll("usable evidence", "可用证据")
+    .replaceAll(" challenges whether ", " 挑战：")
+    .replaceAll(" has first-hand evidence", " 是否具备一手证据")
+    .replaceAll(" links ", " 将 ")
+    .replaceAll(" offer leverage to ", " 的 Offer 杠杆关联到 ")
+    .replaceAll("Enter the next interview or offer sandbox only after validating the highest-risk evidence nodes.", "建议先验证最高风险证据节点，再进入下一轮面试或 Offer 沙盘。")
+    .replaceAll("Pause offer progression and request stronger project-loop evidence before deep interview questions.", "建议暂停 Offer 推进，先补强项目闭环证据，再进入深度追问。");
 }
 
 function groupEvidenceGraphNodes(nodes) {

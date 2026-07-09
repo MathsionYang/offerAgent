@@ -22,7 +22,8 @@ OfferAgent helps candidates and interviewers connect role requirements with proj
 4. Candidate mode hides human feedback and only exposes the candidate report export.
 5. Interviewer mode shows human feedback and only exposes the interviewer report export.
 6. Graph nodes can jump back to the corresponding report section.
-7. The same input can reuse a cached base report to reduce repeated-generation drift.
+7. The Graph view streams the virtual interview panel discussion as compact chat bubbles and keeps the moderator summary at the end.
+8. The same input can reuse a cached base report to reduce repeated-generation drift.
 
 ## Core Capabilities
 
@@ -80,6 +81,7 @@ It includes:
 3. `ModeratorSummary`: summarizes consensus, disagreement, lead persona, and final recommendation.
 4. `agent_persona` graph nodes: audit virtual interviewer contributions.
 5. `reads_memory / discusses / challenges` graph edges: show which evidence each persona read, discussed, or challenged.
+6. The Virtual Interview Panel view streams these turns as chat bubbles and keeps the full discussion history after generation.
 
 This is not a full large-scale multi-agent simulation engine. It is a lightweight version suited to the current static Web MVP.
 
@@ -152,7 +154,7 @@ In Interviewer mode, human feedback can be written into the report. Feedback is 
 8. Candidate and interviewer report split.
 9. Two-module PDF export.
 10. EvidenceGraph display, filtering, gap detection, and report-section jump.
-11. VirtualPanel, PanelDiscussionRound, and ModeratorSummary.
+11. VirtualPanel, PanelDiscussionRound, ModeratorSummary, and chat-style panel streaming.
 12. Consistency mode with input fingerprinting, structured intermediate state, and local cache reuse.
 13. Structured Offer sandbox state.
 14. FeedbackDistillation visualization.
