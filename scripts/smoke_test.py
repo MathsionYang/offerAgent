@@ -90,12 +90,13 @@ def static_checks():
             for term in ["## 项目匹配闸口", "## 候选人准备重点", "## 面试官候选问题库", "## 面试官视角库", "## 证据链"]
         ),
         "anti_packaging_questions_exist": "高匹配反包装追问" in content["app"] and "过度包装" in content["prompt"],
-        "questions_link_jd_and_projects": "岗位职责与项目经历" in content["readme"]
+        "questions_link_jd_and_projects": "岗位职责和项目经历" in content["readme"]
         and "对应的 JD 职责" in content["prompt"]
         and "项目经历锚点" in content["app"],
         "conclusions_have_evidence": "每一个结论都必须给出证据" in content["app"]
         and "招聘岗位分析" in content["app"]
-        and "结论证据化" in content["readme"],
+        and "证据链" in content["readme"]
+        and "证据缺口" in content["readme"],
         "direct_mismatch_conclusion_exists": "当前简历与 JD 全部为待验证 / 缺证，视同不匹配" in content["app"]
         and "当前简历与 JD 部分匹配" in content["app"]
         and "不匹配 / 缺证" in content["app"]
@@ -476,7 +477,16 @@ def static_checks():
         "secret_file_ignored": bool(re.search(r"(?m)^1\.md$", content["gitignore"])),
         "docs_reflect_current_features": all(
             term in content["readme"]
-            for term in ["辅助候选人", "项目匹配闸口", "面试官视角库", "候选人追问题库", "双模块 PDF 导出", "报告分块流式输出"]
+            for term in [
+                "候选人",
+                "项目匹配闸口",
+                "面试官视角库",
+                "候选人追问题库",
+                "双模式 PDF 导出",
+                "报告分块流式输出",
+                "虚拟面试委员会",
+                "一致性模式",
+            ]
         ),
         "prompt_reflects_current_features": all(
             term in content["prompt"]
