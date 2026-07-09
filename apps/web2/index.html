@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OfferAgent 面试评估</title>
+    <meta
+      name="description"
+      content="OfferAgent redesigned workspace for candidate preparation, interviewer evaluation, evidence graph, virtual committee, feedback, and offer simulation."
+    />
+    <link rel="stylesheet" href="./styles.css?v=web2-20260709" />
+  </head>
+  <body data-page-mode="candidate">
+    <div class="app page view-workbench">
+      <header class="header">
+        <div class="header-brand brand">
+          <div class="header-logo brand-mark">OA</div>
+          <div class="header-title">
+            <strong>OfferAgent 面试评估</strong>
+            <span>Offer 沙盘 + 面试官视角库</span>
+          </div>
+        </div>
+
+        <div class="header-actions">
+          <div class="segmented audience-switch" role="tablist" aria-label="受众">
+            <button class="active" type="button" data-audience-mode="candidate" aria-selected="true">候选人</button>
+            <button type="button" data-audience-mode="interviewer" aria-selected="false">面试官</button>
+          </div>
+          <div class="segmented view-switch" role="tablist" aria-label="工作区视图">
+            <button class="active" type="button" data-workspace-view="workbench" aria-selected="true">工作台</button>
+            <button type="button" data-workspace-view="graph" aria-selected="false">图谱</button>
+          </div>
+          <label class="language-switch" aria-label="语言">
+            <select id="language" class="lang-select">
+              <option value="zh">中文</option>
+              <option value="en">English</option>
+            </select>
+          </label>
+        </div>
+      </header>
+
+      <main class="main-content" id="mainContent">
+        <section class="primary-col config-view" id="configView" aria-label="工作台">
+          <div class="card config-card" id="step1Card">
+            <div class="card-header">
+              <div class="card-header-left">
+                <div class="card-step-badge section-icon-badge" aria-hidden="true">⚙</div>
+                <div>
+                  <div class="card-title">配置模型与 Offer 沙盘</div>
+                  <div class="card-subtitle">选择模型服务，设置岗位目标、阶段和谈薪约束</div>
+                </div>
+              </div>
+              <button id="mockBtn" class="btn btn-secondary btn-sm" type="button">填充脱敏样例</button>
+            </div>
+            <div class="card-body">
+              <div class="model-sandbox-grid">
+                <section class="sub-card config-panel" aria-label="临时配置模型">
+                  <div class="model-panel-head">
+                    <span>临时配置模型</span>
+                    <small>支持 Mock Demo 与 OpenAI-compatible 代理</small>
+                  </div>
+                  <div class="form-row cols-2 compact-fields">
+                    <label class="field">
+                      <span class="field-label">模型服务商</span>
+                      <select class="field-select" id="provider">
+                        <option value="mock">Mock Demo</option>
+                        <option value="openai">OpenAI 官方接口</option>
+                        <option value="deepseek">DeepSeek 官方接口</option>
+                        <option value="qwen">通义千问 / DashScope</option>
+                        <option value="kimi">Kimi / Moonshot</option>
+                        <option value="custom">代理 / 自定义接口</option>
+                      </select>
+                    </label>
+                    <label class="field">
+                      <span class="field-label">模型名称</span>
+                      <input class="field-input" id="model" type="text" value="gpt-4.1-mini" autocomplete="off" />
+                    </label>
+                    <label class="field">
+                      <span class="field-label">临时 API Key</span>
+                      <input class="field-input" id="apiKey" type="password" placeholder="Mock 模式不需要 Key" autocomplete="off" spellcheck="false" />
+                    </label>
+                    <label class="field">
+                      <span class="field-label">Base URL（可选）</span>
+                      <input class="field-input" id="baseUrl" type="url" placeholder="https://your-worker.workers.dev" autocomplete="off" spellcheck="false" />
+                    </label>
+                  </div>
+                  <div class="mode-indicator" id="modelMode">当前模式：Mock Demo</div>
+                </section>
+
+                <section class="sub-card sandbox-panel sub-panel" aria-label="Offer 沙盘">
+                  <div class="sub-panel-head">
+                    <span>Offer 沙盘</span>
+                    <small>模拟面试推进、录用风险和谈薪约束</small>
+                  </div>
+                  <div class="form-row cols-3 compact-fields">
+                    <label class="field">
+                      <span class="field-label">目标岗位</span>
+                      <select class="field-select" id="targetRole">
+                        <option value="product_manager">产品经理</option>
+                        <option value="developer">开发人员</option>
+                        <option value="technical_support">技术支持人员</option>
+                        <option value="sales">销售人员</option>
+                      </select>
+                    </label>
+                    <label class="field">
+                      <span class="field-label">候选人阶段</span>
+                      <select class="field-select" id="candidateStage">
+                        <option value="初筛">初筛</option>
+                        <option value="业务一面" selected>业务一面</option>
+                        <option value="业务终面">业务终面</option>
+                        <option value="Offer 前">Offer 前</option>
+                      </select>
+                    </label>
+                    <label class="field">
+                      <span class="field-label">目标职级</span>
+                      <input class="field-input" id="targetLevel" type="text" placeholder="例如 P6 / 中级岗位" autocomplete="off" />
+                    </label>
+                  </div>
+                  <label class="field">
+                    <span class="field-label">Offer / 谈薪约束（可选）</span>
+                    <textarea class="field-textarea" id="offerConstraints" rows="3" placeholder="例如预算范围、竞品 Offer、到岗时间、团队紧急程度。"></textarea>
+                  </label>
+                </section>
+              </div>
+            </div>
+          </div>
+
+          <div class="card input-card" id="step2Card">
+            <div class="card-header">
+              <div class="card-header-left">
+                <div class="card-step-badge section-icon-badge" aria-hidden="true">📄</div>
+                <div>
+                  <div class="card-title">输入简历与 JD</div>
+                  <div class="card-subtitle">候选人简历与岗位 JD 左右布局，便于对照补充</div>
+                </div>
+              </div>
+              <button id="clearBtn" class="btn btn-ghost btn-sm btn-danger" type="button">清空当前页面</button>
+            </div>
+            <div class="card-body">
+              <div class="resume-jd-grid">
+                <label class="field">
+                  <span class="field-label">候选人简历</span>
+                  <textarea class="field-textarea tall" id="resume" rows="10" placeholder="粘贴候选人简历文本。不建议在公共设备输入真实敏感信息。"></textarea>
+                </label>
+                <label class="field">
+                  <span class="field-label">岗位 JD</span>
+                  <textarea class="field-textarea tall" id="jobDescription" rows="10" placeholder="粘贴目标岗位 JD。"></textarea>
+                </label>
+              </div>
+              <label class="field context-field">
+                <span class="field-label">公司 / 面试上下文（可选）</span>
+                <textarea class="field-textarea" id="companyContext" rows="3" placeholder="例如公司阶段、业务方向、目标职级、面试重点、薪资约束等。"></textarea>
+              </label>
+            </div>
+          </div>
+
+          <div class="card skill-card-wrap" id="step3Card">
+            <div class="card-header">
+              <div class="card-header-left">
+                <div class="card-step-badge section-icon-badge" aria-hidden="true">👥</div>
+                <div>
+                  <div class="card-title">选择面试官角色</div>
+                  <div class="card-subtitle">勾选需要参与评估的虚拟面试官，不同角色提供不同视角的追问</div>
+                </div>
+              </div>
+            </div>
+            <div class="card-body">
+              <div class="skill-grid" id="skillGrid">
+                <label class="skill-card skill-card-item selected"><input class="skill-toggle" type="checkbox" value="hr" checked /><span class="skill-card-body"><strong>虚拟 HR 面试官</strong><small>深挖动机、岗位偏好、到岗约束和风险边界</small></span></label>
+                <label class="skill-card skill-card-item selected"><input class="skill-toggle" type="checkbox" value="business" checked /><span class="skill-card-body"><strong>虚拟业务负责人</strong><small>结合 JD 思索业务判断、指标口径和结果归因</small></span></label>
+                <label class="skill-card skill-card-item selected"><input class="skill-toggle" type="checkbox" value="project" checked /><span class="skill-card-body"><strong>虚拟项目推进面试官</strong><small>深挖里程碑、资源协调和复盘机制</small></span></label>
+                <label class="skill-card skill-card-item"><input class="skill-toggle" type="checkbox" value="negotiation" /><span class="skill-card-body"><strong>虚拟谈薪顾问</strong><small>深挖机会标准、竞争 Offer 和谈薪策略</small></span></label>
+                <label class="skill-card skill-card-item selected"><input class="skill-toggle" type="checkbox" value="decision" checked /><span class="skill-card-body"><strong>决策层压力官</strong><small>用预算、战略取舍和 ROI 压力测试判断</small></span></label>
+              </div>
+              <div class="generate-row">
+                <button id="generateBtn" class="btn btn-primary btn-lg" type="button">生成报告</button>
+                <p id="status" class="status" role="status">准备就绪。未配置 Key 时会使用 Mock Demo。</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="primary-col results-view" id="resultsView" aria-label="图谱与报告" style="display:none">
+          <div class="tabs result-tabs" id="resultTabs" role="tablist" aria-label="结果视图">
+            <button class="tab-btn active" type="button" data-result-view="report" aria-selected="true"><span class="tab-icon" aria-hidden="true">📝</span><span class="tab-label">报告预览</span></button>
+            <button class="tab-btn" type="button" data-result-view="graph" aria-selected="false"><span class="tab-icon" aria-hidden="true">🔗</span><span class="tab-label">证据图谱</span></button>
+            <button class="tab-btn" type="button" data-result-view="panel" aria-selected="false"><span class="tab-icon" aria-hidden="true">💬</span><span class="tab-label">虚拟委员会</span></button>
+            <button class="tab-btn" type="button" data-result-view="summary" aria-selected="false"><span class="tab-icon" aria-hidden="true">📊</span><span class="tab-label">结果摘要</span></button>
+          </div>
+
+          <div class="results-grid">
+            <section class="card result-panel report-panel active" data-panel="report" aria-labelledby="report-title">
+              <div class="card-header report-head">
+                <div class="card-header-left">
+                  <div class="card-step-badge icon-badge" aria-hidden="true">📝</div>
+                  <div>
+                    <div class="card-title" id="report-title">评估报告</div>
+                    <div class="card-subtitle">可从图谱节点、委员会发言弹窗追溯到报告段落</div>
+                  </div>
+                </div>
+                <span id="runBadge" class="badge badge-info">尚未生成</span>
+              </div>
+              <div id="reportProgress" class="stream-progress report-progress" aria-label="报告生成进度"></div>
+              <article id="report" class="report report-content empty" aria-live="polite">
+                <div class="empty-state">
+                  <span class="empty-mark">OA</span>
+                  <h3>等待生成评估报告</h3>
+                  <p>点击生成报告后会立即切换到图谱页面，生成完成后自动补齐报告、图谱、委员会和评分表。</p>
+                </div>
+              </article>
+            </section>
+
+            <section class="card result-panel graph-panel" data-panel="graph" aria-labelledby="graph-title">
+              <div class="card-header graph-head">
+                <div class="card-header-left">
+                  <div class="card-step-badge icon-badge" aria-hidden="true">🔗</div>
+                  <div>
+                    <div class="card-title" id="graph-title">证据关系图谱</div>
+                    <div class="card-subtitle">节点点击使用弹窗查看详情，并保留报告追溯能力</div>
+                  </div>
+                </div>
+              </div>
+              <section id="evidenceGraph" class="evidence-graph empty" aria-label="证据关系图谱"></section>
+            </section>
+
+            <section class="card result-panel panel-panel" data-panel="panel" aria-labelledby="virtual-panel-title">
+              <div class="card-header">
+                <div class="card-header-left">
+                  <div class="card-step-badge icon-badge" aria-hidden="true">💬</div>
+                  <div>
+                    <div class="card-title" id="virtual-panel-title">虚拟委员会</div>
+                    <div class="card-subtitle">纯文本流式讨论，发言和主持人总结可追溯</div>
+                  </div>
+                </div>
+                <em id="virtualPanelChatStatus" class="badge badge-info">Waiting</em>
+              </div>
+              <div id="virtualPanelChat" class="virtual-panel-chat-body" aria-live="polite"></div>
+            </section>
+
+            <section class="card result-panel summary-panel" data-panel="summary" aria-labelledby="decision-summary-title">
+              <div class="card-header">
+                <div class="card-header-left">
+                  <div class="card-step-badge icon-badge" aria-hidden="true">📊</div>
+                  <div>
+                    <div class="card-title" id="decision-summary-title">结果摘要</div>
+                    <div class="card-subtitle">Offer 概率、证据缺口、反馈影响和阶段状态</div>
+                  </div>
+                </div>
+                <div class="top-export-bar summary-export-actions" aria-label="导出报告">
+                  <button id="downloadMdBtn" class="btn btn-secondary btn-sm" type="button" disabled hidden>导出候选人报告</button>
+                  <button id="downloadInterviewerBtn" class="btn btn-secondary btn-sm" type="button" disabled hidden>导出面试官报告</button>
+                  <button id="downloadOfferBtn" class="btn btn-secondary btn-sm" type="button" disabled hidden>导出 Offer 推演</button>
+                </div>
+              </div>
+              <div id="decisionSummary" class="decision-summary empty" aria-live="polite"></div>
+            </section>
+          </div>
+        </section>
+
+        <aside class="secondary-col" id="sidebar" aria-label="侧边栏">
+          <section class="card scorecard-card" id="scorecardCard" aria-labelledby="interviewer-scorecard-title">
+            <div class="card-header compact-header">
+              <div class="card-header-left">
+                <div class="card-step-badge section-icon-badge" aria-hidden="true">📋</div>
+                <div class="card-title" id="interviewer-scorecard-title">面试官评分表</div>
+              </div>
+              <span id="interviewerScorecardStatus" class="badge badge-info">待生成</span>
+            </div>
+            <div id="interviewerScorecard" class="interviewer-scorecard empty" aria-live="polite"></div>
+          </section>
+
+          <section class="card feedback-panel" id="feedbackCard" aria-labelledby="feedback-title">
+            <div class="card-header compact-header">
+              <div class="card-header-left">
+                <div class="card-step-badge section-icon-badge feedback-icon-badge" aria-hidden="true">✍</div>
+                <div>
+                  <div class="card-title" id="feedback-title">人工反馈</div>
+                </div>
+              </div>
+              <span class="badge badge-warn run-badge">仅当前页面有效</span>
+            </div>
+            <div class="feedback-form">
+              <div class="form-row cols-2 compact-fields">
+                <label class="field"><span class="field-label">是否同意系统判断</span><select class="field-select" id="feedbackAgreement"><option value="未反馈">未反馈</option><option value="同意">同意</option><option value="部分同意">部分同意</option><option value="不同意">不同意</option></select></label>
+                <label class="field"><span class="field-label">追问是否可采用</span><select class="field-select" id="feedbackQuestionUse"><option value="未反馈">未反馈</option><option value="采用">采用</option><option value="改写采用">改写采用</option><option value="未采用">未采用</option></select></label>
+                <label class="field"><span class="field-label">不同意原因</span><select class="field-select" id="feedbackDisagreementReason"><option value="未反馈">未反馈</option><option value="证据不足">证据不足</option><option value="权重不同">权重不同</option><option value="岗位理解不同">岗位理解不同</option><option value="系统误判">系统误判</option></select></label>
+                <label class="field"><span class="field-label">证据是否充分</span><select class="field-select" id="feedbackEvidenceSufficiency"><option value="未反馈">未反馈</option><option value="充分">充分</option><option value="部分充分">部分充分</option><option value="不充分">不充分</option></select></label>
+                <label class="field wide-field"><span class="field-label">面试后是否验证风险</span><select class="field-select" id="feedbackRiskValidation"><option value="未反馈">未反馈</option><option value="已证实">已证实</option><option value="已推翻">已推翻</option><option value="仍待验证">仍待验证</option></select></label>
+              </div>
+              <div class="feedback-notes-row">
+                <label class="field feedback-notes"><span class="field-label">人工补充意见</span><textarea class="field-textarea" id="feedbackNotes" rows="4" placeholder="记录面试官的人工判断、新风险或需要写入报告的问题。"></textarea></label>
+                <button id="appendFeedbackBtn" class="btn btn-primary feedback-append-btn" type="button" disabled>把反馈写入报告</button>
+              </div>
+            </div>
+          </section>
+        </aside>
+      </main>
+    </div>
+
+    <script src="./app.js?v=web2-20260709-2"></script>
+  </body>
+</html>

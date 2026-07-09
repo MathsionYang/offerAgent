@@ -37,6 +37,12 @@ def static_checks():
     ids = set(re.findall(r'id="([^"]+)"', content["index"]))
     refs = set(re.findall(r'\$\("([^"]+)"\)', content["app"]))
     all_text = "\n".join(content.values())
+    virtual_panel_css_match = re.search(
+        r"\.page \.virtual-panel-chat \{.*?\.page \.chat-bubble-focus \.chat-message \{.*?\n\}",
+        content["css"],
+        re.S,
+    )
+    virtual_panel_css = virtual_panel_css_match.group(0) if virtual_panel_css_match else ""
 
     checks = {
         "utf8_visible_copy_is_clean": not re.search(
@@ -341,7 +347,7 @@ def static_checks():
             for term in [
                 "evidenceGraph",
                 "renderEvidenceGraph",
-                "drawEvidenceGraphEdges",
+                "renderEvidenceGraphTextRelations",
                 "detectEvidenceGraphGaps",
                 "scrollReportToGraphNode",
                 "renderEvidenceGraphFilters",
@@ -352,11 +358,71 @@ def static_checks():
                 "evidence-graph-filters",
                 "offer-run-panel",
                 "feedback-distillation-panel",
-                "evidence-graph-lines",
+                "evidence-graph-text-list",
+                "graph-relation-line",
                 "graph-node",
                 "graph-report-link",
                 "report-focus",
                 "证据关系图谱",
+            ]
+        ),
+        "trace_detail_drawer_exists": all(
+            term in content["app"] + content["css"]
+            for term in [
+                "openTraceDetailPanel",
+                "openGraphNodeDetail",
+                "openGraphRelationDetail",
+                "openPanelMessageDetail",
+                "openReportAnchorDetail",
+                "trace-detail-panel",
+                "trace-detail-link",
+                "trace-detail-action",
+            ]
+        ),
+        "reference_dark_graph_style_exists": all(
+            term in content["css"]
+            for term in [
+                "body.view-graph",
+                "background: #0f172a",
+                "body.view-graph .page .nav",
+                "body.view-graph .page .evidence-graph",
+                "body.view-graph .trace-detail-panel",
+            ]
+        ),
+        "localized_internal_codes_exist": all(
+            term in content["app"]
+            for term in [
+                "localizeOfferLifecycleState",
+                "localizeOfferScenarioName",
+                "localizeFeedbackActionType",
+                "localizeFeedbackTarget",
+                "localizeSkillId",
+                "localizeFeedbackStatus",
+                "反馈已沉淀",
+                "等待人工反馈",
+                "业务负责人",
+            ]
+        ),
+        "decision_summary_card_exists": all(
+            term in content["app"] + content["index"] + content["css"]
+            for term in [
+                "decisionSummary",
+                "renderDecisionSummaryCard",
+                "buildDecisionSummaryCards",
+                "decision-summary-panel",
+                "summary-card",
+                "top_follow_up_questions",
+            ]
+        ),
+        "interviewer_scorecard_exists": all(
+            term in content["app"] + content["index"] + content["css"]
+            for term in [
+                "interviewerScorecard",
+                "renderInterviewerScorecard",
+                "buildInterviewerScorecardRows",
+                "scorecard-panel",
+                "scorecard-row",
+                "asked_status",
             ]
         ),
         "non_sample_enhancements_exist": all(
@@ -417,6 +483,41 @@ def static_checks():
                 "playVirtualPanelChat",
                 "virtual-panel-chat",
                 "chat-bubble",
+            ]
+        ),
+        "virtual_panel_chat_is_plain_text": "chat-avatar" not in content["app"]
+        and all(
+            term not in virtual_panel_css
+            for term in [
+                "border-radius: 999px",
+                "border-radius: 12px",
+                "border-radius: 10px",
+                "border-radius: 50%",
+            ]
+        ),
+        "virtual_panel_trace_navigation_exists": all(
+            term in content["app"] + content["css"]
+            for term in [
+                "bindVirtualPanelTraceNavigation",
+                "navigatePanelTraceTarget",
+                "renderPanelTraceChips",
+                "panel-trace-chip",
+                "data-trace-node-id",
+                "data-trace-report-anchor",
+                "panel-trace-missing",
+            ]
+        ),
+        "moderator_basis_trace_exists": all(
+            term in content["app"] + content["css"]
+            for term in [
+                "buildModeratorBasisTrace",
+                "renderModeratorBasisTrace",
+                "panel-turn-chip",
+                "data-trace-message-id",
+                "moderator-basis",
+                "basis-turns",
+                "basis-evidence",
+                "basis-questions",
             ]
         ),
         "offer_simulation_schema_exists": all(

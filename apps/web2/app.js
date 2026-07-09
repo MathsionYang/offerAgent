@@ -13,6 +13,9 @@ const targetLevelEl = $("targetLevel");
 const offerConstraintsEl = $("offerConstraints");
 const reportEl = $("report");
 const reportProgressEl = $("reportProgress");
+const decisionSummaryEl = $("decisionSummary");
+const interviewerScorecardEl = $("interviewerScorecard");
+const interviewerScorecardStatusEl = $("interviewerScorecardStatus");
 const evidenceGraphEl = $("evidenceGraph");
 const virtualPanelChatEl = $("virtualPanelChat");
 const virtualPanelChatStatusEl = $("virtualPanelChatStatus");
@@ -34,12 +37,16 @@ const languageEl = $("language");
 const skillToggleEls = Array.from(document.querySelectorAll(".skill-toggle"));
 const audienceModeEls = Array.from(document.querySelectorAll("[data-audience-mode]"));
 const workspaceViewEls = Array.from(document.querySelectorAll("[data-workspace-view]"));
+const resultViewEls = Array.from(document.querySelectorAll("[data-result-view]"));
+const appShellEl = document.querySelector(".page");
 
 let currentRun = null;
 let currentLanguage = languageEl?.value || "zh";
 let activeAudienceMode = document.body?.dataset.pageMode === "interviewer" ? "interviewer" : "candidate";
 let activeWorkspaceView = "workbench";
+let activeResultView = "report";
 let virtualPanelChatTimer = null;
+let traceDetailPanelEl = null;
 const MODEL_REQUEST_TIMEOUT_MS = 90000;
 const CONSISTENCY_SCHEMA_VERSION = "offeragent.consistency.v1";
 const RUN_CACHE_PREFIX = "offeragent:run:";
@@ -52,6 +59,8 @@ const MIROFISH_REFERENCE_WORKFLOW = [
   "panel_simulation",
   "moderator_report",
 ];
+
+guardAppShell();
 
 const providerDefaults = {
   mock: { model: "mock-product-manager-v1", baseUrl: "" },
@@ -323,8 +332,8 @@ const i18n = {
       candidateStage: "候选人阶段",
       targetLevel: "目标职级",
       offerConstraints: "Offer / 谈薪约束（可选）",
-      skillTitle: "面试官视角库",
-      skillHint: "不同面试角色的问题视角，供候选人准备和面试官挑选",
+      skillTitle: "选择面试官角色",
+      skillHint: "勾选需要参与评估的虚拟面试官，不同角色提供不同视角的追问",
       generateBtn: "生成面试准备报告",
       feedbackTitle: "人工反馈",
       runScope: "仅当前页面有效",
@@ -335,7 +344,7 @@ const i18n = {
       riskValidation: "面试后是否验证风险",
       feedbackNotes: "人工补充意见",
       appendFeedback: "把反馈写入报告",
-      reportTitle: "报告预览",
+      reportTitle: "评估报告",
       panelChatTitle: "虚拟面试委员会",
       downloadCandidate: "导出 PDF",
       downloadInterviewer: "导出 PDF",
@@ -494,7 +503,7 @@ const i18n = {
       riskValidation: "Was the risk validated after interview?",
       feedbackNotes: "Additional human notes",
       appendFeedback: "Append Feedback to Report",
-      reportTitle: "Report Preview",
+      reportTitle: "Evaluation Report",
       panelChatTitle: "Virtual Interview Panel",
       downloadCandidate: "Export PDF",
       downloadInterviewer: "Export PDF",
@@ -847,6 +856,10 @@ workspaceViewEls.forEach((button) => {
   button.addEventListener("click", () => setWorkspaceView(button.dataset.workspaceView));
 });
 
+resultViewEls.forEach((button) => {
+  button.addEventListener("click", () => setResultView(button.dataset.resultView));
+});
+
 audienceModeEls.forEach((button) => {
   button.addEventListener("click", () => setAudienceMode(button.dataset.audienceMode));
 });
@@ -875,9 +888,11 @@ bindClick("clearBtn", () => {
   targetLevelEl.value = "";
   offerConstraintsEl.value = "";
   currentRun = null;
-  reportEl.className = "report empty";
+  reportEl.className = "report report-content empty";
   renderEmptyReport();
   renderStreamProgress("", getText().progressWaiting, false);
+  renderDecisionSummaryCard(null);
+  renderInterviewerScorecard(null);
   renderVirtualPanelChat(null);
   runBadgeEl.textContent = getText().runPending;
   downloadMdBtn.disabled = true;
@@ -910,6 +925,7 @@ generateBtn.addEventListener("click", async () => {
   setReportDownloadsAvailable(false);
   appendFeedbackBtn.disabled = true;
   runBadgeEl.textContent = getText().runGenerating;
+  setResultView("report");
   setWorkspaceView("graph");
   renderVirtualPanelChat(null, { pending: true });
   renderStreamingReport("", input.useRealModel ? getText().llmStreaming : getText().mockStreaming);
@@ -924,6 +940,8 @@ generateBtn.addEventListener("click", async () => {
         restored_at: new Date().toISOString(),
       });
       renderStreamingReport(buildPreviewMarkdown(currentRun), getText().reportUpdated, true);
+      renderDecisionSummaryCard(currentRun);
+      renderInterviewerScorecard(currentRun);
       playVirtualPanelChat(currentRun);
       runBadgeEl.textContent = currentRun.id;
       downloadMdBtn.disabled = false;
@@ -931,6 +949,7 @@ generateBtn.addEventListener("click", async () => {
       setOfferDownloadDisabled(false);
       setReportDownloadsAvailable(true);
       appendFeedbackBtn.disabled = false;
+      setResultView("report");
       setWorkspaceView("graph");
       setStatus(getText().statusCacheHit);
       return;
@@ -969,6 +988,8 @@ generateBtn.addEventListener("click", async () => {
     persistRunCache(currentRun);
 
     renderStreamingReport(buildPreviewMarkdown(currentRun), input.useRealModel ? getText().llmDone : getText().mockDone, true);
+    renderDecisionSummaryCard(currentRun);
+    renderInterviewerScorecard(currentRun);
     playVirtualPanelChat(currentRun);
     runBadgeEl.textContent = currentRun.id;
     downloadMdBtn.disabled = false;
@@ -976,6 +997,7 @@ generateBtn.addEventListener("click", async () => {
     setOfferDownloadDisabled(false);
     setReportDownloadsAvailable(true);
     appendFeedbackBtn.disabled = false;
+    setResultView("report");
     setWorkspaceView("graph");
     setStatus(input.useRealModel ? getText().statusLlmDone : getText().statusMockDone);
   } catch (error) {
@@ -1020,6 +1042,8 @@ appendFeedbackBtn.addEventListener("click", () => {
   currentRun.report = appendFeedbackToReport(currentRun.report, feedback);
   currentRun = enrichEvaluationRun(currentRun);
   renderReport(buildPreviewMarkdown(currentRun));
+  renderDecisionSummaryCard(currentRun);
+  renderInterviewerScorecard(currentRun);
   playVirtualPanelChat(currentRun);
   downloadMdBtn.disabled = false;
   setInterviewerDownloadDisabled(false);
@@ -1176,6 +1200,8 @@ function setAudienceMode(mode) {
     document.body.dataset.pageMode = activeAudienceMode;
   }
   applyInterviewerMode();
+  renderDecisionSummaryCard(currentRun);
+  renderInterviewerScorecard(currentRun);
   setReportDownloadsAvailable(Boolean(currentRun));
 }
 
@@ -1213,6 +1239,8 @@ function setWorkspaceView(view) {
   applyWorkspaceView();
   if (activeWorkspaceView === "graph") {
     renderEvidenceGraph(currentRun);
+    renderDecisionSummaryCard(currentRun);
+    renderInterviewerScorecard(currentRun);
   }
 }
 
@@ -1220,8 +1248,57 @@ function applyWorkspaceView() {
   const isGraphView = activeWorkspaceView === "graph";
   document.body.classList.toggle("view-workbench", !isGraphView);
   document.body.classList.toggle("view-graph", isGraphView);
+  applyResultView();
   workspaceViewEls.forEach((button) => {
     const isActive = button.dataset.workspaceView === activeWorkspaceView;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-selected", isActive ? "true" : "false");
+  });
+}
+
+function guardAppShell() {
+  if (!document.body || !appShellEl) return;
+
+  const restoreShell = () => {
+    const extensionNode = document.getElementById("csdn_article/extension");
+    if (extensionNode) {
+      extensionNode.style.setProperty("display", "none", "important");
+      extensionNode.style.setProperty("pointer-events", "none", "important");
+    }
+
+    if (!document.body.contains(appShellEl)) {
+      document.body.prepend(appShellEl);
+    }
+
+    Array.from(document.body.childNodes).forEach((node) => {
+      if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
+        node.remove();
+      }
+    });
+  };
+
+  restoreShell();
+  new MutationObserver(restoreShell).observe(document.body, { childList: true });
+}
+
+function setResultView(view) {
+  const allowedViews = new Set(["summary", "graph", "panel", "report"]);
+  activeResultView = allowedViews.has(view) ? view : "report";
+  applyResultView();
+  if (activeWorkspaceView !== "graph") {
+    setWorkspaceView("graph");
+  }
+}
+
+function applyResultView() {
+  if (!document.body) return;
+  document.body.dataset.resultView = activeResultView;
+  document.body.classList.remove("result-summary", "result-graph", "result-panel", "result-report");
+  ["summary", "graph", "panel", "report"].forEach((view) => {
+    document.body.classList.toggle(`result-view-${view}`, activeWorkspaceView === "graph" && activeResultView === view);
+  });
+  resultViewEls.forEach((button) => {
+    const isActive = button.dataset.resultView === activeResultView;
     button.classList.toggle("active", isActive);
     button.setAttribute("aria-selected", isActive ? "true" : "false");
   });
@@ -1287,12 +1364,20 @@ function applyLanguage(language) {
   setFieldLabel(feedbackNotesEl, text.labels.feedbackNotes);
   setText("#appendFeedbackBtn", text.labels.appendFeedback);
   setText("#report-title", text.labels.reportTitle);
+  setText("#decision-summary-title", text.labels.decisionSummaryTitle || (currentLanguage === "en" ? "Decision Summary" : "结果摘要"));
+  setText("#interviewer-scorecard-title", text.labels.scorecardTitle || (currentLanguage === "en" ? "Interviewer Scorecard" : "面试官评分表"));
   setText("#virtual-panel-title", text.labels.panelChatTitle);
   setText("#downloadMdBtn", text.labels.downloadCandidate);
   setText("#downloadInterviewerBtn", text.labels.downloadInterviewer);
   setText("#downloadOfferBtn", text.labels.downloadOffer);
   setText('[data-audience-mode="candidate"]', currentLanguage === "en" ? "Candidate" : "候选人");
   setText('[data-audience-mode="interviewer"]', currentLanguage === "en" ? "Interviewer" : "面试官");
+  setText('[data-workspace-view="workbench"]', currentLanguage === "en" ? "Workbench" : "工作台");
+  setText('[data-workspace-view="graph"]', currentLanguage === "en" ? "Graph" : "图谱");
+  setText('[data-result-view="report"] .tab-label', currentLanguage === "en" ? "Report Preview" : "报告预览");
+  setText('[data-result-view="graph"] .tab-label', currentLanguage === "en" ? "Evidence Graph" : "证据图谱");
+  setText('[data-result-view="panel"] .tab-label', currentLanguage === "en" ? "Panel" : "虚拟委员会");
+  setText('[data-result-view="summary"] .tab-label', currentLanguage === "en" ? "Summary" : "结果摘要");
   setText(".footer p", text.labels.footer);
 
   const subPanelHeads = document.querySelectorAll(".sub-panel-head");
@@ -1341,11 +1426,15 @@ function applyLanguage(language) {
   if (!currentRun) {
     renderEmptyReport();
     renderStreamProgress("", text.progressWaiting, false);
+    renderDecisionSummaryCard(null);
+    renderInterviewerScorecard(null);
     renderVirtualPanelChat(null);
     runBadgeEl.textContent = text.runPending;
     setStatus(text.statusReady);
   } else {
     renderReport(buildPreviewMarkdown(currentRun));
+    renderDecisionSummaryCard(currentRun);
+    renderInterviewerScorecard(currentRun);
     renderVirtualPanelChat(currentRun);
   }
   applyCleanChineseCopy();
@@ -1354,19 +1443,25 @@ function applyLanguage(language) {
 function applyCleanChineseCopy() {
   if (currentLanguage === "en") return;
 
-  document.title = "OfferAgent 面试官评估";
-  setText(".brand strong", "OfferAgent 面试官评估");
+  document.title = "OfferAgent 面试评估";
+  setText(".brand strong", "OfferAgent 面试评估");
   setText(".brand span:not(.brand-mark)", "Offer 沙盘 + 面试官视角库");
   setText('[data-workspace-view="workbench"]', "工作台");
   setText('[data-workspace-view="graph"]', "图谱");
+  setText('[data-result-view="report"] .tab-label', "报告预览");
+  setText('[data-result-view="graph"] .tab-label', "证据图谱");
+  setText('[data-result-view="panel"] .tab-label', "虚拟委员会");
+  setText('[data-result-view="summary"] .tab-label', "结果摘要");
   setText("#config-title", "临时配置模型");
   setText("#mockBtn", "填充脱敏样例");
   setText("#input-title", "输入简历与 JD");
   setText("#clearBtn", "清空当前页面");
-  setText("#generateBtn", "生成面试官评估报告");
+  setText("#generateBtn", "生成评估报告");
   setText("#feedback-title", "人工反馈");
   setText(".feedback-panel .run-badge", "仅当前页面有效");
-  setText("#report-title", "面试官评估报告");
+  setText("#report-title", "评估报告");
+  setText("#decision-summary-title", "结果摘要");
+  setText("#interviewer-scorecard-title", "面试官评分表");
   setText("#graph-title", "证据关系图谱");
   setText("#virtual-panel-title", "虚拟面试委员会");
   setText("#downloadMdBtn", "导出 PDF");
@@ -1427,8 +1522,8 @@ function applyCleanChineseCopy() {
     subPanelHeads[0].querySelector("small").textContent = "用于模拟面试推进、录用风险和谈薪约束";
   }
   if (subPanelHeads[1]) {
-    subPanelHeads[1].querySelector("span").textContent = "面试官视角库";
-    subPanelHeads[1].querySelector("small").textContent = "不同面试角色的问题视角，供候选人准备和面试官挑选";
+    subPanelHeads[1].querySelector("span").textContent = "选择面试官角色";
+    subPanelHeads[1].querySelector("small").textContent = "勾选需要参与评估的虚拟面试官，不同角色提供不同视角的追问";
   }
 
   const skillCopy = {
@@ -1449,7 +1544,7 @@ function applyCleanChineseCopy() {
   });
 
   if (!currentRun && reportEl?.classList.contains("empty")) {
-    reportEl.innerHTML = '<div class="empty-state"><span class="empty-mark">OA</span><h3>等待生成面试官评估报告</h3><p>报告会覆盖岗位匹配、Offer 沙盘推演、面试官候选问题库、证据链、图谱和人工反馈建议，并支持导出 PDF。</p></div>';
+    reportEl.innerHTML = '<div class="empty-state"><span class="empty-mark">OA</span><h3>等待生成评估报告</h3><p>报告会覆盖岗位匹配、Offer 沙盘推演、面试官候选问题库、证据链、图谱和人工反馈建议，并支持导出 PDF。</p></div>';
     runBadgeEl.textContent = "尚未生成";
     setStatus("准备就绪。未配置 Key 时会使用 Mock Demo。");
   }
@@ -1476,7 +1571,7 @@ function setOptionText(select, value, label) {
 }
 
 function renderEmptyReport() {
-  reportEl.className = "report empty";
+  reportEl.className = "report report-content empty";
   reportEl.innerHTML = `<div class="empty-state">
     <span class="empty-mark">OA</span>
     <h3>${escapeHtml(getText().emptyTitle)}</h3>
@@ -1567,6 +1662,19 @@ function enrichEvaluationRun(run) {
   const virtualPanel = buildVirtualInterviewPanel(snapshot, requirementRows, gate);
   const panelDiscussionRounds = buildPanelDiscussionRounds(virtualPanel, requirementRows, gate, offerLeverage, feedback);
   const moderatorSummary = buildModeratorSummary(virtualPanel, panelDiscussionRounds, gate, offerLeverage, feedback);
+  const interviewQuestions = buildStructuredInterviewQuestions(snapshot, requirementRows, feedback);
+  const decisionSummary = buildDecisionSummaryCards({
+    evaluation_summary: buildEvaluationSummary(gate, requirementRows, offerLeverage, feedback),
+    requirement_matches: buildRequirementMatches(requirementRows),
+    interview_questions: interviewQuestions,
+    offer_simulation_run: offerSimulationRun,
+    feedback_distillation: feedbackDistillation,
+  });
+  const interviewerScorecard = buildInterviewerScorecardRows({
+    requirement_matches: buildRequirementMatches(requirementRows),
+    interview_questions: interviewQuestions,
+    feedback_distillation: feedbackDistillation,
+  });
 
   return {
     ...run,
@@ -1576,7 +1684,12 @@ function enrichEvaluationRun(run) {
     },
     evaluation_summary: buildEvaluationSummary(gate, requirementRows, offerLeverage, feedback),
     requirement_matches: buildRequirementMatches(requirementRows),
-    interview_questions: buildStructuredInterviewQuestions(snapshot, requirementRows, feedback),
+    interview_questions: interviewQuestions,
+    decision_summary_cards: decisionSummary,
+    interviewer_scorecard_rows: interviewerScorecard,
+    top_follow_up_questions: interviewQuestions
+      .filter((question) => /待|补齐|验证|pending|missing|weak/i.test(`${question.evaluation_goal} ${question.expected_signal}`))
+      .slice(0, 3),
     offer_sandbox: buildStructuredOfferSandbox(snapshot, gate, offerLeverage, requirementRows),
     evidence: buildStructuredEvidence(snapshot, requirementRows),
     structured_evaluation: buildStructuredEvaluation(snapshot, requirementRows, gate, offerLeverage, feedback),
@@ -1651,6 +1764,7 @@ function buildStructuredInterviewQuestions(snapshot, rows, feedback) {
         : "验证真实角色、决策链和结果归因",
     expected_signal: row.evidenceLevel === 1 ? "可复核高可信证据" : "待追问中低可信证据",
     adoption_status: feedback?.question_use || "未反馈",
+    asked_status: feedback?.question_use && feedback.question_use !== "未反馈" ? "reviewed" : "pending",
   }));
 }
 
@@ -3172,15 +3286,303 @@ function updateModelMode() {
   modelModeEl.classList.toggle("active", useRealModel);
 }
 
+function renderDecisionSummaryCard(run) {
+  if (!decisionSummaryEl) return;
+  const cards = buildDecisionSummaryCards(run);
+  if (!cards.length) {
+    decisionSummaryEl.className = "decision-summary empty";
+    decisionSummaryEl.innerHTML = `<p>${escapeHtml(currentLanguage === "en" ? "Generate a report to see the decision summary." : "生成报告后展示关键决策摘要。")}</p>`;
+    return;
+  }
+
+  decisionSummaryEl.className = "decision-summary";
+  decisionSummaryEl.innerHTML = `${renderDecisionSummaryCards(cards)}
+    ${renderDecisionOfferRunSection(run)}
+    ${renderRoleDecisionSummarySections(run)}`;
+}
+
+function renderDecisionSummaryCards(cards) {
+  return `<section class="decision-summary-grid">
+    ${cards.map((card) => `<article class="summary-card ${escapeHtml(card.tone || "neutral")}">
+      <span>${escapeHtml(card.label)}</span>
+      <strong class="${escapeHtml(riskToneClass(card.value))}">${escapeHtml(card.value)}</strong>
+      <small class="${escapeHtml(riskToneClass(card.detail))}">${escapeHtml(card.detail)}</small>
+    </article>`).join("")}
+  </section>`;
+}
+
+function renderDecisionOfferRunSection(run) {
+  const labels = getEvidenceGraphLabels();
+  return renderOfferRunPanel(run?.offer_simulation_run || null, labels);
+}
+
+function renderRoleDecisionSummarySections(run) {
+  if (getPageMode() === "interviewer") {
+    return `${renderInterviewerOneMinuteDecisionSection(run)}
+      ${renderInterviewerQuickBriefSection(run)}`;
+  }
+  return `${renderCandidateQuickDecisionSection(run)}
+    ${renderCandidateAdvantagesSection(run)}`;
+}
+
+function renderCandidateQuickDecisionSection(run) {
+  const snapshot = run?.input_snapshot || {};
+  const title = currentLanguage === "en" ? "Three-second conclusion" : "三秒结论";
+  const table = buildCandidateThreeSecondSummary(snapshot);
+  return `<section class="decision-summary-section">
+    <h4>${escapeHtml(title)}</h4>
+    ${markdownToHtml(table)}
+  </section>`;
+}
+
+function renderCandidateAdvantagesSection(run) {
+  const snapshot = run?.input_snapshot || {};
+  const title = currentLanguage === "en" ? "Differentiated advantages" : "差异化优势";
+  const table = buildCandidateAdvantageCards(snapshot);
+  return `<section class="decision-summary-section">
+    <h4>${escapeHtml(title)}</h4>
+    ${markdownToHtml(table)}
+  </section>`;
+}
+
+function renderInterviewerOneMinuteDecisionSection(run) {
+  const snapshot = run?.input_snapshot || {};
+  const title = currentLanguage === "en" ? "One-minute decision brief" : "一分钟决策结论";
+  return `<section class="decision-summary-section">
+    <h4>${escapeHtml(title)}</h4>
+    ${markdownToHtml(buildInterviewerOneMinuteDecisionBrief(snapshot))}
+  </section>`;
+}
+
+function renderInterviewerQuickBriefSection(run) {
+  const snapshot = run?.input_snapshot || {};
+  const title = currentLanguage === "en" ? "Interviewer one-minute scan" : "面试官一分钟速览";
+  return `<section class="decision-summary-section">
+    <h4>${escapeHtml(title)}</h4>
+    ${markdownToHtml(buildInterviewerQuickBrief(snapshot))}
+  </section>`;
+}
+
+function buildDecisionSummaryCards(run) {
+  if (!run) return [];
+  const summary = run.evaluation_summary || {};
+  const requirements = run.requirement_matches || [];
+  const questions = run.top_follow_up_questions || run.interview_questions || [];
+  const gaps = requirements.filter((row) => row.is_missing || row.evidence_level >= 3).length;
+  const feedbackActions = run.feedback_distillation?.actions?.length || 0;
+  const offerState = run.offer_simulation_run?.lifecycle_state || run.offer_sandbox?.readiness || "";
+  const labels = currentLanguage === "en"
+    ? {
+        decision: "Decision",
+        evidence: "Evidence",
+        followup: "Follow-ups",
+        offer: "Offer State",
+        feedback: "Feedback",
+        matched: "matched",
+        gaps: "gaps",
+        actions: "actions",
+      }
+    : {
+        decision: "决策建议",
+        evidence: "证据覆盖",
+        followup: "重点追问",
+        offer: "Offer 状态",
+        feedback: "反馈影响",
+        matched: "已匹配",
+        gaps: "缺口",
+        actions: "动作",
+      };
+
+  return [
+    {
+      label: labels.decision,
+      value: currentLanguage === "en" ? translateGateResult(summary.gate_result) : summary.gate_result || "待判断",
+      detail: summary.enter_sandbox
+        ? (currentLanguage === "en" ? "Can continue with validation." : "可进入下一轮验证。")
+        : (currentLanguage === "en" ? "Need stronger evidence first." : "建议先补齐关键证据。"),
+      tone: summary.enter_sandbox ? "good" : "warn",
+    },
+    {
+      label: labels.evidence,
+      value: `${summary.matched_count || 0}/${summary.total_requirements || requirements.length || 0}`,
+      detail: `${summary.strong_evidence_count || 0} ${labels.matched} · ${gaps || summary.weak_or_missing_evidence_count || 0} ${labels.gaps}`,
+      tone: gaps ? "warn" : "good",
+    },
+    {
+      label: labels.followup,
+      value: String(questions.length || 0),
+      detail: clip((questions[0]?.question || questions[0]?.capability || summary.next_validation_focus?.[0] || (currentLanguage === "en" ? "No priority question yet." : "暂无优先追问。"))),
+      tone: questions.length ? "info" : "neutral",
+    },
+    {
+      label: labels.offer,
+      value: currentLanguage === "en" ? translateOfferRating(summary.offer_leverage_rating || offerState) : (summary.offer_leverage_rating || offerState || "待验证"),
+      detail: clip(summary.offer_leverage_summary || run.offer_simulation_run?.current_output?.recommendation || ""),
+      tone: "info",
+    },
+    {
+      label: labels.feedback,
+      value: `${feedbackActions} ${labels.actions}`,
+      detail: summary.feedback_status?.agreement || (currentLanguage === "en" ? "No human feedback yet." : "暂未写入人工反馈。"),
+      tone: feedbackActions ? "good" : "neutral",
+    },
+  ];
+}
+
+function renderInterviewerScorecard(run) {
+  if (!interviewerScorecardEl) return;
+  const rows = buildInterviewerScorecardRows(run);
+  if (interviewerScorecardStatusEl) {
+    interviewerScorecardStatusEl.textContent = rows.length
+      ? (currentLanguage === "en" ? `${rows.length} items` : `${rows.length} 项`)
+      : (currentLanguage === "en" ? "Pending" : "待生成");
+  }
+  if (!rows.length) {
+    interviewerScorecardEl.className = "interviewer-scorecard empty";
+    interviewerScorecardEl.innerHTML = `<p>${escapeHtml(currentLanguage === "en" ? "Generate a report to show scoring items." : "生成报告后展示结构化评分项。")}</p>`;
+    return;
+  }
+
+  interviewerScorecardEl.className = "interviewer-scorecard";
+  interviewerScorecardEl.innerHTML = rows.map((row) => `<article class="scorecard-row status-${escapeHtml(row.asked_status)} scorecard-tone-${escapeHtml(row.row_tone)}" data-scorecard-id="${escapeHtml(row.id)}">
+    <div class="sr-header">
+      <strong class="sr-title">${escapeHtml(row.capability)}</strong>
+      <span class="sr-status">
+        <span class="sr-pill ${escapeHtml(row.match_tone)}">${escapeHtml(row.match_status)}</span>
+        <span class="sr-pill ${escapeHtml(row.evidence_tone)}">${escapeHtml(row.evidence_level_label)}</span>
+      </span>
+    </div>
+    <p class="sr-question">${escapeHtml(row.recommended_question)}</p>
+    <button class="sr-tag sr-detail-trigger" type="button" data-scorecard-id="${escapeHtml(row.id)}">${escapeHtml(row.asked_status_label)} · ${escapeHtml(row.feedback_action)}</button>
+  </article>`).join("");
+  bindScorecardDetailButtons(rows);
+}
+
+function buildInterviewerScorecardRows(run) {
+  if (!run) return [];
+  const requirements = run.requirement_matches || [];
+  const questionsByCapability = new Map((run.interview_questions || []).map((question) => [question.capability, question]));
+  const actionsByTarget = new Map((run.feedback_distillation?.actions || []).map((action) => [action.target_id, action]));
+  return requirements.slice(0, 6).map((item, index) => {
+    const question = questionsByCapability.get(item.capability) || {};
+    const action = actionsByTarget.get(question.id) || actionsByTarget.get(item.id) || {};
+    const askedStatus = question.asked_status || "pending";
+    return {
+      id: item.id || `score_${index + 1}`,
+      capability: currentLanguage === "en" ? translateCapability(item.capability) : item.capability,
+      evidence_level_label: currentLanguage === "en" ? translateEvidenceLevel(item.evidence_level) : item.evidence_level_label,
+      match_status: currentLanguage === "en" ? translateMatchStatus(item) : item.match_status,
+      recommended_question: question.question || item.verification_question || "",
+      resume_evidence: item.resume_evidence || item.resumeEvidence || "",
+      jd_evidence: item.jd_evidence || item.jdEvidence || "",
+      verification_question: item.verification_question || question.question || "",
+      evidence_level: item.evidence_level,
+      is_missing: Boolean(item.is_missing),
+      asked_status: askedStatus,
+      asked_status_label: currentLanguage === "en"
+        ? (askedStatus === "reviewed" ? "Reviewed by feedback" : "Pending interview")
+        : (askedStatus === "reviewed" ? "反馈已复核" : "待面试验证"),
+      feedback_action: action.type || (currentLanguage === "en" ? "keep" : "保留"),
+      feedback_summary: action.summary || action.reason || "",
+      match_tone: scorecardMatchTone(item),
+      evidence_tone: scorecardEvidenceTone(item.evidence_level, item.is_missing),
+      row_tone: scorecardRowTone(item),
+    };
+  });
+}
+
+function bindScorecardDetailButtons(rows) {
+  if (!interviewerScorecardEl) return;
+  const rowMap = new Map(rows.map((row) => [row.id, row]));
+  interviewerScorecardEl.querySelectorAll(".sr-detail-trigger").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const row = rowMap.get(button.dataset.scorecardId);
+      if (row) openScorecardEvidenceDetail(row);
+    });
+  });
+}
+
+function openScorecardEvidenceDetail(row) {
+  const labels = currentLanguage === "en"
+    ? {
+        meta: "Scorecard evidence",
+        evidence: "Evidence",
+        jd: "JD requirement",
+        resume: "Resume evidence",
+        question: "Follow-up question",
+        status: "Validation status",
+        action: "Feedback action",
+        summary: "Feedback note",
+      }
+    : {
+        meta: "评分表证据",
+        evidence: "证据",
+        jd: "JD 要求",
+        resume: "简历证据",
+        question: "追问问题",
+        status: "验证状态",
+        action: "反馈动作",
+        summary: "反馈说明",
+      };
+  openTraceDetailPanel({
+    meta: labels.meta,
+    title: row.capability,
+    body: `<div class="trace-detail-section">
+        <div class="trace-detail-section-title">${escapeHtml(labels.evidence)}</div>
+        ${renderTraceDetailRows([
+          [currentLanguage === "en" ? "Match" : "匹配状态", row.match_status],
+          [currentLanguage === "en" ? "Evidence level" : "证据等级", row.evidence_level_label],
+          [labels.status, row.asked_status_label],
+          [labels.action, row.feedback_action],
+        ])}
+      </div>
+      <div class="trace-detail-section">
+        <div class="trace-detail-section-title">${escapeHtml(labels.jd)}</div>
+        <p>${escapeHtml(row.jd_evidence || (currentLanguage === "en" ? "No JD evidence captured." : "暂无 JD 证据。"))}</p>
+      </div>
+      <div class="trace-detail-section">
+        <div class="trace-detail-section-title">${escapeHtml(labels.resume)}</div>
+        <p>${escapeHtml(row.resume_evidence || (currentLanguage === "en" ? "No resume evidence captured." : "暂无简历证据。"))}</p>
+      </div>
+      <div class="trace-detail-section">
+        <div class="trace-detail-section-title">${escapeHtml(labels.question)}</div>
+        <p>${escapeHtml(row.recommended_question || row.verification_question || (currentLanguage === "en" ? "No follow-up question generated." : "暂无追问问题。"))}</p>
+      </div>
+      ${row.feedback_summary ? `<div class="trace-detail-section"><div class="trace-detail-section-title">${escapeHtml(labels.summary)}</div><p>${escapeHtml(row.feedback_summary)}</p></div>` : ""}`,
+  });
+}
+
+function scorecardEvidenceTone(level, isMissing = false) {
+  if (isMissing || level >= 3) return "tone-risk";
+  if (level === 2) return "tone-warn";
+  return "tone-good";
+}
+
+function scorecardMatchTone(item) {
+  const text = `${item.match_status || ""} ${item.matchStatus || ""}`;
+  if (item.is_missing || /不匹配|缺证|missing|not matched/i.test(text)) return "tone-risk";
+  if (/部分|待验证|需追问|conditional|partial|pending/i.test(text)) return "tone-warn";
+  return "tone-good";
+}
+
+function scorecardRowTone(item) {
+  if (scorecardMatchTone(item) === "tone-risk" || scorecardEvidenceTone(item.evidence_level, item.is_missing) === "tone-risk") return "risk";
+  if (scorecardMatchTone(item) === "tone-warn" || scorecardEvidenceTone(item.evidence_level, item.is_missing) === "tone-warn") return "warn";
+  return "good";
+}
+
 function renderReport(markdown) {
-  reportEl.className = "report";
+  reportEl.className = "report report-content";
   reportEl.innerHTML = markdownToHtml(markdown);
   renderStreamProgress(markdown, getText().reportUpdated, true);
   renderEvidenceGraph(currentRun);
+  renderDecisionSummaryCard(currentRun);
+  renderInterviewerScorecard(currentRun);
 }
 
 function renderStreamingReport(markdown, label = getText().mockStreaming, isDone = false) {
-  reportEl.className = "report streaming";
+  reportEl.className = "report report-content streaming";
   const content = markdown.trim()
     ? markdownToHtml(markdown)
     : `<p class="stream-placeholder">${escapeHtml(getText().streamPlaceholder)}</p>`;
@@ -3190,6 +3592,8 @@ function renderStreamingReport(markdown, label = getText().mockStreaming, isDone
   reportEl.innerHTML = `<div class="stream-content">${content}${cursor}</div>`;
   reportEl.scrollTop = reportEl.scrollHeight;
   renderEvidenceGraph(isDone ? currentRun : null);
+  renderDecisionSummaryCard(isDone ? currentRun : null);
+  renderInterviewerScorecard(isDone ? currentRun : null);
 }
 
 function renderGenerationError(message) {
@@ -3197,7 +3601,7 @@ function renderGenerationError(message) {
   const hint = currentLanguage === "en"
     ? "The live model or proxy endpoint did not return a valid response. Check the provider, Base URL, API key, and model name, or switch back to Mock Demo."
     : "真实模型或代理接口没有返回有效结果。请检查模型服务商、Base URL、API Key 和模型名称，或先切回 Mock Demo。";
-  reportEl.className = "report empty";
+  reportEl.className = "report report-content empty";
   reportEl.innerHTML = `<div class="empty-state">
     <span class="empty-mark">OA</span>
     <h3>${escapeHtml(title)}</h3>
@@ -3206,6 +3610,8 @@ function renderGenerationError(message) {
   </div>`;
   renderStreamProgress("", title, true);
   renderEvidenceGraph(null);
+  renderDecisionSummaryCard(null);
+  renderInterviewerScorecard(null);
 }
 
 function renderStreamProgress(markdown, label, isDone) {
@@ -3265,8 +3671,6 @@ function renderEvidenceGraph(run) {
   const grouped = groupEvidenceGraphNodes(graph.nodes);
   const labels = getEvidenceGraphLabels();
   const gaps = detectEvidenceGraphGaps(graph);
-  const feedbackDistillation = run?.feedback_distillation || { rules: [], actions: [], impact_diff: [], skill_update_suggestions: [] };
-  const offerRun = run?.offer_simulation_run || null;
   evidenceGraphEl.className = "evidence-graph";
   evidenceGraphEl.innerHTML = `<div class="evidence-graph-head">
       <div>
@@ -3277,19 +3681,10 @@ function renderEvidenceGraph(run) {
     </div>
     ${renderEvidenceGraphFilters(labels)}
     ${renderEvidenceGraphGaps(gaps, labels)}
-    ${renderOfferRunPanel(offerRun, labels)}
-    <div class="evidence-graph-canvas">
-      <svg class="evidence-graph-lines" aria-hidden="true"></svg>
-      <div class="evidence-graph-columns">
-        ${renderEvidenceGraphColumn(labels.columns.requirements, grouped.requirements)}
-        ${renderEvidenceGraphColumn(labels.columns.evidence, grouped.evidence)}
-        ${renderEvidenceGraphColumn(labels.columns.validation, grouped.validation)}
-      </div>
-    </div>
-    ${renderFeedbackDistillationPanel(feedbackDistillation, labels)}
-    <div class="evidence-graph-detail" id="evidenceGraphDetail">
-      <strong>${escapeHtml(labels.detailTitle)}</strong>
-      <p>${escapeHtml(labels.detailPlaceholder)}</p>
+    <div class="evidence-graph-text-list">
+      ${renderEvidenceGraphColumn(labels.columns.requirements, grouped.requirements)}
+      ${renderEvidenceGraphColumn(labels.columns.evidence, grouped.evidence)}
+      ${renderEvidenceGraphColumn(labels.columns.validation, grouped.validation)}
     </div>`;
 
   evidenceGraphEl.querySelectorAll(".graph-node").forEach((nodeEl) => {
@@ -3299,7 +3694,13 @@ function renderEvidenceGraph(run) {
       evidenceGraphEl.querySelectorAll(".graph-node").forEach((item) => item.classList.remove("active"));
       nodeEl.classList.add("active");
       renderEvidenceGraphDetail(node, graph.edges, nodesById);
-      scrollReportToGraphNode(node);
+    });
+  });
+
+  evidenceGraphEl.querySelectorAll(".graph-relation-line").forEach((relationEl) => {
+    relationEl.addEventListener("click", () => {
+      const edge = graph.edges.find((item) => item.from === relationEl.dataset.relationFrom && item.to === relationEl.dataset.relationTo);
+      if (edge) openGraphRelationDetail(edge, nodesById, labels);
     });
   });
 
@@ -3309,7 +3710,6 @@ function renderEvidenceGraph(run) {
       evidenceGraphEl.querySelectorAll(".graph-filter").forEach((item) => item.classList.remove("active"));
       filterEl.classList.add("active");
       applyEvidenceGraphFilter(type);
-      window.setTimeout(() => drawEvidenceGraphEdges(graph.edges), 0);
     });
   });
 
@@ -3317,11 +3717,9 @@ function renderEvidenceGraph(run) {
     gapEl.addEventListener("click", () => {
       const target = evidenceGraphEl.querySelector(`[data-node-id="${cssEscape(gapEl.dataset.gapNodeId)}"]`);
       target?.click();
-      target?.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
     });
   });
 
-  window.setTimeout(() => drawEvidenceGraphEdges(graph.edges), 0);
 }
 
 function renderVirtualPanelChat(run, options = {}) {
@@ -3330,9 +3728,12 @@ function renderVirtualPanelChat(run, options = {}) {
   const text = getText();
   if (options.pending) {
     virtualPanelChatStatusEl.textContent = text.panelChatThinking;
-    virtualPanelChatEl.innerHTML = `<div class="chat-bubble system">
-      <span>${escapeHtml(text.panelChatThinking)}</span>
-      <p>${escapeHtml(text.panelChatSeed)}</p>
+    virtualPanelChatEl.innerHTML = `<div class="panel-discussion-shell">
+      ${renderVirtualPanelStats([], null)}
+      <section class="panel-conclusion-card">
+        <strong>${escapeHtml(text.panelChatThinking)}</strong>
+        <p>${escapeHtml(text.panelChatSeed)}</p>
+      </section>
     </div>`;
     return;
   }
@@ -3340,11 +3741,16 @@ function renderVirtualPanelChat(run, options = {}) {
   const messages = buildVirtualPanelChatMessages(run);
   virtualPanelChatStatusEl.textContent = messages.length ? text.panelChatDone : text.panelChatWaiting;
   virtualPanelChatEl.innerHTML = messages.length
-    ? messages.map(renderVirtualPanelChatMessage).join("")
-    : `<div class="chat-bubble system">
-        <span>${escapeHtml(text.panelChatWaiting)}</span>
-        <p>${escapeHtml(text.panelChatEmpty)}</p>
+    ? renderVirtualPanelDiscussion(run, messages)
+    : `<div class="panel-discussion-shell">
+        ${renderVirtualPanelStats([], null)}
+        <section class="panel-conclusion-card">
+          <strong>${escapeHtml(text.panelChatWaiting)}</strong>
+          <p>${escapeHtml(text.panelChatEmpty)}</p>
+        </section>
       </div>`;
+  bindVirtualPanelTraceNavigation();
+  bindVirtualPanelRoundFilters();
   virtualPanelChatEl.scrollTop = virtualPanelChatEl.scrollHeight;
 }
 
@@ -3359,7 +3765,14 @@ function playVirtualPanelChat(run) {
   }
 
   virtualPanelChatStatusEl.textContent = text.panelChatThinking;
-  virtualPanelChatEl.innerHTML = "";
+  virtualPanelChatEl.innerHTML = `<div class="panel-discussion-shell">
+    ${renderVirtualPanelStats(messages, run)}
+    ${renderVirtualPanelConclusion(run, messages)}
+    ${renderVirtualPanelRoundTabs(run)}
+    <div class="panel-thread-list"></div>
+  </div>`;
+  const threadList = virtualPanelChatEl.querySelector(".panel-thread-list");
+  bindVirtualPanelRoundFilters();
   let index = 0;
   const appendNext = () => {
     const message = messages[index];
@@ -3368,7 +3781,8 @@ function playVirtualPanelChat(run) {
       virtualPanelChatTimer = null;
       return;
     }
-    virtualPanelChatEl.insertAdjacentHTML("beforeend", renderVirtualPanelChatMessage(message));
+    threadList?.insertAdjacentHTML("beforeend", renderVirtualPanelChatMessage(message));
+    bindVirtualPanelTraceNavigation();
     virtualPanelChatEl.scrollTop = virtualPanelChatEl.scrollHeight;
     index += 1;
     virtualPanelChatTimer = window.setTimeout(appendNext, index < 3 ? 180 : 260);
@@ -3388,27 +3802,44 @@ function buildVirtualPanelChatMessages(run) {
   const rounds = run?.panel_discussion_rounds || [];
   const agentsById = new Map(panel.map((agent) => [agent.id, agent]));
   const messages = [];
+  const turnTraceItems = [];
 
   rounds.forEach((round, roundIndex) => {
     messages.push({
       id: `${round.id || "round"}_intro`,
       type: "system",
+      roundId: round.id || `round_${roundIndex + 1}`,
+      roundIndex: roundIndex + 1,
       name: currentLanguage === "en" ? `Round ${roundIndex + 1}` : `第 ${roundIndex + 1} 轮`,
-      role: round.stage || "",
-      text: round.topic || round.stage || "",
-      meta: round.stage || "",
+      role: localizePanelStage(round.stage),
+      text: localizePanelTopic(round.topic || round.stage),
+      meta: localizePanelStage(round.stage),
     });
     (round.turns || []).forEach((turn, turnIndex) => {
       const agent = agentsById.get(turn.agent_id) || {};
+      const messageId = `${round.id || "round"}_${turn.agent_id || "agent"}_${turnIndex}`;
+      const messageName = agent.name || turn.agent_id || "Agent";
+      const messageText = localizePanelClaim(turn.claim);
+      turnTraceItems.push({
+        id: messageId,
+        label: messageName,
+        summary: messageText,
+        impact: turn.impact || "",
+      });
       messages.push({
-        id: `${round.id || "round"}_${turn.agent_id || "agent"}_${turnIndex}`,
+        id: messageId,
         type: "agent",
+        roundId: round.id || `round_${roundIndex + 1}`,
+        roundIndex: roundIndex + 1,
         agentId: turn.agent_id,
-        name: agent.name || turn.agent_id || "Agent",
+        name: messageName,
         role: agent.focus || agent.persona || "",
         stance: turn.stance || agent.stance || "",
-        text: localizePanelClaim(turn.claim),
+        text: messageText,
         meta: buildPanelMessageMeta(turn),
+        evidenceIds: turn.evidence_ids || [],
+        questionIds: turn.question_ids || [],
+        reportAnchor: panelTraceReportAnchor(turn),
       });
     });
   });
@@ -3418,6 +3849,8 @@ function buildVirtualPanelChatMessages(run) {
     messages.push({
       id: summary.id || "moderator_summary",
       type: "moderator",
+      roundId: "moderator",
+      roundIndex: 0,
       name: getText().panelChatModerator,
       role: summary.consensus || "",
       stance: summary.offer_impact || "",
@@ -3425,16 +3858,79 @@ function buildVirtualPanelChatMessages(run) {
       meta: currentLanguage === "en"
         ? `${summary.disagreement_count || 0} challenges / ${summary.support_count || 0} supports`
         : `${summary.disagreement_count || 0} 个挑战 / ${summary.support_count || 0} 个支持`,
+      evidenceIds: buildModeratorTraceIds(run, "evidence"),
+      questionIds: buildModeratorTraceIds(run, "question"),
+      turnTraceItems: buildModeratorBasisTrace(turnTraceItems, run),
+      reportAnchor: reportAnchorForNodeType("agent_persona"),
     });
   }
 
   return messages;
 }
 
+function renderVirtualPanelDiscussion(run, messages) {
+  return `<div class="panel-discussion-shell">
+    ${renderVirtualPanelStats(messages, run)}
+    ${renderVirtualPanelConclusion(run, messages)}
+    ${renderVirtualPanelRoundTabs(run)}
+    <div class="panel-thread-list">${messages.map(renderVirtualPanelChatMessage).join("")}</div>
+  </div>`;
+}
+
+function renderVirtualPanelStats(messages, run) {
+  const evidenceCount = new Set(messages.flatMap((message) => message.evidenceIds || [])).size;
+  const riskCount = detectEvidenceGraphGaps(run?.evidence_graph || { nodes: [], edges: [] }).length;
+  const challengeCount = Math.max(
+    messages.filter((message) => /challenge|risk|recalibrate|raise/i.test(message.meta || message.stance || "")).length,
+    run?.moderator_summary?.disagreement_count || 0,
+  );
+  const labels = currentLanguage === "en"
+    ? [["Pending challenges", challengeCount], ["Supporting evidence", evidenceCount], ["High-risk gaps", riskCount]]
+    : [["待验证挑战", challengeCount], ["支持证据", evidenceCount], ["高风险缺口", riskCount]];
+  return `<section class="panel-stats-grid">
+    ${labels.map(([label, value]) => `<div class="panel-stat">
+      <strong>${escapeHtml(String(value))}</strong>
+      <span>${escapeHtml(label)}</span>
+    </div>`).join("")}
+  </section>`;
+}
+
+function renderVirtualPanelConclusion(run, messages) {
+  const summary = run?.moderator_summary;
+  const fallback = messages.find((message) => message.type === "moderator");
+  const title = currentLanguage === "en" ? "Panel conclusion" : "委员会结论";
+  const body = localizePanelClaim(summary?.final_recommendation || fallback?.text || "");
+  const empty = currentLanguage === "en"
+    ? "Generate a report to see the panel's consensus, challenges, and traceable evidence."
+    : "生成报告后，这里会展示委员会共识、分歧挑战和可追溯证据。";
+  return `<section class="panel-conclusion-card">
+    <strong>${escapeHtml(title)}</strong>
+    <p>${escapeHtml(body || empty)}</p>
+  </section>`;
+}
+
+function renderVirtualPanelRoundTabs(run) {
+  const rounds = run?.panel_discussion_rounds || [];
+  if (!rounds.length) return "";
+  const allLabel = currentLanguage === "en" ? "All turns" : "全部轮次";
+  const moderatorLabel = currentLanguage === "en" ? "Moderator summary" : "主持人总结";
+  const roundButtons = rounds.map((round, index) => `<button class="panel-round-filter" type="button" data-panel-round="${escapeHtml(round.id || `round_${index + 1}`)}">${escapeHtml(currentLanguage === "en" ? `Round ${index + 1}` : `第 ${index + 1} 轮`)}</button>`);
+  return `<nav class="panel-round-tabs" aria-label="${escapeHtml(currentLanguage === "en" ? "Panel rounds" : "委员会轮次")}">
+    <button class="panel-round-filter active" type="button" data-panel-round="all">${escapeHtml(allLabel)}</button>
+    ${roundButtons.join("")}
+    <button class="panel-round-filter" type="button" data-panel-round="moderator">${escapeHtml(moderatorLabel)}</button>
+  </nav>`;
+}
+
 function renderVirtualPanelChatMessage(message) {
-  const initial = (message.name || "A").trim().slice(0, 1).toUpperCase();
-  return `<article class="chat-bubble ${escapeHtml(message.type || "agent")}">
-    <div class="chat-avatar">${escapeHtml(initial)}</div>
+  const roundClass = message.type === "system" ? "round-marker" : "";
+  const avatarText = message.type === "system"
+    ? (currentLanguage === "en" ? "R" : "第")
+    : message.type === "moderator"
+      ? (currentLanguage === "en" ? "M" : "总")
+      : (currentLanguage === "en" ? "V" : "虚");
+  return `<article class="chat-bubble ${escapeHtml(message.type || "agent")} ${roundClass}" data-message-id="${escapeHtml(message.id || "")}" data-panel-round="${escapeHtml(message.roundId || "all")}">
+    <span class="panel-message-avatar">${escapeHtml(avatarText)}</span>
     <div class="chat-message">
       <div class="chat-meta">
         <strong>${escapeHtml(message.name || "")}</strong>
@@ -3442,8 +3938,143 @@ function renderVirtualPanelChatMessage(message) {
       </div>
       <p>${escapeHtml(message.text || "")}</p>
       ${message.meta ? `<small>${escapeHtml(message.meta)}</small>` : ""}
+      ${message.type === "moderator" ? renderModeratorBasisTrace(message) : ""}
+      ${renderPanelTraceChips(message)}
     </div>
   </article>`;
+}
+
+function bindVirtualPanelRoundFilters() {
+  if (!virtualPanelChatEl) return;
+  const filters = Array.from(virtualPanelChatEl.querySelectorAll(".panel-round-filter"));
+  if (!filters.length) return;
+  filters.forEach((filter) => {
+    if (filter.dataset.filterBound === "true") return;
+    filter.dataset.filterBound = "true";
+    filter.addEventListener("click", () => {
+      const selectedRound = filter.dataset.panelRound || "all";
+      filters.forEach((item) => item.classList.toggle("active", item === filter));
+      virtualPanelChatEl.querySelectorAll(".chat-bubble[hidden]").forEach((messageEl) => {
+        messageEl.hidden = false;
+      });
+
+      if (selectedRound === "all") {
+        virtualPanelChatEl.scrollTo({ top: 0, behavior: "smooth" });
+        return;
+      }
+
+      const target = virtualPanelChatEl.querySelector(`.chat-bubble[data-panel-round="${cssEscape(selectedRound)}"]`);
+      if (!target) return;
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  });
+}
+
+function buildModeratorBasisTrace(turnTraceItems, run) {
+  const turns = turnTraceItems
+    .filter((item) => /raise_follow_up_priority|recalibrate|feed_offer|support|keep/i.test(item.impact) || item.summary)
+    .slice(0, 3);
+  const evidenceIds = buildModeratorTraceIds(run, "evidence");
+  const questionIds = buildModeratorTraceIds(run, "question");
+  return {
+    turns,
+    evidenceIds,
+    questionIds,
+  };
+}
+
+function renderModeratorBasisTrace(message) {
+  const basis = message.turnTraceItems || {};
+  const turns = basis.turns || [];
+  const evidenceIds = basis.evidenceIds || message.evidenceIds || [];
+  const questionIds = basis.questionIds || message.questionIds || [];
+  const title = currentLanguage === "en" ? "Based on" : "结论依据";
+  const turnsLabel = currentLanguage === "en" ? "Panel turns" : "委员发言";
+  const evidenceLabel = currentLanguage === "en" ? "Evidence nodes" : "证据节点";
+  const questionsLabel = currentLanguage === "en" ? "Follow-up questions" : "追问问题";
+  const turnChips = turns.map((turn, index) => `<button class="panel-trace-chip panel-turn-chip" type="button" data-trace-message-id="${escapeHtml(turn.id)}" title="${escapeHtml(turn.summary || "")}">${escapeHtml(`${turnsLabel} ${index + 1}`)}</button>`);
+  const evidenceChips = evidenceIds.slice(0, 3).map((id, index) => `<button class="panel-trace-chip basis-evidence" type="button" data-trace-node-id="${escapeHtml(id)}">${escapeHtml(`${evidenceLabel} ${index + 1}`)}</button>`);
+  const questionChips = questionIds.slice(0, 3).map((id, index) => `<button class="panel-trace-chip basis-questions" type="button" data-trace-node-id="${escapeHtml(id)}">${escapeHtml(`${questionsLabel} ${index + 1}`)}</button>`);
+  return `<div class="moderator-basis">
+    <strong>${escapeHtml(title)}</strong>
+    <div class="basis-turns">${turnChips.join("") || `<span class="panel-trace-missing">${escapeHtml(turnsLabel)}</span>`}</div>
+    <div class="basis-evidence">${evidenceChips.join("") || `<span class="panel-trace-missing">${escapeHtml(evidenceLabel)}</span>`}</div>
+    <div class="basis-questions">${questionChips.join("") || `<span class="panel-trace-missing">${escapeHtml(questionsLabel)}</span>`}</div>
+  </div>`;
+}
+
+function renderPanelTraceChips(message) {
+  const evidenceIds = message.evidenceIds || [];
+  const questionIds = message.questionIds || [];
+  const reportAnchor = message.reportAnchor || "";
+  const hasTrace = evidenceIds.length || questionIds.length || reportAnchor;
+  if (!hasTrace) {
+    return `<div class="panel-trace-chips"><span class="panel-trace-missing">${escapeHtml(currentLanguage === "en" ? "Evidence pending" : "待补证据")}</span></div>`;
+  }
+
+  const evidenceChips = evidenceIds.slice(0, 2).map((id, index) => `<button class="panel-trace-chip" type="button" data-trace-node-id="${escapeHtml(id)}">${escapeHtml(currentLanguage === "en" ? `Evidence ${index + 1}` : `证据 ${index + 1}`)}</button>`);
+  const questionChips = questionIds.slice(0, 2).map((id, index) => `<button class="panel-trace-chip" type="button" data-trace-node-id="${escapeHtml(id)}">${escapeHtml(currentLanguage === "en" ? `Question ${index + 1}` : `问题 ${index + 1}`)}</button>`);
+  const reportChip = reportAnchor
+    ? [`<button class="panel-trace-chip report" type="button" data-trace-report-anchor="${escapeHtml(reportAnchor)}">${escapeHtml(currentLanguage === "en" ? "Report" : "报告段落")}</button>`]
+    : [];
+  return `<div class="panel-trace-chips">${[...evidenceChips, ...questionChips, ...reportChip].join("")}</div>`;
+}
+
+function bindVirtualPanelTraceNavigation() {
+  if (!virtualPanelChatEl) return;
+  virtualPanelChatEl.querySelectorAll(".panel-trace-chip").forEach((chip) => {
+    if (chip.dataset.traceBound === "true") return;
+    chip.dataset.traceBound = "true";
+    chip.addEventListener("click", () => navigatePanelTraceTarget(chip));
+  });
+}
+
+function navigatePanelTraceTarget(chip) {
+  const nodeId = chip.dataset.traceNodeId;
+  const reportAnchor = chip.dataset.traceReportAnchor;
+  const messageId = chip.dataset.traceMessageId;
+  if (messageId) {
+    const messageEl = virtualPanelChatEl?.querySelector(`[data-message-id="${cssEscape(messageId)}"]`);
+    if (!messageEl) return;
+    openPanelMessageDetail(messageEl);
+    return;
+  }
+  if (nodeId) {
+    setWorkspaceView("graph");
+    window.setTimeout(() => {
+      const nodeEl = evidenceGraphEl?.querySelector(`[data-node-id="${cssEscape(nodeId)}"]`);
+      const node = findGraphNodeById(nodeId);
+      if (node) {
+        nodeEl?.classList.add("active");
+        openGraphNodeDetail(node);
+      } else if (reportAnchor) {
+        openReportAnchorDetail(reportAnchor);
+      }
+    }, 0);
+    return;
+  }
+  if (reportAnchor) {
+    setWorkspaceView("graph");
+    window.setTimeout(() => {
+      openReportAnchorDetail(reportAnchor);
+    }, 0);
+  }
+}
+
+function panelTraceReportAnchor(turn) {
+  const questionIds = turn.question_ids || [];
+  const evidenceIds = turn.evidence_ids || [];
+  if (questionIds.length) return reportAnchorForNodeType("interview_question");
+  if (evidenceIds.length) return reportAnchorForNodeType("resume_evidence");
+  return reportAnchorForNodeType("agent_persona");
+}
+
+function buildModeratorTraceIds(run, kind) {
+  const rounds = run?.panel_discussion_rounds || [];
+  const ids = rounds
+    .flatMap((round) => round.turns || [])
+    .flatMap((turn) => (kind === "question" ? turn.question_ids || [] : turn.evidence_ids || []));
+  return Array.from(new Set(ids)).slice(0, 3);
 }
 
 function buildPanelMessageMeta(turn) {
@@ -3452,7 +4083,7 @@ function buildPanelMessageMeta(turn) {
   if (currentLanguage === "en") {
     return `${turn.impact || "panel_signal"} · ${evidenceCount} evidence · ${questionCount} questions`;
   }
-  return `${turn.impact || "委员会信号"} · ${evidenceCount} 条证据 · ${questionCount} 个问题`;
+  return `${localizePanelImpact(turn.impact || "panel_signal")} · ${evidenceCount} 条证据 · ${questionCount} 个问题`;
 }
 
 function localizePanelClaim(claim) {
@@ -3469,6 +4100,83 @@ function localizePanelClaim(claim) {
     .replaceAll(" offer leverage to ", " 的 Offer 杠杆关联到 ")
     .replaceAll("Enter the next interview or offer sandbox only after validating the highest-risk evidence nodes.", "建议先验证最高风险证据节点，再进入下一轮面试或 Offer 沙盘。")
     .replaceAll("Pause offer progression and request stronger project-loop evidence before deep interview questions.", "建议暂停 Offer 推进，先补强项目闭环证据，再进入深度追问。");
+}
+
+function localizePanelStage(value) {
+  const map = currentLanguage === "en"
+    ? {
+        seed_extraction: "Seed extraction",
+        panel_simulation: "Panel discussion",
+        moderator_report: "Moderator summary",
+      }
+    : {
+        seed_extraction: "种子材料读取",
+        panel_simulation: "委员会讨论",
+        moderator_report: "主持人总结",
+      };
+  return map[value] || value || "";
+}
+
+function localizePanelTopic(value) {
+  const map = currentLanguage === "en"
+    ? {
+        "JD / resume seed reading": "JD / resume seed reading",
+        "risk challenge and counter-evidence": "Risk challenge and counter-evidence",
+        "offer readiness alignment": "Offer readiness alignment",
+        seed_extraction: "JD / resume seed reading",
+        panel_simulation: "Risk challenge and counter-evidence",
+        moderator_report: "Offer readiness alignment",
+      }
+    : {
+        "JD / resume seed reading": "JD / 简历种子读取",
+        "risk challenge and counter-evidence": "风险挑战与反证",
+        "offer readiness alignment": "Offer 就绪度对齐",
+        seed_extraction: "JD / 简历种子读取",
+        panel_simulation: "风险挑战与反证",
+        moderator_report: "Offer 就绪度对齐",
+      };
+  return map[value] || value || "";
+}
+
+function localizePanelStance(value) {
+  if (currentLanguage === "en") return value || "";
+  const map = {
+    supportive: "支持",
+    opposing: "质疑",
+    observer: "观察",
+    neutral: "中立",
+  };
+  return map[value] || value || "";
+}
+
+function localizePanelImpact(value) {
+  if (currentLanguage === "en") return value || "";
+  const map = {
+    raise_follow_up_priority: "提高追问优先级",
+    keep_as_supporting_evidence: "保留为支持证据",
+    recalibrate_with_human_feedback: "结合人工反馈校准",
+    feed_offer_simulation: "回填 Offer 推演",
+    panel_signal: "委员会信号",
+  };
+  return map[value] || value || "";
+}
+
+function localizeModeratorConsensus(value) {
+  if (currentLanguage === "en") return value || "";
+  const map = {
+    conditional_progress: "有条件推进",
+    evidence_first: "证据优先",
+  };
+  return map[value] || value || "";
+}
+
+function localizeFeedbackImpact(value) {
+  if (currentLanguage === "en") return value || "";
+  const map = {
+    human_feedback_applied_to_panel_summary: "人工反馈已纳入委员会总结",
+    waiting_for_human_feedback: "等待人工反馈",
+  };
+  return map[value] || value || "";
 }
 
 function groupEvidenceGraphNodes(nodes) {
@@ -3571,14 +4279,13 @@ function renderOfferRunPanel(offerRun, labels) {
   return `<div class="offer-run-panel">
     <div>
       <strong>${escapeHtml(labels.offerRunTitle)}</strong>
-      <span>${escapeHtml(offerRun.lifecycle_state || "")} · ${escapeHtml(offerRun.version || "")}</span>
     </div>
     <div class="offer-lifecycle">
       ${steps.map((step) => `<span class="state-${escapeHtml(step.status)}">${escapeHtml(step.label)}</span>`).join("")}
     </div>
     <div class="offer-scenarios">
-      ${scenarios.map((scenario) => `<article>
-        <strong>${escapeHtml(scenario.name)}</strong>
+      ${scenarios.map((scenario) => `<article class="${escapeHtml(offerScenarioToneClass(scenario))}">
+        <strong>${escapeHtml(localizeOfferScenarioName(scenario.name))}</strong>
         <b>${escapeHtml(String(scenario.probability))}%</b>
         <span>${escapeHtml(scenario.assumption)}</span>
       </article>`).join("")}
@@ -3596,15 +4303,15 @@ function renderFeedbackDistillationPanel(distillation, labels) {
       ${
         actions.length
           ? actions.slice(0, 5).map((action) => `<article>
-              <span>${escapeHtml(action.type)}</span>
-              <strong>${escapeHtml(action.target_id || "")}</strong>
+              <span>${escapeHtml(localizeFeedbackActionType(action.type))}</span>
+              <strong>${escapeHtml(localizeFeedbackTarget(action.target_id))}</strong>
               <small>${escapeHtml(action.reason || "")}</small>
             </article>`).join("")
           : `<p>${escapeHtml(labels.noFeedbackActions)}</p>`
       }
     </div>
-    ${diffs.length ? `<div class="feedback-diff-list">${diffs.slice(0, 3).map((diff) => `<p><strong>${escapeHtml(diff.target)}</strong> ${escapeHtml(diff.before)} → ${escapeHtml(diff.after)}</p>`).join("")}</div>` : ""}
-    ${suggestions.length ? `<div class="skill-suggestion-list">${suggestions.slice(0, 4).map((item) => `<p><strong>${escapeHtml(item.skill_id)}</strong> ${escapeHtml(item.suggestion)} · ${escapeHtml(item.status)}</p>`).join("")}</div>` : ""}
+    ${diffs.length ? `<div class="feedback-diff-list">${diffs.slice(0, 3).map((diff) => `<p><strong>${escapeHtml(localizeFeedbackTarget(diff.target))}</strong> ${escapeHtml(diff.before)} → ${escapeHtml(diff.after)}</p>`).join("")}</div>` : ""}
+    ${suggestions.length ? `<div class="skill-suggestion-list">${suggestions.slice(0, 4).map((item) => `<p><strong>${escapeHtml(localizeSkillId(item.skill_id))}</strong> ${escapeHtml(item.suggestion)} · ${escapeHtml(localizeFeedbackStatus(item.status))}</p>`).join("")}</div>` : ""}
   </div>`;
 }
 
@@ -3626,9 +4333,10 @@ function detectEvidenceGraphGaps(graph) {
 
 function renderEvidenceGraphGaps(gaps, labels) {
   const items = gaps.length
-    ? gaps.map((node) => `<button class="evidence-gap-item" type="button" data-gap-node-id="${escapeHtml(node.id)}">
+    ? gaps.slice(0, 3).map((node) => `<button class="evidence-gap-item" type="button" data-gap-node-id="${escapeHtml(node.id)}">
+        <span class="gap-card-type">${escapeHtml(typeLabel(node.type))}</span>
         <strong>${escapeHtml(node.label)}</strong>
-        <span>${escapeHtml(typeLabel(node.type))} · ${escapeHtml(clip(node.summary || ""))}</span>
+        <span class="gap-card-summary">${escapeHtml(clip(node.summary || ""))}</span>
         <em>${escapeHtml(labels.gapAction)}</em>
       </button>`).join("")
     : `<p>${escapeHtml(labels.gapEmpty)}</p>`;
@@ -3639,23 +4347,44 @@ function renderEvidenceGraphGaps(gaps, labels) {
 }
 
 function renderEvidenceGraphColumn(title, nodes) {
-  return `<div class="evidence-graph-column">
-    <strong>${escapeHtml(title)}</strong>
+  return `<section class="evidence-graph-column">
+    <h4>${escapeHtml(title)}</h4>
     <div class="graph-node-list">
       ${nodes.map(renderEvidenceGraphNode).join("") || `<p class="graph-node-empty">${currentLanguage === "en" ? "No nodes" : "暂无节点"}</p>`}
     </div>
-  </div>`;
+  </section>`;
 }
 
 function renderEvidenceGraphNode(node) {
   const meta = node.metadata || {};
   const badge = meta.evidence_level_label || meta.severity || meta.adoption_status || node.type;
+  const badgeTone = riskToneClass(badge);
   return `<button class="graph-node type-${escapeHtml(node.type)}" type="button" data-node-id="${escapeHtml(node.id)}" data-node-type="${escapeHtml(node.type)}">
     <span>${escapeHtml(typeLabel(node.type))}</span>
     <strong>${escapeHtml(node.label)}</strong>
     <small>${escapeHtml(clip(node.summary || ""))}</small>
-    <em>${escapeHtml(String(badge || ""))}</em>
+    <em class="${escapeHtml(badgeTone)}">${escapeHtml(String(badge || ""))}</em>
   </button>`;
+}
+
+function renderEvidenceGraphTextRelations(edges, nodesById, labels) {
+  const title = currentLanguage === "en" ? "Relations" : "文字关系";
+  const empty = currentLanguage === "en" ? "No relations yet." : "暂无关系。";
+  const rows = (edges || []).slice(0, 18).map((edge) => {
+    const from = nodesById.get(edge.from);
+    const to = nodesById.get(edge.to);
+    const confidence = edge.confidence ?? edge.weight ?? 0;
+    return `<button class="graph-relation-line" type="button" data-relation-from="${escapeHtml(edge.from)}" data-relation-to="${escapeHtml(edge.to)}">
+      <strong>${escapeHtml(from?.label || edge.from)}</strong>
+      <span>${escapeHtml(localizeGraphEdgeType(edge.type))}</span>
+      <strong>${escapeHtml(to?.label || edge.to)}</strong>
+      <em>${escapeHtml(labels.edgeMeta)} ${(confidence * 100).toFixed(0)}% · ${escapeHtml(localizeGraphSource(edge.source))}</em>
+    </button>`;
+  }).join("");
+  return `<section class="evidence-graph-relations">
+    <h4>${escapeHtml(title)}</h4>
+    <div>${rows || `<p>${escapeHtml(empty)}</p>`}</div>
+  </section>`;
 }
 
 function typeLabel(type) {
@@ -3682,33 +4411,29 @@ function typeLabel(type) {
 }
 
 function renderEvidenceGraphDetail(node, edges, nodesById) {
-  const detailEl = evidenceGraphEl?.querySelector("#evidenceGraphDetail");
-  if (!detailEl) return;
   const labels = getEvidenceGraphLabels();
-  const related = edges
-    .filter((edge) => edge.from === node.id || edge.to === node.id)
-    .slice(0, 8)
-    .map((edge) => {
-      const otherId = edge.from === node.id ? edge.to : edge.from;
-      const other = nodesById.get(otherId);
-      const confidence = edge.confidence ?? edge.weight ?? 0;
-      return `<li><strong>${escapeHtml(edge.type)}</strong> ${escapeHtml(other?.label || otherId)}<br><span>${escapeHtml(edge.note || "")}</span><em>${escapeHtml(labels.edgeMeta)} ${(confidence * 100).toFixed(0)}% · ${escapeHtml(edge.source || "")}</em></li>`;
-    })
-    .join("");
-  const metadata = node.metadata ? Object.entries(node.metadata).slice(0, 6) : [];
-  const anchor = node.metadata?.report_anchor;
-  detailEl.innerHTML = `<strong>${escapeHtml(node.label)}</strong>
-    <p>${escapeHtml(node.summary || "")}</p>
-    ${anchor ? `<button class="graph-report-link" type="button" data-report-anchor="${escapeHtml(anchor)}">${escapeHtml(labels.reportAnchor)}：${escapeHtml(anchor)}</button>` : ""}
-    ${metadata.length ? `<dl>${metadata.map(([key, value]) => `<dt>${escapeHtml(key)}</dt><dd>${escapeHtml(String(value))}</dd>`).join("")}</dl>` : ""}
-    ${related ? `<ul>${related}</ul>` : `<p>${currentLanguage === "en" ? "No linked edges." : "暂无关联关系。"}</p>`}`;
-  detailEl.querySelector(".graph-report-link")?.addEventListener("click", () => scrollReportToGraphNode(node));
+  const detailEl = evidenceGraphEl?.querySelector("#evidenceGraphDetail");
+  if (detailEl) {
+    detailEl.innerHTML = `<strong>${escapeHtml(node.label)}</strong>
+      <p>${escapeHtml(node.summary || "")}</p>
+      <button class="graph-report-link" type="button">${escapeHtml(currentLanguage === "en" ? "Open details" : "打开详情弹窗")}</button>`;
+    detailEl.querySelector(".graph-report-link")?.addEventListener("click", () => openGraphNodeDetail(node, edges, nodesById, labels));
+  }
+  openGraphNodeDetail(node, edges, nodesById, labels);
 }
 
 function scrollReportToGraphNode(node) {
   const anchor = node.metadata?.report_anchor || node.label;
-  const heading = findReportHeading(anchor);
-  const target = heading || findReportText(node.label) || findReportText(node.summary);
+  openReportAnchorDetail(anchor, node);
+}
+
+function scrollReportToAnchor(anchor, node = null) {
+  openReportAnchorDetail(anchor, node);
+}
+
+function focusReportAnchor(anchor, node = null) {
+  const heading = findReportHeading(anchor, node);
+  const target = heading || findReportText(node?.label) || findReportText(node?.summary);
   if (!target) return;
   reportEl.querySelectorAll(".report-focus").forEach((item) => item.classList.remove("report-focus"));
   target.classList.add("report-focus");
@@ -3716,10 +4441,17 @@ function scrollReportToGraphNode(node) {
   window.setTimeout(() => target.classList.remove("report-focus"), 1800);
 }
 
-function findReportHeading(text) {
-  if (!text) return null;
-  const normalized = normalizeSearchText(text);
-  return Array.from(reportEl.querySelectorAll("h2, h3, h4")).find((element) => normalizeSearchText(element.textContent).includes(normalized));
+function findReportHeading(text, node = null) {
+  const candidates = resolveReportAnchorAliases(text, node);
+  if (!candidates.length) return null;
+  const headings = Array.from(reportEl.querySelectorAll("h2, h3, h4"));
+  return headings.find((element) => {
+    const headingText = normalizeSearchText(element.textContent);
+    return candidates.some((candidate) => {
+      const normalized = normalizeSearchText(candidate);
+      return normalized && (headingText.includes(normalized) || normalized.includes(headingText));
+    });
+  }) || null;
 }
 
 function findReportText(text) {
@@ -3730,34 +4462,391 @@ function findReportText(text) {
 }
 
 function normalizeSearchText(value) {
-  return String(value || "").replace(/\s+/g, "").toLowerCase();
+  return String(value || "")
+    .replace(/[（(][^）)]*[）)]/g, "")
+    .replace(/[\s#：:·.,，。;；、/\\|_\-—–"'“”‘’【】\[\]{}<>《》]/g, "")
+    .toLowerCase();
+}
+
+function resolveReportAnchorAliases(anchor, node = null) {
+  const raw = [
+    anchor,
+    node?.metadata?.report_anchor,
+    node?.label,
+    node?.type ? reportAnchorForNodeType(node.type) : "",
+  ].filter(Boolean);
+  const normalizedSet = new Set(raw.map((item) => normalizeSearchText(item)));
+  const zhAliases = [
+    ["一页摘要", "摘要", "虚拟面试委员会", "委员会总结", "主持人总结", "面试官一分钟速览"],
+    ["JD 隐性痛点解码", "JD痛点", "隐性痛点", "岗位痛点"],
+    ["项目匹配闸口", "匹配闸口", "闸口判断"],
+    ["岗位匹配", "角色匹配", "岗位要求", "JD要求"],
+    ["风险与待验证", "风险", "待验证", "风险验证"],
+    ["Offer 沙盘推演", "Offer推演", "Offer信号", "谈薪", "沙盘推演"],
+    ["必问追问", "追问问题", "Follow-up", "问题"],
+    ["面试官候选问题库", "面试官候选问题库（供挑选）", "问题库", "候选问题库", "interview_question"],
+    ["面试官决策辅助", "决策辅助", "推荐等级"],
+    ["面试官视角库", "视角库", "Skill", "技能"],
+    ["角色分化面试官模块", "角色分化", "agent_persona"],
+    ["证据链", "证据", "Evidence Chain", "resume_evidence"],
+    ["人工反馈建议", "人工反馈记录", "人工反馈", "反馈校准", "Human Feedback Calibration"],
+    ["动态校准指令", "动态校准", "FeedbackDistillation"],
+  ];
+  const enAliases = [
+    ["One-Page Summary", "Summary", "Virtual Interview Panel", "Moderator Summary"],
+    ["JD Hidden Pain Point Decoding", "Hidden Pain", "JD Pain"],
+    ["Project Match Gate", "Match Gate"],
+    ["Role Match", "JD Requirement", "Role Requirement"],
+    ["Risks and Validation Needed", "Risk", "Validation Needed"],
+    ["Offer Simulation", "Offer Signal", "Offer"],
+    ["Must-Ask Follow-Up Questions", "Follow-Up Questions", "Question"],
+    ["Interviewer Question Bank", "Question Bank", "interview_question"],
+    ["Interviewer Decision Support", "Decision Support"],
+    ["Interviewer Lens Library", "Lens Library", "Skill"],
+    ["Virtual Interview Panel", "Panel", "agent_persona"],
+    ["Evidence Chain", "Evidence", "resume_evidence"],
+    ["Human Feedback Suggestions", "Human Feedback", "Human Feedback Calibration"],
+    ["Dynamic Calibration Instruction", "Dynamic Calibration", "FeedbackDistillation"],
+  ];
+  const aliases = [...zhAliases, ...enAliases];
+  aliases.forEach((group) => {
+    const groupMatches = group.some((item) => {
+      const normalized = normalizeSearchText(item);
+      return normalizedSet.has(normalized) || Array.from(normalizedSet).some((rawValue) => rawValue.includes(normalized) || normalized.includes(rawValue));
+    });
+    if (groupMatches) group.forEach((item) => raw.push(item));
+  });
+  return Array.from(new Set(raw.filter(Boolean)));
+}
+
+function openGraphNodeDetail(node, edges = currentRun?.evidence_graph?.edges || [], nodesById = buildCurrentGraphNodeMap(), labels = getEvidenceGraphLabels()) {
+  if (!node) return;
+  const metadata = node.metadata ? Object.entries(node.metadata).slice(0, 8).map(([key, value]) => [localizeGraphMetadataKey(key), localizeGraphMetadataValue(key, value)]) : [];
+  const relatedEdges = edges.filter((edge) => edge.from === node.id || edge.to === node.id).slice(0, 8);
+  const anchor = node.metadata?.report_anchor;
+  const relatedHtml = relatedEdges.length
+    ? relatedEdges.map((edge) => {
+      const otherId = edge.from === node.id ? edge.to : edge.from;
+      const other = nodesById.get(otherId);
+      const confidence = edge.confidence ?? edge.weight ?? 0;
+      return `<button class="trace-detail-link" type="button" data-trace-node-id="${escapeHtml(otherId)}">
+        <span class="link-type">${escapeHtml(localizeGraphEdgeType(edge.type))}</span>
+        <span>${escapeHtml(other?.label || otherId)}</span>
+        <small>${escapeHtml(labels.edgeMeta)} ${(confidence * 100).toFixed(0)}% · ${escapeHtml(localizeGraphSource(edge.source))}</small>
+      </button>`;
+    }).join("")
+    : `<p>${escapeHtml(currentLanguage === "en" ? "No linked edges." : "暂无关联关系。")}</p>`;
+  openTraceDetailPanel({
+    meta: typeLabel(node.type),
+    title: node.label,
+    body: `<div class="trace-detail-section">
+        <div class="trace-detail-section-title">${escapeHtml(currentLanguage === "en" ? "Description" : "描述")}</div>
+        <p>${escapeHtml(node.summary || "")}</p>
+      </div>
+      ${metadata.length ? `<div class="trace-detail-section"><div class="trace-detail-section-title">${escapeHtml(currentLanguage === "en" ? "Metadata" : "元数据")}</div>${renderTraceDetailRows(metadata)}</div>` : ""}
+      <div class="trace-detail-section">
+        <div class="trace-detail-section-title">${escapeHtml(currentLanguage === "en" ? "Related nodes" : "关联节点")}</div>
+        ${relatedHtml}
+      </div>
+      ${anchor ? `<div class="trace-detail-section"><button class="trace-detail-action" type="button" data-trace-report-anchor="${escapeHtml(anchor)}">${escapeHtml(labels.reportAnchor)}：${escapeHtml(anchor)}</button></div>` : ""}`,
+  });
+}
+
+function openGraphRelationDetail(edge, nodesById = buildCurrentGraphNodeMap(), labels = getEvidenceGraphLabels()) {
+  const from = nodesById.get(edge.from);
+  const to = nodesById.get(edge.to);
+  const confidence = edge.confidence ?? edge.weight ?? 0;
+  openTraceDetailPanel({
+    meta: currentLanguage === "en" ? "Relation" : "关系",
+    title: `${from?.label || edge.from} → ${to?.label || edge.to}`,
+    body: `<div class="trace-detail-section">
+        <div class="trace-detail-section-title">${escapeHtml(currentLanguage === "en" ? "Relation type" : "关系类型")}</div>
+        <p>${escapeHtml(localizeGraphEdgeType(edge.type))}</p>
+      </div>
+      <div class="trace-detail-section">${renderTraceDetailRows([
+        [labels.edgeMeta, `${(confidence * 100).toFixed(0)}%`],
+        [currentLanguage === "en" ? "Source" : "来源", localizeGraphSource(edge.source)],
+      ])}</div>
+      <div class="trace-detail-section">
+        <div class="trace-detail-section-title">${escapeHtml(currentLanguage === "en" ? "Note" : "说明")}</div>
+        <p>${escapeHtml(edge.note || "")}</p>
+      </div>
+      <div class="trace-detail-section">
+        <button class="trace-detail-link" type="button" data-trace-node-id="${escapeHtml(edge.from)}"><span class="link-type">${escapeHtml(currentLanguage === "en" ? "From" : "来源")}</span><span>${escapeHtml(from?.label || edge.from)}</span></button>
+        <button class="trace-detail-link" type="button" data-trace-node-id="${escapeHtml(edge.to)}"><span class="link-type">${escapeHtml(currentLanguage === "en" ? "To" : "指向")}</span><span>${escapeHtml(to?.label || edge.to)}</span></button>
+      </div>`,
+  });
+}
+
+function openPanelMessageDetail(messageEl) {
+  openTraceDetailPanel({
+    meta: currentLanguage === "en" ? "Panel turn" : "委员发言",
+    title: messageEl.querySelector(".chat-meta strong")?.textContent || "",
+    body: `<div class="trace-detail-section">
+        <div class="trace-detail-section-title">${escapeHtml(currentLanguage === "en" ? "Role" : "角色")}</div>
+        <p>${escapeHtml(messageEl.querySelector(".chat-meta span")?.textContent || "")}</p>
+      </div>
+      <div class="trace-detail-section">
+        <div class="trace-detail-section-title">${escapeHtml(currentLanguage === "en" ? "Statement" : "发言")}</div>
+        <p>${escapeHtml(messageEl.querySelector(".chat-message > p")?.textContent || "")}</p>
+      </div>
+      <div class="trace-detail-section">
+        <div class="trace-detail-section-title">${escapeHtml(currentLanguage === "en" ? "Trace links" : "追溯入口")}</div>
+        ${messageEl.querySelector(".panel-trace-chips")?.innerHTML || `<p>${escapeHtml(currentLanguage === "en" ? "No trace links." : "暂无追溯入口。")}</p>`}
+      </div>`,
+  });
+}
+
+function openReportAnchorDetail(anchor, node = null) {
+  const heading = findReportHeading(anchor);
+  const target = heading || findReportText(node?.label) || findReportText(node?.summary);
+  const excerpt = target ? buildReportExcerpt(target) : (currentLanguage === "en" ? "No matching report section found." : "未找到匹配的报告段落。");
+  openTraceDetailPanel({
+    meta: currentLanguage === "en" ? "Report section" : "报告段落",
+    title: anchor || node?.label || (currentLanguage === "en" ? "Report" : "报告"),
+    body: `<div class="trace-detail-section">
+        <div class="trace-detail-section-title">${escapeHtml(currentLanguage === "en" ? "Excerpt" : "段落内容")}</div>
+        <p>${escapeHtml(excerpt)}</p>
+      </div>
+      ${target ? `<button class="trace-detail-action" type="button" data-focus-report-anchor="${escapeHtml(anchor || "")}">${escapeHtml(currentLanguage === "en" ? "Highlight in report" : "在报告中高亮")}</button>` : ""}`,
+  });
+}
+
+function openTraceDetailPanel({ meta = "", title = "", body = "" }) {
+  const panel = ensureTraceDetailPanel();
+  panel.querySelector(".trace-detail-meta").textContent = meta;
+  panel.querySelector(".trace-detail-title").textContent = title;
+  panel.querySelector(".trace-detail-body").innerHTML = body;
+  panel.classList.add("open");
+  panel.setAttribute("aria-hidden", "false");
+  bindTraceDetailActions(panel);
+}
+
+function ensureTraceDetailPanel() {
+  if (traceDetailPanelEl) return traceDetailPanelEl;
+  traceDetailPanelEl = document.createElement("aside");
+  traceDetailPanelEl.className = "trace-detail-panel";
+  traceDetailPanelEl.setAttribute("aria-hidden", "true");
+  traceDetailPanelEl.innerHTML = `<div class="trace-detail-header">
+      <div>
+        <div class="trace-detail-meta"></div>
+        <div class="trace-detail-title"></div>
+      </div>
+      <button class="trace-detail-close" type="button" aria-label="Close">×</button>
+    </div>
+    <div class="trace-detail-body"></div>`;
+  document.body.appendChild(traceDetailPanelEl);
+  traceDetailPanelEl.querySelector(".trace-detail-close")?.addEventListener("click", closeTraceDetailPanel);
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeTraceDetailPanel();
+  });
+  return traceDetailPanelEl;
+}
+
+function closeTraceDetailPanel() {
+  traceDetailPanelEl?.classList.remove("open");
+  traceDetailPanelEl?.setAttribute("aria-hidden", "true");
+}
+
+function bindTraceDetailActions(panel) {
+  panel.querySelectorAll("[data-trace-node-id]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const node = findGraphNodeById(button.dataset.traceNodeId);
+      if (node) openGraphNodeDetail(node);
+    });
+  });
+  panel.querySelectorAll("[data-trace-report-anchor]").forEach((button) => {
+    button.addEventListener("click", () => openReportAnchorDetail(button.dataset.traceReportAnchor));
+  });
+  panel.querySelectorAll("[data-focus-report-anchor]").forEach((button) => {
+    button.addEventListener("click", () => focusReportAnchor(button.dataset.focusReportAnchor));
+  });
+}
+
+function renderTraceDetailRows(rows) {
+  return `<dl class="trace-detail-rows">${rows.map(([key, value]) => {
+    const label = localizeGraphMetadataKey(String(key));
+    return `<dt>${escapeHtml(label)}</dt><dd class="${escapeHtml(riskToneClass(value))}">${escapeHtml(String(value ?? ""))}</dd>`;
+  }).join("")}</dl>`;
+}
+
+function localizeGraphMetadataKey(key) {
+  if (currentLanguage === "en") {
+    const enMap = {
+      version: "Version",
+      lens: "Interviewer role",
+      adoption_status: "Adoption status",
+      evidence_reason: "Evidence reason",
+      match_status: "Match status",
+      report_anchor: "Report anchor",
+      source: "Source",
+      source_type: "Source type",
+      source_excerpt: "Source excerpt",
+      evidence_level: "Evidence level",
+      evidence_level_label: "Evidence level",
+      verification_question: "Verification question",
+      capability: "Capability",
+      role_id: "Role type",
+      role_label: "Role",
+      skill_id: "Skill",
+      stance: "Stance",
+      influence_weight: "Influence weight",
+      activity_level: "Activity level",
+    };
+    return enMap[key] || key;
+  }
+  const map = {
+    version: "版本",
+    lens: "面试官角色",
+    adoption_status: "采用状态",
+    evidence_reason: "证据原因",
+    match_status: "匹配状态",
+    report_anchor: "报告定位",
+    source: "来源",
+    source_type: "来源类型",
+    source_excerpt: "来源摘录",
+    evidence_level: "证据等级",
+    evidence_level_label: "证据等级",
+    verification_question: "验证问题",
+    capability: "能力项",
+    role_id: "岗位类型",
+    role_label: "岗位",
+    skill_id: "技能",
+    stance: "立场",
+    influence_weight: "影响权重",
+    activity_level: "活跃度",
+  };
+  return map[key] || key;
+}
+
+function localizeGraphMetadataValue(key, value) {
+  if (currentLanguage === "en") return value ?? "";
+  if (key === "source" || key === "source_type") return localizeGraphSource(value);
+  if (key === "report_anchor") return value || "";
+  if (key === "stance") return localizePanelStance(value);
+  if (key === "match_status") return value || "";
+  if (key === "lens") return localizeInterviewerLens(value);
+  if (key === "skill_id") return localizeSkillId(value);
+  if (key === "version") return localizeSkillVersion(value);
+  if (key === "adoption_status") return localizeAdoptionStatus(value);
+  return value ?? "";
+}
+
+function localizeGraphEdgeType(type) {
+  if (currentLanguage === "en") return type || "";
+  const map = {
+    supports: "支持",
+    contradicts: "缺证 / 矛盾",
+    validates: "验证",
+    questions: "追问",
+    impacts_offer: "影响 Offer",
+    reads_memory: "读取记忆",
+    updates: "更新",
+    challenges: "质疑",
+    references: "引用",
+    discusses: "讨论",
+    generates: "生成",
+  };
+  return map[type] || type || "";
+}
+
+function localizeSkillVersion(value) {
+  const text = String(value || "");
+  const match = text.match(/^skill\.([a-z_]+)\.v(\d+)$/i);
+  if (!match) return text;
+  const [, skillId, version] = match;
+  return `${localizeSkillId(skillId)} v${version}`;
+}
+
+function localizeInterviewerLens(value) {
+  if (currentLanguage === "en") return value || "";
+  const map = {
+    "HR Interviewer": "HR 面试官",
+    "Business Owner": "业务负责人",
+    "Product Owner": "产品负责人",
+    "Project Interviewer": "项目推进面试官",
+    "Technical Architect": "技术架构面试官",
+    "Customer Solution": "客户方案面试官",
+    "Anti-packaging Validator": "反包装验证官",
+    "Executive Pressure Officer": "决策层压力官",
+    hr: "HR 面试官",
+    business: "业务负责人",
+    product: "产品负责人",
+    project: "项目推进面试官",
+    technical: "技术架构面试官",
+    solution: "客户方案面试官",
+    decision: "决策层压力官",
+    negotiation: "谈薪顾问",
+  };
+  return map[value] || value || "";
+}
+
+function localizeAdoptionStatus(value) {
+  if (currentLanguage === "en") return value || "";
+  const map = {
+    selected: "已选择",
+    auto_selected: "自动选择",
+    adopted: "已采用",
+    keep: "保留",
+    rewrite: "改写采用",
+    downgrade: "降权",
+    delete: "删除",
+    pending: "待确认",
+    waiting_feedback: "等待人工反馈",
+    "未反馈": "未反馈",
+    "采用": "采用",
+    "改写采用": "改写采用",
+    "未采用": "未采用",
+  };
+  return map[value] || value || "";
+}
+
+function localizeGraphSource(source) {
+  if (currentLanguage === "en") return source || "";
+  const map = {
+    resume: "简历",
+    job_description: "岗位 JD",
+    company_context: "公司 / 面试上下文",
+    offer_constraints: "Offer / 谈薪约束",
+    missing_resume_evidence: "简历证据缺口",
+    resume_requirement_match: "简历与 JD 匹配",
+    generated_question_bank: "生成的问题库",
+    generated_interview_question: "生成的面试追问",
+    evidence_gap_detection: "证据缺口检测",
+    risk_rule: "风险规则",
+    offer_simulation_rule: "Offer 推演规则",
+    skill_registry: "技能库",
+    persona_generation: "虚拟角色生成",
+    mirofish_persona_generation: "MiroFish 角色生成",
+    virtual_panel_memory: "虚拟委员会记忆",
+    seed_extraction: "种子材料读取",
+    panel_simulation: "委员会讨论",
+    moderator_report: "主持人总结",
+    human_feedback: "人工反馈",
+  };
+  return map[source] || source || "";
+}
+
+function findGraphNodeById(nodeId) {
+  return currentRun?.evidence_graph?.nodes?.find((node) => node.id === nodeId) || null;
+}
+
+function buildCurrentGraphNodeMap() {
+  return new Map((currentRun?.evidence_graph?.nodes || []).map((node) => [node.id, node]));
+}
+
+function buildReportExcerpt(target) {
+  const pieces = [target.textContent || ""];
+  let sibling = target.nextElementSibling;
+  while (sibling && pieces.join(" ").length < 360 && !["H2", "H3"].includes(sibling.tagName)) {
+    pieces.push(sibling.textContent || "");
+    sibling = sibling.nextElementSibling;
+  }
+  return clip(pieces.join(" ").replace(/\s+/g, " ").trim(), 420);
 }
 
 function drawEvidenceGraphEdges(edges) {
-  if (!evidenceGraphEl) return;
-  const svg = evidenceGraphEl.querySelector(".evidence-graph-lines");
-  const canvas = evidenceGraphEl.querySelector(".evidence-graph-canvas");
-  if (!svg || !canvas) return;
-  const canvasRect = canvas.getBoundingClientRect();
-  svg.setAttribute("viewBox", `0 0 ${canvasRect.width} ${canvasRect.height}`);
-  svg.innerHTML = edges
-    .map((edge) => {
-      const fromEl = evidenceGraphEl.querySelector(`[data-node-id="${cssEscape(edge.from)}"]`);
-      const toEl = evidenceGraphEl.querySelector(`[data-node-id="${cssEscape(edge.to)}"]`);
-      if (!fromEl || !toEl) return "";
-      const from = fromEl.getBoundingClientRect();
-      const to = toEl.getBoundingClientRect();
-      const x1 = from.right - canvasRect.left;
-      const y1 = from.top + from.height / 2 - canvasRect.top;
-      const x2 = to.left - canvasRect.left;
-      const y2 = to.top + to.height / 2 - canvasRect.top;
-      const mid = Math.max(30, Math.abs(x2 - x1) / 2);
-      const confidence = edge.confidence ?? edge.weight ?? 0.5;
-      const width = 1 + confidence * 2.4;
-      const opacity = 0.25 + confidence * 0.65;
-      return `<path class="edge-${escapeHtml(edge.type)}" style="stroke-width:${width};opacity:${opacity}" d="M ${x1} ${y1} C ${x1 + mid} ${y1}, ${x2 - mid} ${y2}, ${x2} ${y2}" />`;
-    })
-    .join("");
+  return edges;
 }
 
 function cssEscape(value) {
@@ -3870,10 +4959,27 @@ function parseMarkdownTableCells(line) {
 }
 
 function cellToneClass(value) {
-  if (/不匹配|低匹配|明显缺口|缺少|未体现|淘汰|不推进|风险/.test(value)) return "tone-risk";
-  if (/部分匹配|中等匹配|待验证|待补|证据不足|不确定/.test(value)) return "tone-warn";
-  if (/高匹配|匹配|进入下一轮|有项目证据|有相关证据|已匹配/.test(value)) return "tone-good";
+  return riskToneClass(value);
+}
+
+function riskToneClass(value) {
+  const text = String(value ?? "");
+  if (!text.trim()) return "";
+  if (/已推翻|风险被推翻|无风险|低风险|低可信风险已排除|推荐录用|推荐$|强匹配|高匹配|进入下一轮|可进入|可继续|已匹配|有项目证据|有相关证据|一级证据|高可信|Level 1|low risk|risk disproved|recommend|strong match|high credibility|proceed/i.test(text)) return "tone-good";
+  if (/不推荐|不匹配|低匹配|明显缺口|缺少|未体现|淘汰|不推进|暂不进入|暂停|阻断|高风险|风险被证实|已证实|缺证|低可信|三级证据|Level 3|do not recommend|not matched|high risk|confirmed risk|evidence gap|low credibility|pause/i.test(text)) return "tone-risk";
+  if (/有条件|部分匹配|中等匹配|中风险|待验证|仍待验证|待补|证据不足|不确定|部分验证|未反馈|中可信|二级证据|Level 2|conditional|partial|medium risk|pending|uncertain|medium credibility/i.test(text)) return "tone-warn";
+  if (/风险|risk/i.test(text)) return "tone-warn";
+  if (/匹配|通过|验证通过|支持|valid|support/i.test(text)) return "tone-good";
   return "";
+}
+
+function offerScenarioToneClass(scenario) {
+  const probability = Number(scenario?.probability ?? 0);
+  const name = String(scenario?.name || "");
+  const assumption = String(scenario?.assumption || "");
+  if (/conservative|保守|风险被证实|未能补证|后置暴露/i.test(`${name} ${assumption}`) || probability < 40) return "tone-risk-card";
+  if (/optimistic|乐观|验证通过|升级/i.test(`${name} ${assumption}`) || probability >= 70) return "tone-good-card";
+  return "tone-warn-card";
 }
 
 function reportToStaticHtmlDocument(run, audience = "full", options = {}) {
@@ -5207,14 +6313,6 @@ function buildAudienceMarkdown(run, audience) {
       .join("\n\n");
     return `# 候选人面试准备报告
 
-## 三秒结论
-
-${buildCandidateThreeSecondSummary(snapshot)}
-
-## 差异化优势
-
-${buildCandidateAdvantageCards(snapshot)}
-
 ## 招聘岗位分析
 
 ${buildConcreteJobAnalysis(snapshot)}
@@ -5263,20 +6361,6 @@ ${buildHumanFeedbackMarkdown(run)}`;
       .filter(hasSubstantiveSection)
       .join("\n\n");
     return `# 面试官提问辅助报告
-
-## 一分钟决策结论
-
-| 决策问题 | 当前判断 | 证据 | 面试动作 |
-| --- | --- | --- | --- |
-| 推荐等级 | ${recommendation.level} | ${gate.summary} | ${recommendation.action} |
-| 能不能干活 | ${gate.matchedCount >= 4 ? "有较强可能，但需复核真实贡献" : gate.matchedCount >= 2 ? "可能能做相邻场景，需要验证迁移边界" : "当前证据不足"} | JD 证据：${jdEvidence}；简历证据：${resumeEvidence} | 追问最强项目的需求判断、方案取舍、研发协同、上线复盘 |
-| 水分有多少 | ${directConclusion.hasMissing ? "存在缺证或包装风险" : "表面完整但仍需反包装验证"} | ${directConclusion.points} | 要求现场还原指标口径、个人动作、失败细节和决策链 |
-| 是否适配团队 | 待验证 | 公司 / 面试上下文：${snapshot.company_context ? clip(snapshot.company_context) : "未提供"} | 追问冲突处理、资源协调、节奏适应和升级机制 |
-| Offer 接受概率 | ${offerLeverage.rating} / 待验证 | ${offerLeverage.detail} | 面试后更新薪资期望、竞对 Offer、到岗时间和职级偏好 |
-
-## 面试官一分钟速览
-
-${buildInterviewerQuickBrief(snapshot)}
 
 ## 简历初评
 
@@ -5356,14 +6440,6 @@ function buildAudienceMarkdownEn(run, audience) {
 
     return `# Candidate Interview Preparation Report
 
-## Three-Second Conclusion
-
-| Item | Conclusion | Evidence | Next Step |
-| --- | --- | --- | --- |
-| Gate | ${translateGateResult(gate.result)} | ${gate.matchedCount} core evidence items found | ${gate.enterSandbox ? "Proceed with validation questions." : "Request stronger project-loop evidence first."} |
-| Main risk | Contribution boundary and metric definitions need validation | Resume: ${snapshot.resume ? clip(snapshot.resume) : "Not provided"} | Prepare denominator, period, before/after comparison, personal action, and retrospective. |
-| Offer leverage | ${translateOfferRating(offerLeverage.rating)} | ${offerLeverage.summary} | Convert only verified impact into negotiation leverage. |
-
 ${body || report}
 
 ${buildHumanFeedbackMarkdown(run)}`;
@@ -5378,14 +6454,6 @@ ${buildHumanFeedbackMarkdown(run)}`;
     ].filter(hasSubstantiveSection).join("\n\n");
 
     return `# Interviewer Question Guide
-
-## One-Minute Decision Brief
-
-| Decision Item | Current Judgment | Evidence | Interview Action |
-| --- | --- | --- | --- |
-| Recommendation | ${gate.enterSandbox ? "Conditional proceed" : "Pause / do not proceed"} | ${gate.matchedCount} matched requirement evidence items | Validate personal contribution, metric definitions, failure detail, and decision ownership. |
-| Can this person do the job? | ${gate.matchedCount >= 4 ? "Likely, but verify true ownership" : gate.matchedCount >= 2 ? "Possible adjacent fit, verify transfer boundary" : "Evidence is insufficient"} | Resume: ${snapshot.resume ? clip(snapshot.resume) : "Not provided"} | Ask for a complete project loop and anti-packaging details. |
-| Offer risk | ${translateOfferRating(offerLeverage.rating)} | ${offerLeverage.summary} | Update competing offers, start date, level expectation, and compensation constraints after interview. |
 
 ${buildVirtualPanelMarkdown(run)}
 
@@ -5403,16 +6471,17 @@ function buildVirtualPanelMarkdown(run) {
   const summary = run.moderator_summary || {};
   if (!panel.length) return "";
   const panelRows = panel
-    .map((agent) => `| ${agent.name} | ${agent.stance} | ${agent.influence_weight} | ${agent.focus} |`)
+    .map((agent) => `| ${agent.name} | ${localizePanelStance(agent.stance)} | ${agent.influence_weight} | ${agent.focus} |`)
     .join("\n");
   const turnRows = rounds
     .flatMap((round) => (round.turns || []).slice(0, 3).map((turn) => {
       const agent = panel.find((item) => item.id === turn.agent_id);
-      return `| ${round.stage} | ${agent?.name || turn.agent_id} | ${turn.impact} | ${turn.claim} |`;
+      return `| ${localizePanelStage(round.stage)} | ${agent?.name || turn.agent_id} | ${localizePanelImpact(turn.impact)} | ${localizePanelClaim(turn.claim)} |`;
     }))
     .slice(0, 8)
     .join("\n");
-  return `## Virtual Interview Panel
+  if (currentLanguage === "en") {
+    return `## Virtual Interview Panel
 
 | Persona | Stance | Influence | Focus |
 | --- | --- | --- | --- |
@@ -5429,6 +6498,25 @@ ${turnRows}
 | Final recommendation | ${summary.final_recommendation || ""} |
 | Offer impact | ${summary.offer_impact || ""} |
 | Feedback impact | ${summary.feedback_impact || ""} |`;
+  }
+
+  return `## 虚拟面试委员会
+
+| 委员角色 | 立场 | 影响权重 | 关注点 |
+| --- | --- | --- | --- |
+${panelRows}
+
+| 轮次 | 委员角色 | 影响 | 发言 |
+| --- | --- | --- | --- |
+${turnRows}
+
+| 主持人总结 | 内容 |
+| --- | --- |
+| 共识 | ${localizeModeratorConsensus(summary.consensus)} |
+| 主导委员 | ${panel.find((agent) => agent.id === summary.lead_agent_id)?.name || summary.lead_agent_id || ""} |
+| 最终建议 | ${localizePanelClaim(summary.final_recommendation || "")} |
+| Offer 影响 | ${summary.offer_impact || ""} |
+| 反馈影响 | ${localizeFeedbackImpact(summary.feedback_impact)} |`;
 }
 
 function buildOfferSandboxMarkdownEn(run) {
@@ -5827,6 +6915,61 @@ function buildCandidateThreeSecondSummary(snapshot) {
 | 谈薪 / 动机 | ${offerLeverage.rating}：${offerLeverage.summary} | 把期望绑定到职责完整度、可量化贡献、到岗确定性 |`;
 }
 
+function buildInterviewerThreeSecondSummary(snapshot) {
+  const rows = buildRequirementEvidenceRows(snapshot);
+  const gate = buildGateAssessment(snapshot, rows);
+  const offerLeverage = buildOfferLeverage(snapshot);
+  const directConclusion = buildDirectConclusion(snapshot);
+  const recommendation = buildInterviewerRecommendation(gate);
+  const matchedRows = rows.filter((row) => !row.isMissing);
+  const missingRows = rows.filter((row) => row.isMissing);
+  const topQuestion = (missingRows[0] || rows.find((row) => row.evidenceLevel >= 2) || rows[0])?.verificationQuestion || "请先围绕最强项目还原个人贡献、指标口径和失败复盘。";
+  if (currentLanguage === "en") {
+    return `| Review item | Interviewer judgment | Action |
+| --- | --- | --- |
+| Recommendation | ${translateInterviewerRecommendation(recommendation.level)} | ${translateInterviewerAction(recommendation.action)} |
+| Role evidence | ${matchedRows.length}/${rows.length} requirements have resume anchors | Start from the strongest project, then verify missing or weak evidence. |
+| Key risk | ${directConclusion.hasMissing ? "Evidence gaps or packaging risk remain." : "Surface fit still needs anti-packaging validation."} | Ask for ownership boundary, metric definition, failure detail, and decision chain. |
+| Priority question | ${translateVerificationQuestionText(topQuestion)} | Use it as the first deep-dive question before moving to offer discussion. |
+| Offer impact | ${translateOfferRating(offerLeverage.rating)}: ${offerLeverage.summary} | Do not price or push the offer before evidence credibility is updated. |`;
+  }
+  return `| 速览项 | 面试官判断 | 面试动作 |
+| --- | --- | --- |
+| 推荐结论 | ${recommendation.level} | ${recommendation.action} |
+| 岗位证据 | 已匹配 ${matchedRows.length}/${rows.length} 项 JD 要求 | 先从最强项目深挖，再验证缺证或弱证据 |
+| 主要风险 | ${directConclusion.hasMissing ? "存在缺证或包装风险" : "表面匹配，但仍需反包装验证"} | 追问个人边界、指标口径、失败细节和决策链 |
+| 优先追问 | ${topQuestion} | 作为第一轮深挖问题，回答不清则暂缓进入 Offer 判断 |
+| Offer 影响 | ${offerLeverage.rating}：${offerLeverage.summary} | 证据可信度未更新前，不建议提前定价或强推进 |`;
+}
+
+function buildInterviewerOneMinuteDecisionBrief(snapshot) {
+  const rows = buildRequirementEvidenceRows(snapshot);
+  const gate = buildGateAssessment(snapshot, rows);
+  const offerLeverage = buildOfferLeverage(snapshot);
+  const directConclusion = buildDirectConclusion(snapshot);
+  const recommendation = buildInterviewerRecommendation(gate);
+  const resumeEvidence = snapshot.resume ? clip(snapshot.resume) : "未提供简历快照";
+  const jdEvidence = snapshot.job_description ? clip(snapshot.job_description) : "未提供 JD 快照";
+
+  if (currentLanguage === "en") {
+    return `| Decision Item | Current Judgment | Evidence | Interview Action |
+| --- | --- | --- | --- |
+| Recommendation | ${translateInterviewerRecommendation(recommendation.level)} | ${gate.matchedCount} matched requirement evidence items | ${translateInterviewerAction(recommendation.action)} |
+| Can this person do the job? | ${gate.matchedCount >= 4 ? "Likely, but verify true ownership" : gate.matchedCount >= 2 ? "Possible adjacent fit; verify transfer boundary" : "Evidence is insufficient"} | Resume: ${snapshot.resume ? clip(snapshot.resume) : "Not provided"} | Ask for a complete project loop, trade-offs, engineering collaboration, launch result, and anti-packaging details. |
+| Packaging risk | ${directConclusion.hasMissing ? "Evidence gaps or packaging risk remain" : "Surface fit still needs anti-packaging validation"} | ${translateDirectConclusionPoints(directConclusion.points)} | Ask for metric definitions, personal actions, failure details, and decision chain. |
+| Team fit | Pending validation | Context: ${snapshot.company_context ? clip(snapshot.company_context) : "Not provided"} | Validate conflict handling, resource coordination, operating cadence, and escalation style. |
+| Offer acceptance | ${translateOfferRating(offerLeverage.rating)} / pending | ${offerLeverage.detail} | Update compensation expectation, competing offers, start date, and level preference after interview. |`;
+  }
+
+  return `| 决策问题 | 当前判断 | 证据 | 面试动作 |
+| --- | --- | --- | --- |
+| 推荐等级 | ${recommendation.level} | ${gate.summary} | ${recommendation.action} |
+| 能不能干活 | ${gate.matchedCount >= 4 ? "有较强可能，但需复核真实贡献" : gate.matchedCount >= 2 ? "可能能做相邻场景，需要验证迁移边界" : "当前证据不足"} | JD 证据：${jdEvidence}；简历证据：${resumeEvidence} | 追问最强项目的需求判断、方案取舍、研发协同、上线复盘 |
+| 水分有多少 | ${directConclusion.hasMissing ? "存在缺证或包装风险" : "表面完整但仍需反包装验证"} | ${directConclusion.points} | 要求现场还原指标口径、个人动作、失败细节和决策链 |
+| 是否适配团队 | 待验证 | 公司 / 面试上下文：${snapshot.company_context ? clip(snapshot.company_context) : "未提供"} | 追问冲突处理、资源协调、节奏适应和升级机制 |
+| Offer 接受概率 | ${offerLeverage.rating} / 待验证 | ${offerLeverage.detail} | 面试后更新薪资期望、竞对 Offer、到岗时间和职级偏好 |`;
+}
+
 function buildCandidateAdvantageCards(snapshot) {
   const rows = buildRequirementEvidenceRows(snapshot);
   const matchedRows = rows.filter((row) => !row.isMissing).slice(0, 3);
@@ -5842,6 +6985,74 @@ ${sourceRows.map((row, index) => {
     : "避免只讲团队成果，必须说清本人动作、决策权和结果归因";
   return `| ${row.capability} | ${row.resumeEvidence} | ${intro} | ${risk} |`;
 }).join("\n")}`;
+}
+
+function buildInterviewerAdvantageCards(snapshot) {
+  const rows = buildRequirementEvidenceRows(snapshot);
+  const matchedRows = rows.filter((row) => !row.isMissing).slice(0, 3);
+  const sourceRows = matchedRows.length ? matchedRows : rows.slice(0, 3);
+  if (currentLanguage === "en") {
+    return `| Decision signal | Evidence anchor | How to verify | Hiring implication |
+| --- | --- | --- | --- |
+${sourceRows.map((row, index) => {
+  const capability = translateCapability(row.capability);
+  const evidence = row.resumeEvidence || "No explicit resume evidence yet";
+  const verify = row.isMissing
+    ? "Ask the candidate to provide a concrete project before treating it as a strength."
+    : "Force timeline, personal deliverable, metric definition, and attribution boundary.";
+  const implication = index === 0
+    ? "Use this as the first deep-dive path and decide whether the candidate deserves the next round."
+    : "Use it as supporting evidence only after the main project passes verification.";
+  return `| ${capability} | ${evidence} | ${verify} | ${implication} |`;
+}).join("\n")}`;
+  }
+  return `| 决策信号 | 证据锚点 | 面试官如何验证 | 录用判断影响 |
+| --- | --- | --- | --- |
+${sourceRows.map((row, index) => {
+  const verify = row.isMissing
+    ? "先要求候选人补一个具体项目，不能直接当作优势"
+    : "现场还原时间线、个人交付物、指标口径和归因边界";
+  const implication = index === 0
+    ? "作为第一条深挖路径，决定是否值得进入下一轮"
+    : "作为辅助证据，必须等主项目验证通过后再加权";
+  return `| ${row.capability} | ${row.resumeEvidence} | ${verify} | ${implication} |`;
+}).join("\n")}`;
+}
+
+function translateInterviewerRecommendation(value) {
+  if (value === "推荐") return "Recommend";
+  if (value === "有条件推荐") return "Conditional recommend";
+  if (value === "不推荐") return "Do not recommend";
+  return value || "Pending";
+}
+
+function translateInterviewerAction(value) {
+  return String(value || "")
+    .replace("进入下一轮，但必须验证真实贡献、指标口径、失败复盘和团队适配", "Proceed to the next round, but verify real contribution, metric definition, incident review, and team fit.")
+    .replace("只围绕可迁移能力推进，重点验证行业理解速度、场景抽象和项目复杂度", "Proceed only around transferable capability; validate industry learning speed, scenario abstraction, and project complexity.")
+    .replace("暂不进入下一轮，先要求补充能支撑 JD 核心职责的完整项目证据", "Do not proceed yet; request complete project evidence that supports the JD's core responsibilities.");
+}
+
+function translateDirectConclusionPoints(value) {
+  return String(value || "")
+    .replaceAll("：", ": ")
+    .replaceAll("；", "; ")
+    .replaceAll("简历未提供可支撑证据", "resume does not provide supporting evidence")
+    .replaceAll("一级证据（高可信）", "Level 1 evidence (high credibility)")
+    .replaceAll("二级证据（中可信）", "Level 2 evidence (medium credibility)")
+    .replaceAll("三级证据（低可信 / 待验证）", "Level 3 evidence (low credibility / pending validation)")
+    .replaceAll("需验证真实贡献", "true contribution needs validation");
+}
+
+function translateVerificationQuestionText(value) {
+  return String(value || "")
+    .replace("请", "Please ")
+    .replace("围绕", "focus on ")
+    .replace("最强项目", "the strongest project")
+    .replace("还原", " and reconstruct ")
+    .replace("个人贡献", "personal contribution")
+    .replace("指标口径", "metric definition")
+    .replace("失败复盘", "failure retrospective");
 }
 
 function buildAbilityTransferAnalysis(snapshot) {
@@ -6787,10 +7998,124 @@ function translateEvidenceLevel(level) {
 }
 
 function translateMatchStatus(row) {
-  if (row.isMissing) return "Not matched / evidence missing";
-  if (row.evidenceLevel === 1) return "Matched, verify metric definition";
-  if (row.evidenceLevel === 2) return "Partially matched / follow-up required";
+  const isMissing = row.isMissing ?? row.is_missing;
+  const evidenceLevel = row.evidenceLevel ?? row.evidence_level;
+  if (isMissing) return "Not matched / evidence missing";
+  if (evidenceLevel === 1) return "Matched, verify metric definition";
+  if (evidenceLevel === 2) return "Partially matched / follow-up required";
   return "Pending validation";
+}
+
+function localizeOfferLifecycleState(value) {
+  return localizeEnumValue(value, {
+    zh: {
+      feedback_distilled: "反馈已沉淀",
+      offer_probability: "Offer 概率",
+      evidence_validation: "证据验证",
+    },
+    en: {
+      feedback_distilled: "Feedback distilled",
+      offer_probability: "Offer probability",
+      evidence_validation: "Evidence validation",
+    },
+  });
+}
+
+function localizeOfferScenarioName(value) {
+  return localizeEnumValue(value, {
+    zh: {
+      Base: "基准",
+      Optimistic: "乐观",
+      Conservative: "保守",
+    },
+    en: {
+      Base: "Base",
+      Optimistic: "Optimistic",
+      Conservative: "Conservative",
+    },
+  });
+}
+
+function localizeFeedbackActionType(value) {
+  return localizeEnumValue(value, {
+    zh: {
+      promote_question: "升级问题",
+      demote_question: "降权问题",
+      raise_risk_weight: "提高风险权重",
+      lower_risk_weight: "降低风险权重",
+      downgrade_claim: "降级结论",
+      add_regression_case: "加入回归样本",
+    },
+    en: {
+      promote_question: "Promote question",
+      demote_question: "Demote question",
+      raise_risk_weight: "Raise risk weight",
+      lower_risk_weight: "Lower risk weight",
+      downgrade_claim: "Downgrade claim",
+      add_regression_case: "Add regression case",
+    },
+  });
+}
+
+function localizeFeedbackTarget(value) {
+  return localizeEnumValue(value, {
+    zh: {
+      interview_questions: "面试问题",
+      "offer_simulation_run.risks": "Offer 风险",
+      evaluation_run: "评估运行",
+      evidence_graph: "证据图谱",
+    },
+    en: {
+      interview_questions: "Interview questions",
+      "offer_simulation_run.risks": "Offer risks",
+      evaluation_run: "Evaluation run",
+      evidence_graph: "Evidence graph",
+    },
+  });
+}
+
+function localizeSkillId(value) {
+  return localizeEnumValue(value, {
+    zh: {
+      hr: "HR 面试官",
+      business: "业务负责人",
+      project: "项目推进面试官",
+      negotiation: "谈薪顾问",
+      decision: "决策层压力官",
+    },
+    en: {
+      hr: "HR Interviewer",
+      business: "Business Owner",
+      project: "Project Interviewer",
+      negotiation: "Negotiation Advisor",
+      decision: "Executive Pressure Officer",
+    },
+  });
+}
+
+function localizeFeedbackStatus(value) {
+  return localizeEnumValue(value, {
+    zh: {
+      waiting_feedback: "等待人工反馈",
+      pending_review: "待复核",
+      pending_fix: "待修正",
+      pending_rewrite: "待重写",
+      pending_regression: "待加入回归",
+    },
+    en: {
+      waiting_feedback: "Waiting for feedback",
+      pending_review: "Pending review",
+      pending_fix: "Pending fix",
+      pending_rewrite: "Pending rewrite",
+      pending_regression: "Pending regression",
+    },
+  });
+}
+
+function localizeEnumValue(value, dictionaries) {
+  const text = value || "";
+  const dictionary = currentLanguage === "en" ? dictionaries.en : dictionaries.zh;
+  return dictionary[text] || text;
 }
 
 function translateGateResult(value) {

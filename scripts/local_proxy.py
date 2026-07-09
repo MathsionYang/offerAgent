@@ -9,7 +9,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-WEB_ROOT = ROOT / "apps" / "web"
+WEB_ROOT = ROOT / "apps" / "web2"
 
 
 def read_key_file(path):
