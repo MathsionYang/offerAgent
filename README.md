@@ -1,4 +1,4 @@
-﻿# OfferAgent 面试评估助手
+# OfferAgent 面试评估助手
 
 语言：中文 | [English](README.en.md)
 
@@ -186,7 +186,7 @@ OfferSimulationRun 已从报告段落升级为可回填的结构化状态。
 4. Skill Registry 仍是示例和前端运行结构，不是完整市场或插件系统。
 5. EvidenceGraph 是最小可用结构，不是持久化知识图谱数据库。
 6. 虚拟面试委员会是轻量规则驱动，不是完整多 Agent 仿真引擎。
-7. 当前实现集中在 `apps/web/app.js`，后续需要模块化。
+7. 已完成第一阶段前端模块化：`apps/web/src/domain-data.js` 承载岗位/样例/常量，`apps/web/src/run-cache.js` 承载输入指纹与缓存；`apps/web/app.js` 仍保留页面编排、报告、图谱、委员会和 PDF 主流程，后续继续拆分。
 
 ## 本地运行
 
@@ -211,6 +211,8 @@ http://localhost:5173
 ## 验证
 
 ```bash
+node --check apps/web/src/domain-data.js
+node --check apps/web/src/run-cache.js
 node --check apps/web/app.js
 python scripts/smoke_test.py
 git diff --check

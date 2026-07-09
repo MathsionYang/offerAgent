@@ -20,6 +20,8 @@ def static_checks():
         "candidate": web_root / "index.html",
         "interviewer": web_root / "index.html",
         "app": web_root / "app.js",
+        "domain_data": web_root / "src" / "domain-data.js",
+        "run_cache": web_root / "src" / "run-cache.js",
         "css": web_root / "styles.css",
         "readme": ROOT / "README.md",
         "prompt": ROOT / "prompts" / "product-manager-interview-prep.md",
@@ -35,6 +37,7 @@ def static_checks():
         "gitignore": ROOT / ".gitignore",
     }
     content = {name: read(path) for name, path in files.items()}
+    app_modules = content["app"] + content["domain_data"] + content["run_cache"]
     ids = set(re.findall(r'id="([^"]+)"', content["index"]))
     refs = set(re.findall(r'\$\("([^"]+)"\)', content["app"]))
     all_text = "\n".join(content.values())
@@ -48,7 +51,7 @@ def static_checks():
     checks = {
         "utf8_visible_copy_is_clean": not re.search(
             r"�|鍊|闈|瀵|娌欩洏|铏氭嫙|绛夊緟|鐢熸垚|涓存椂|妯″瀷|鍥捐氨|宸ヤ綔",
-            content["index"] + content["candidate"] + content["interviewer"] + content["app"],
+            content["index"] + content["candidate"] + content["interviewer"] + app_modules,
         ),
         "product_shape_visible_in_ui": all(
             term in content["index"]
@@ -58,7 +61,7 @@ def static_checks():
             item in ids for item in ["targetRole", "candidateStage", "targetLevel", "offerConstraints"]
         ),
         "role_profile_extension_exists": all(
-            term in content["app"] + content["index"] + content["schema_run"]
+            term in app_modules + content["index"] + content["schema_run"]
             for term in [
                 "roleProfiles",
                 "getRoleProfile",
@@ -440,7 +443,7 @@ def static_checks():
             ]
         ),
         "mirofish_nuwa_structures_exist": all(
-            term in content["app"] + content["schema_run"]
+            term in app_modules + content["schema_run"]
             for term in [
                 "MIROFISH_REFERENCE_WORKFLOW",
                 "VirtualPanel",
@@ -553,7 +556,7 @@ def static_checks():
             ]
         ),
         "consistency_mode_exists": all(
-            term in content["app"] + content["schema_run"]
+            term in app_modules + content["schema_run"]
             for term in [
                 "CONSISTENCY_SCHEMA_VERSION",
                 "RUN_CACHE_PREFIX",
@@ -569,14 +572,14 @@ def static_checks():
                 "seed:",
             ]
         ),
-        "privacy_cache_does_not_store_api_key": "stripRuntimeOnlyCacheFields" in content["app"]
-        and re.search(r"\{\s*[\s\S]{0,120}apiKey,\s*[\s\S]{0,120}\.\.\.safeRun", content["app"])
+        "privacy_cache_does_not_store_api_key": "stripRuntimeOnlyCacheFields" in app_modules
+        and re.search(r"\{\s*[\s\S]{0,120}apiKey,\s*[\s\S]{0,120}\.\.\.safeRun", app_modules)
         and "input.apiKey" not in "\n".join(
-            line for line in content["app"].splitlines() if "localStorage" in line or "persistRunCache" in line
+            line for line in app_modules.splitlines() if "localStorage" in line or "persistRunCache" in line
         ),
         "privacy_no_non_cache_persistence_api": not re.search(
             r"sessionStorage|indexedDB|document\.cookie",
-            content["app"] + content["index"],
+            app_modules + content["index"],
             re.I,
         ),
         "secret_file_ignored": bool(re.search(r"(?m)^1\.md$", content["gitignore"])),
