@@ -6,6 +6,22 @@ Repository: [https://github.com/MathsionYang/offerAgent](https://github.com/Math
 
 Live demo: [https://mathsionyang.github.io/offerAgent/](https://mathsionyang.github.io/offerAgent/)
 
+## Screenshots
+
+<img src="https://mathsionyang.github.io/offerAgent/img/06.png" alt="OfferAgent screenshot 06" width="900" />
+
+<img src="https://mathsionyang.github.io/offerAgent/img/07.png" alt="OfferAgent screenshot 07" width="900" />
+
+<img src="https://mathsionyang.github.io/offerAgent/img/08.png" alt="OfferAgent screenshot 08" width="900" />
+
+<img src="https://mathsionyang.github.io/offerAgent/img/09.png" alt="OfferAgent screenshot 09" width="900" />
+
+<img src="https://mathsionyang.github.io/offerAgent/img/010.png" alt="OfferAgent screenshot 010" width="900" />
+
+<img src="https://mathsionyang.github.io/offerAgent/img/011.png" alt="OfferAgent screenshot 011" width="900" />
+
+<img src="https://mathsionyang.github.io/offerAgent/img/012.png" alt="OfferAgent screenshot 012" width="900" />
+
 OfferAgent is a static Web MVP for interview preparation and recruiting decision support. It does not replace human hiring decisions. It turns “target role + candidate resume + job description + interview context” into traceable candidate reports, interviewer reports, offer simulations, virtual panel summaries, and an evidence graph.
 
 The current version supports four target roles: Product Manager, Developer, Technical Support, and Sales.
@@ -170,20 +186,20 @@ In Interviewer mode, human feedback can be written into the report. Feedback is 
 4. Skill Registry is still an example-driven frontend structure, not a complete plugin or marketplace system.
 5. EvidenceGraph is a minimal usable graph, not a full knowledge-graph database.
 6. The virtual interview panel is a lightweight rule-driven layer, not a full multi-agent simulation engine.
-7. Most logic is still centralized in `apps/web/app.js`; modularization is a future priority.
+7. Most logic is still centralized in `apps/web2/app.js`; modularization is a future priority.
 
 ## Local Usage
 
 Open the static page directly:
 
 ```text
-apps/web/index.html
+apps/web2/index.html
 ```
 
 Or run a static server:
 
 ```bash
-python -m http.server 5173 -d apps/web
+python -m http.server 5173 -d apps/web2
 ```
 
 Then visit:
@@ -195,7 +211,7 @@ http://localhost:5173
 ## Verification
 
 ```bash
-node --check apps/web/app.js
+node --check apps/web2/app.js
 python scripts/smoke_test.py
 git diff --check
 ```

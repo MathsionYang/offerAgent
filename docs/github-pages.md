@@ -14,17 +14,17 @@
 
 ```bash
 git remote add origin https://github.com/<your-name>/<your-repo>.git
-git branch -M main
+git branch -M master
 git add .
 git commit -m "Initial OfferAgent web MVP"
-git push -u origin main
+git push -u origin master
 ```
 
 如果已经配置过 remote，使用：
 
 ```bash
 git remote set-url origin https://github.com/<your-name>/<your-repo>.git
-git push -u origin main
+git push -u origin master
 ```
 
 ## 3. 启用 GitHub Pages
@@ -34,6 +34,8 @@ git push -u origin main
 3. 进入 `Pages`。
 4. 在 `Build and deployment` 中选择 `GitHub Actions`。
 5. 等待 `.github/workflows/pages.yml` 自动部署完成。
+
+当前 workflow 会发布 `apps/web2` 目录，这是最新 Web 界面入口。
 
 部署成功后，GitHub 会给出访问地址，通常类似：
 
@@ -47,9 +49,9 @@ https://<your-name>.github.io/<your-repo>/
 2. 选择 Mock Demo，或选择模型服务商并临时输入自己的 API Key。
 3. 选择目标岗位，并粘贴简历和 JD。
 4. 点击生成报告。
-5. 查看分析结果、证据链、追问清单。
-6. 填写人工反馈。
-7. 下载候选人 PDF、面试官 PDF 或 Offer 推演 PDF。
+5. 在图谱页查看评估报告、证据关系图谱、虚拟委员会和结果摘要。
+6. 面试官模式下填写人工反馈。
+7. 下载与当前角色匹配的 PDF 报告。
 
 ## 5. 隐私与 Key
 

@@ -172,13 +172,13 @@ serverless/cloudflare-worker.js
 
 ## 九、技术实现：纯前端 6000 行的取舍
 
-整个 Web 端只有 4 个文件：
+整个 Web 端核心入口已经迁移到 `apps/web2`：
 
 ```text
-apps/web/
-├── index.html         (236 行)
-├── styles.css         (3363 行)
-├── app.js             (6826 行)
+apps/web2/
+├── index.html         (302 行)
+├── styles.css         (2202 行)
+├── app.js             (8151 行)
 └── img/ (截图资源)
 ```
 
@@ -216,7 +216,7 @@ apps/web/
 
 ```bash
 git clone https://github.com/MathsionYang/offerAgent.git
-cd offerAgent/apps/web
+cd offerAgent/apps/web2
 python -m http.server 5173
 # 浏览器打开 http://localhost:5173
 ```

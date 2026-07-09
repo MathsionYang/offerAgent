@@ -16,6 +16,12 @@
 
 <img src="https://mathsionyang.github.io/offerAgent/img/09.png" alt="OfferAgent 页面截图 09" width="900" />
 
+<img src="https://mathsionyang.github.io/offerAgent/img/010.png" alt="OfferAgent 页面截图 010" width="900" />
+
+<img src="https://mathsionyang.github.io/offerAgent/img/011.png" alt="OfferAgent 页面截图 011" width="900" />
+
+<img src="https://mathsionyang.github.io/offerAgent/img/012.png" alt="OfferAgent 页面截图 012" width="900" />
+
 OfferAgent 是一个面向候选人与面试官的静态 Web MVP。它不替代人工招聘决策，而是把“目标岗位 + 候选人简历 + 岗位 JD + 面试上下文”转成可追问、可复盘、可导出的候选人报告、面试官报告、Offer 沙盘和证据关系图谱。
 
 当前版本支持四类目标岗位：产品经理、开发人员、技术支持人员、销售人员。
@@ -180,20 +186,20 @@ OfferSimulationRun 已从报告段落升级为可回填的结构化状态。
 4. Skill Registry 仍是示例和前端运行结构，不是完整市场或插件系统。
 5. EvidenceGraph 是最小可用结构，不是持久化知识图谱数据库。
 6. 虚拟面试委员会是轻量规则驱动，不是完整多 Agent 仿真引擎。
-7. 当前实现集中在 `apps/web/app.js`，后续需要模块化。
+7. 当前实现集中在 `apps/web2/app.js`，后续需要模块化。
 
 ## 本地运行
 
 静态页面可以直接打开：
 
 ```text
-apps/web/index.html
+apps/web2/index.html
 ```
 
 也可以启动任意静态服务器：
 
 ```bash
-python -m http.server 5173 -d apps/web
+python -m http.server 5173 -d apps/web2
 ```
 
 然后访问：
@@ -205,7 +211,7 @@ http://localhost:5173
 ## 验证
 
 ```bash
-node --check apps/web/app.js
+node --check apps/web2/app.js
 python scripts/smoke_test.py
 git diff --check
 ```

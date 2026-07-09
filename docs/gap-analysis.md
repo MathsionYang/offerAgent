@@ -4,7 +4,7 @@
 
 ## 一、评估方法
 
-本报告对照 `开发路线.md` 中定义的 P0-P5 优先级清单，逐项验证 `apps/web/app.js`（6826 行）、`scripts/smoke_test.py`（26414 字节）、`schemas/` 目录 5 个 JSON Schema 的实际实现状态。
+本报告对照 `开发路线.md` 中定义的 P0-P5 优先级清单，逐项验证 `apps/web2/app.js`、`apps/web2/styles.css`、`scripts/smoke_test.py`、`schemas/` 目录 5 个 JSON Schema 与 GitHub Pages workflow 的实际实现状态。
 
 验证手段：代码关键词检索 + 函数签名确认 + Schema 字段比对 + 线路文档交叉比对。
 
@@ -16,7 +16,7 @@
 
 | 能力域 | 验证结果 | 代码证据 |
 |--------|----------|----------|
-| Web 工作台 | ✅ 完整 | index.html 236 行 + app.js 顶部 DOM 绑定 |
+| Web 工作台 | ✅ 完整 | `apps/web2/index.html` + `apps/web2/app.js` 顶部 DOM 绑定 |
 | 候选人/面试官双模式 | ✅ 完整 | `setAudienceMode()` / `applyInterviewerMode()` |
 | 4 类 RoleProfile | ✅ 完整 | `roleProfiles` 对象含 product_manager / developer / technical_support / sales |
 | 13 项报告能力 | ✅ 完整 | `reportStagesByLanguage` 含全部阶段定义 |
@@ -60,13 +60,13 @@
 |----------|----------|----------|
 | 展示每个虚拟面试官的 stance / influence_weight / focus | ✅ 已完成 | `agent.stance` / `agent.influence_weight` / `agent.focus` 在面板和图谱中均有展示 |
 | 展示每轮讨论提出的证据、质疑和建议 | ✅ 已完成 | `PanelDiscussionRound` 结构含 `impact: "raise_follow_up_priority"` 等字段 |
-| 主持人总结可以反向跳转到图谱节点和报告段落 | ❌ 未开始 | `ModeratorSummary` 输出纯文本，没有 `data-node-id` 或 `data-report-anchor` 跳转链接 |
-| 支持按虚拟角色、讨论轮次、证据节点筛选聊天记录 | ❌ 未开始 | 虚拟委员会气泡流无筛选控件，只有线性展示 |
+| 主持人总结可以反向跳转到图谱节点和报告段落 | ✅ 已完成 | 主持人总结展示委员发言、证据节点、追问问题依据，并复用追溯弹窗 |
+| 支持按虚拟角色、讨论轮次、证据节点筛选聊天记录 | ❌ 未开始 | 虚拟委员会气泡流仍以线性展示为主，缺少筛选控件 |
 
-**影响**：虚拟委员会的讨论过程可读但不可导航。用户看到主持人说"业务负责人对项目深度有保留意见"，无法点击跳转到对应证据节点或报告段落验证。
+**影响**：虚拟委员会现在已经可追溯，但还不能按角色、轮次、证据节点快速过滤，长讨论场景下定位效率仍需加强。
 
 **建议加强**：
-1. `ModeratorSummary` 输出中嵌入 `data-node-id` 和 `data-report-anchor`，点击即可滚动到图谱节点或报告段落
+1. 保持主持人总结的依据追溯能力，并继续补充键盘导航与可访问性文案
 2. 在气泡流区域增加筛选栏：按角色（下拉）/ 轮次（数字）/ 证据节点（搜索框）过滤
 
 ---
@@ -123,7 +123,7 @@
 | feedback.js | ❌ 未拆分 | ~200 行（FeedbackDistillation） |
 | offer.js | ❌ 未拆分 | ~400 行（OfferSimulationRun + 七步推理） |
 | consistency.js | ❌ 未拆分 | ~300 行（指纹 + 缓存 + 结构化中间层） |
-| virtual-panel.js | ❌ 未拆分 | ~600 行（VirtualPanel + 讨论 + 主持人） |
+| virtual-panel.js | ❌ 未拆分 | 虚拟委员会、讨论、主持人总结仍集中在 `apps/web2/app.js` |
 
 **影响**：6826 行单文件是当前最大的工程债。任何修改都需要在全文中搜索定位，代码复用困难，新成员上手成本高，且无法做模块级单元测试。
 
@@ -175,7 +175,7 @@
 ### 第一梯队（立即做，1-2 周）
 
 1. **P0 全部 3 项** — 没有测试网，任何改动都是裸奔
-2. **P1 主持人反向跳转** — 改动小（在 ModeratorSummary 输出中嵌入跳转链接），体验提升大
+2. **P1 虚拟委员会筛选** — 在已有追溯能力上补充角色、轮次、证据节点过滤
 3. **P2 图谱节点搜索** — 前端搜索框 + 模糊匹配，半天可完成
 
 ### 第二梯队（近期做，2-4 周）
