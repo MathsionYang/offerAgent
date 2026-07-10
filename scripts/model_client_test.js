@@ -146,6 +146,105 @@ async function main() {
   ]);
   assert.deepEqual(deltas, ["  generated report  "]);
 
+  let localizationRequest = null;
+  let localizationPayload = {
+    schema_version: "language-artifact.v1",
+    source: "translated",
+    report_markdown: "# Candidate Report",
+    text_by_id: {
+      "question:q_1": "Explain the metric definition",
+    },
+  };
+  const localizationClient = createModelClient({
+    providerDefaults,
+    fetchImpl: async (endpoint, request) => {
+      localizationRequest = { endpoint, request };
+      return {
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        headers: {
+          get: () => "application/json",
+        },
+        body: null,
+        json: async () => ({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify(localizationPayload),
+              },
+            },
+          ],
+        }),
+      };
+    },
+  });
+
+  assert.equal(typeof localizationClient.translateGeneratedArtifacts, "function");
+  const localizedArtifact = await localizationClient.translateGeneratedArtifacts({
+    provider: "custom",
+    model: "localization-model",
+    apiKey: "localization-key",
+    baseUrl: "https://example.test/v1",
+    sourceLanguage: "zh",
+    targetLanguage: "en",
+    reportMarkdown: "# 候选人报告",
+    textById: {
+      "question:q_1": "请解释指标口径",
+    },
+  });
+
+  assert.deepEqual(localizedArtifact, localizationPayload);
+  assert.equal(
+    localizationRequest.endpoint,
+    "https://example.test/v1/chat/completions",
+  );
+  assert.equal(
+    localizationRequest.request.headers.Authorization,
+    "Bearer localization-key",
+  );
+  const localizationBody = JSON.parse(localizationRequest.request.body);
+  assert.equal(localizationBody.model, "localization-model");
+  assert.equal(localizationBody.temperature, 0);
+  assert.equal(localizationBody.stream, false);
+  assert.deepEqual(localizationBody.response_format, { type: "json_object" });
+  assert.match(localizationBody.messages[0].content, /English/);
+  assert.match(localizationBody.messages[0].content, /stable ID/);
+  assert.deepEqual(JSON.parse(localizationBody.messages[1].content), {
+    schema_version: "language-artifact.v1",
+    source_language: "zh",
+    target_language: "en",
+    report_markdown: "# 候选人报告",
+    text_by_id: {
+      "question:q_1": "请解释指标口径",
+    },
+  });
+
+  localizationPayload = {
+    schema_version: "language-artifact.v1",
+    source: "translated",
+    report_markdown: "# Candidate Report",
+    text_by_id: {
+      "question:q_1": "Explain the metric definition",
+      "input:resume": "Translated source text must be rejected",
+    },
+  };
+  await assert.rejects(
+    () => localizationClient.translateGeneratedArtifacts({
+      provider: "custom",
+      model: "localization-model",
+      apiKey: "localization-key",
+      baseUrl: "https://example.test/v1",
+      sourceLanguage: "zh",
+      targetLanguage: "en",
+      reportMarkdown: "# 候选人报告",
+      textById: {
+        "question:q_1": "请解释指标口径",
+      },
+    }),
+    /unknown stable ID/i,
+  );
+
   assert.equal(
     client.formatHttpGenerationError(
       { status: 502, statusText: "Bad Gateway" },

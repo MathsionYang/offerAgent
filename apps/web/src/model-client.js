@@ -79,6 +79,153 @@
       return cleanReportMarkdown(content);
     }
 
+    async function translateGeneratedArtifacts(input) {
+      const endpoint = resolveChatCompletionsEndpoint(input);
+      const sourceLanguage = normalizeLanguage(input.sourceLanguage);
+      const targetLanguage = normalizeLanguage(input.targetLanguage);
+      const textById = validateLocalizationTextMap(input.textById);
+      const requestPayload = {
+        schema_version: "language-artifact.v1",
+        source_language: sourceLanguage,
+        target_language: targetLanguage,
+        report_markdown: String(input.reportMarkdown || ""),
+        text_by_id: textById,
+      };
+      const body = {
+        model: input.model,
+        temperature: 0,
+        stream: false,
+        response_format: { type: "json_object" },
+        messages: [
+          {
+            role: "system",
+            content: buildLocalizationSystemPrompt(targetLanguage),
+          },
+          {
+            role: "user",
+            content: JSON.stringify(requestPayload),
+          },
+        ],
+      };
+
+      if (typeof fetchImpl !== "function") {
+        throw new Error("Fetch API is unavailable.");
+      }
+      if (typeof AbortControllerImpl !== "function") {
+        throw new Error("AbortController API is unavailable.");
+      }
+
+      const controller = new AbortControllerImpl();
+      const timeoutId = setTimeoutImpl?.(() => controller.abort(), timeoutMs);
+      let response;
+
+      try {
+        response = await fetchImpl(endpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${input.apiKey}`,
+          },
+          body: JSON.stringify(body),
+          signal: controller.signal,
+        });
+      } finally {
+        if (timeoutId !== undefined) clearTimeoutImpl?.(timeoutId);
+      }
+
+      if (!response.ok) {
+        const text = await safeReadResponseText(response);
+        throw new Error(formatHttpGenerationError(response, text));
+      }
+
+      const data = await response.json();
+      const content = data?.choices?.[0]?.message?.content;
+      if (!content) {
+        throw new Error("Localization response is empty or incompatible.");
+      }
+
+      return parseLanguageArtifactPayload(content, textById);
+    }
+
+    function normalizeLanguage(language) {
+      return language === "en" ? "en" : "zh";
+    }
+
+    function validateLocalizationTextMap(textById) {
+      if (!textById || typeof textById !== "object" || Array.isArray(textById)) {
+        throw new Error("Localization text_by_id must be an object.");
+      }
+      const normalized = {};
+      Object.entries(textById).forEach(([stableId, value]) => {
+        if (typeof value !== "string") {
+          throw new Error(`Localization value for ${stableId} must be a string.`);
+        }
+        normalized[stableId] = value;
+      });
+      return normalized;
+    }
+
+    function buildLocalizationSystemPrompt(targetLanguage) {
+      const languageName = targetLanguage === "en" ? "English" : "Simplified Chinese";
+      return [
+        `Translate all system-generated content into ${languageName}.`,
+        "Return one JSON object only, with schema_version, source, report_markdown, and text_by_id.",
+        "Preserve every stable ID exactly. Do not add, rename, or remove stable IDs.",
+        "Preserve markdown structure, numbers, URLs, identifiers, model names, and product names.",
+        "Keep quoted resume, JD, company-context, target-level, and offer-constraint excerpts in their original language.",
+        "Set schema_version to language-artifact.v1 and source to translated.",
+      ].join("\n");
+    }
+
+    function parseLanguageArtifactPayload(content, requestedTextById) {
+      let payload;
+      try {
+        payload = JSON.parse(stripJsonFence(String(content || "")));
+      } catch {
+        throw new Error("Localization response is not valid JSON.");
+      }
+
+      if (
+        !payload
+        || typeof payload !== "object"
+        || Array.isArray(payload)
+        || payload.schema_version !== "language-artifact.v1"
+        || typeof payload.report_markdown !== "string"
+        || !payload.text_by_id
+        || typeof payload.text_by_id !== "object"
+        || Array.isArray(payload.text_by_id)
+      ) {
+        throw new Error("Localization response has an invalid artifact shape.");
+      }
+
+      const allowedIds = new Set(Object.keys(requestedTextById));
+      const normalizedTextById = {};
+      Object.entries(payload.text_by_id).forEach(([stableId, value]) => {
+        if (!allowedIds.has(stableId)) {
+          throw new Error(`Localization response contains unknown stable ID: ${stableId}`);
+        }
+        if (typeof value !== "string") {
+          throw new Error(`Localization value for ${stableId} must be a string.`);
+        }
+        normalizedTextById[stableId] = value;
+      });
+
+      return {
+        schema_version: "language-artifact.v1",
+        source: "translated",
+        report_markdown: payload.report_markdown,
+        text_by_id: normalizedTextById,
+      };
+    }
+
+    function stripJsonFence(content) {
+      return content
+        .trim()
+        .replace(/^```(?:json)?\s*/i, "")
+        .replace(/\s*```$/, "")
+        .trim();
+    }
+
     async function safeReadResponseText(response) {
       try {
         return await response.text();
@@ -169,6 +316,7 @@
 
     return {
       generateWithLLM,
+      translateGeneratedArtifacts,
       formatHttpGenerationError,
       readStreamResponse,
       extractDeltaFromStreamPayload,

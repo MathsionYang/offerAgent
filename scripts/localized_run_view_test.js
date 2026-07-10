@@ -10,6 +10,7 @@ require(modulePath);
 const {
   ARTIFACT_SCHEMA_VERSION,
   SOURCE_FIELDS,
+  collectTranslatableArtifacts,
   isSourceExcerptField,
   resolveLocalizedText,
   mergeLocalizedArtifacts,
@@ -17,6 +18,7 @@ const {
 } = globalThis.OfferAgentLocalizedRunView || {};
 
 assert.equal(ARTIFACT_SCHEMA_VERSION, "language-artifact.v1");
+assert.equal(typeof collectTranslatableArtifacts, "function");
 assert.equal(typeof isSourceExcerptField, "function");
 assert.equal(typeof resolveLocalizedText, "function");
 assert.equal(typeof mergeLocalizedArtifacts, "function");
@@ -71,6 +73,44 @@ const sourceRun = {
       },
     ],
     edges: [],
+  },
+  panel_discussion_rounds: [
+    {
+      id: "round_seed_reading",
+      topic: "Canonical seed reading",
+      turns: [
+        {
+          agent_id: "agent_hr",
+          claim: "Canonical panel claim",
+        },
+      ],
+    },
+  ],
+  moderator_summary: {
+    final_recommendation: "Canonical moderator recommendation",
+  },
+  offer_simulation_run: {
+    risks: [
+      {
+        id: "offer_risk_1",
+        risk: "Canonical offer risk",
+      },
+    ],
+    scenario_comparison: [
+      {
+        name: "Base",
+        assumption: "Canonical base assumption",
+        next_action: "Canonical base next action",
+      },
+    ],
+  },
+  feedback_distillation: {
+    actions: [
+      {
+        id: "action_promote_questions",
+        reason: "Canonical feedback action reason",
+      },
+    ],
   },
 };
 
@@ -140,6 +180,57 @@ assert.equal(
   resolveLocalizedText(merged, "zh", "question:q_1", "Canonical question"),
   "Canonical question",
 );
+
+const collected = collectTranslatableArtifacts(sourceRun);
+assert.equal(collected["question:q_1"], "Explain the canonical metric definition.");
+assert.equal(collected["graph:risk_1:label"], "Canonical metric risk");
+assert.equal(
+  collected["graph:risk_1:summary"],
+  "Canonical real-contribution risk summary",
+);
+assert.equal(
+  collected["panel-round:round_seed_reading:topic"],
+  "Canonical seed reading",
+);
+assert.equal(
+  collected["panel:round_seed_reading:agent_hr:0"],
+  "Canonical panel claim",
+);
+assert.equal(
+  collected["moderator:final_recommendation"],
+  "Canonical moderator recommendation",
+);
+assert.equal(collected["offer-risk:offer_risk_1:risk"], "Canonical offer risk");
+assert.equal(
+  collected["offer-scenario:0:assumption"],
+  "Canonical base assumption",
+);
+assert.equal(
+  collected["offer-scenario:0:next_action"],
+  "Canonical base next action",
+);
+assert.equal(
+  collected["feedback:action_promote_questions:reason"],
+  "Canonical feedback action reason",
+);
+
+const collectedValues = Object.values(collected);
+[
+  sourceRun.input_snapshot.resume,
+  sourceRun.input_snapshot.job_description,
+  sourceRun.input_snapshot.company_context,
+  sourceRun.input_snapshot.target_level,
+  sourceRun.input_snapshot.offer_constraints,
+  sourceRun.interview_questions[0].resumeEvidence,
+  sourceRun.interview_questions[0].jdEvidence,
+  sourceRun.evidence_graph.nodes[0].metadata.source_excerpt,
+].forEach((sourceText) => {
+  assert.equal(
+    collectedValues.includes(sourceText),
+    false,
+    "source text must not enter the translation payload",
+  );
+});
 
 assert.throws(
   () => mergeLocalizedArtifacts(sourceRun, "en", {
