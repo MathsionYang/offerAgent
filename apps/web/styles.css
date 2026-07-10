@@ -795,6 +795,7 @@ body > [id="csdn_article/extension"] { display: none !important; }
   box-shadow: var(--shadow-md);
 }
 .language-switch { display: inline-flex; align-items: center; }
+.language-switch[hidden] { display: none !important; }
 .model-sandbox-grid { display: grid; grid-template-columns: minmax(320px, 0.95fr) minmax(380px, 1.05fr); gap: var(--space-5); align-items: stretch; }
 .model-panel-head {
   display: flex;

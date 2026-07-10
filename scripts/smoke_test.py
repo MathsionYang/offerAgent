@@ -1089,9 +1089,11 @@ def static_checks():
             ]
         ),
         "language_selector_hidden_but_projection_kept": all(
-            term in content["index"] + content["app"]
+            term in content["index"] + content["app"] + content["css"]
             for term in [
                 '<label class="language-switch" aria-label="语言" hidden>',
+                ".language-switch[hidden]",
+                "display: none !important",
                 '<option value="en">English</option>',
                 'if (languageEl) languageEl.value = "zh";',
                 'let currentLanguage = "zh";',
@@ -1101,6 +1103,7 @@ def static_checks():
         "language_projection_assets_cache_busted": all(
             term in content["index"]
             for term in [
+                "./styles.css?v=web-20260710-5",
                 "./src/i18n.js?v=web-20260710-5",
                 "./app.js?v=web-20260710-19",
             ]
