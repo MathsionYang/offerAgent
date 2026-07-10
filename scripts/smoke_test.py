@@ -1,6 +1,7 @@
 ﻿import argparse
 import json
 import re
+import subprocess
 import sys
 import urllib.request
 from pathlib import Path
@@ -15,6 +16,7 @@ def read(path):
 
 def static_checks():
     web_root = ROOT / "apps" / "web"
+    virtual_panel_path = web_root / "src" / "virtual-panel.js"
     files = {
         "index": web_root / "index.html",
         "candidate": web_root / "index.html",
@@ -38,7 +40,14 @@ def static_checks():
         "gitignore": ROOT / ".gitignore",
     }
     content = {name: read(path) for name, path in files.items()}
-    app_modules = content["app"] + content["domain_data"] + content["run_cache"] + content["i18n"]
+    virtual_panel_content = read(virtual_panel_path) if virtual_panel_path.exists() else ""
+    app_modules = (
+        content["app"]
+        + content["domain_data"]
+        + content["run_cache"]
+        + content["i18n"]
+        + virtual_panel_content
+    )
     ids = set(re.findall(r'id="([^"]+)"', content["index"]))
     refs = set(re.findall(r'\$\("([^"]+)"\)', content["app"]))
     all_text = "\n".join(content.values())
@@ -444,7 +453,7 @@ def static_checks():
             ]
         ),
         "mirofish_nuwa_structures_exist": all(
-            term in app_modules + content["schema_run"]
+            term in app_modules + virtual_panel_content + content["schema_run"]
             for term in [
                 "MIROFISH_REFERENCE_WORKFLOW",
                 "VirtualPanel",
@@ -469,6 +478,29 @@ def static_checks():
                 "offer-simulation-run.schema.json",
                 "evidence-graph.schema.json",
                 "feedback-distillation.schema.json",
+            ]
+        ),
+        "virtual_panel_model_module_exists": virtual_panel_path.exists(),
+        "virtual_panel_model_api_exists": all(
+            term in virtual_panel_content
+            for term in [
+                "OfferAgentVirtualPanel",
+                "buildVirtualInterviewPanel",
+                "buildPanelDiscussionRounds",
+                "buildPanelTurn",
+                "buildModeratorSummary",
+            ]
+        ),
+        "virtual_panel_model_loads_before_app": content["index"].find("./src/virtual-panel.js")
+        < content["index"].find("./app.js")
+        and content["index"].find("./src/virtual-panel.js") >= 0,
+        "virtual_panel_model_removed_from_app": all(
+            f"function {name}" not in content["app"]
+            for name in [
+                "buildVirtualInterviewPanel",
+                "buildPanelDiscussionRounds",
+                "buildPanelTurn",
+                "buildModeratorSummary",
             ]
         ),
         "virtual_panel_chat_stream_exists": all(
@@ -644,6 +676,23 @@ def read_key_file(path):
     return key_match.group(1).strip(), url_match.group(1).strip().rstrip("/")
 
 
+def node_test(path):
+    completed = subprocess.run(
+        ["node", str(path)],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
+    )
+    return {
+        "passed": completed.returncode == 0,
+        "returncode": completed.returncode,
+        "stdout": completed.stdout.strip(),
+        "stderr": completed.stderr.strip(),
+    }
+
+
 def llm_stream_check(key_file, model):
     api_key, base_url = read_key_file(key_file)
     body = {
@@ -703,11 +752,18 @@ def main():
     parser.add_argument("--model", default="qwen-plus")
     args = parser.parse_args()
 
-    result = {"static": static_checks()}
+    result = {
+        "static": static_checks(),
+        "virtual_panel_model": node_test(ROOT / "scripts" / "virtual_panel_test.js"),
+    }
     if args.with_llm:
         result["llm_stream"] = llm_stream_check(args.with_llm, args.model)
 
-    passed = result["static"]["passed"] and result.get("llm_stream", {"passed": True})["passed"]
+    passed = (
+        result["static"]["passed"]
+        and result["virtual_panel_model"]["passed"]
+        and result.get("llm_stream", {"passed": True})["passed"]
+    )
     result["passed"] = passed
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0 if passed else 1

@@ -186,7 +186,7 @@ In Interviewer mode, human feedback can be written into the report. Feedback is 
 4. Skill Registry is still an example-driven frontend structure, not a complete plugin or marketplace system.
 5. EvidenceGraph is a minimal usable graph, not a full knowledge-graph database.
 6. The virtual interview panel is a lightweight rule-driven layer, not a full multi-agent simulation engine.
-7. Frontend modularization phase 2 is complete: `apps/web/src/domain-data.js` owns role/sample/constants, `apps/web/src/run-cache.js` owns input fingerprints and run caching, and `apps/web/src/i18n.js` owns localized copy and report-progress stages; `apps/web/app.js` still owns page orchestration, reports, graph, panel, and PDF flow for the next split.
+7. Frontend modularization phase 3 is complete: `apps/web/src/domain-data.js` owns role/sample/constants, `apps/web/src/run-cache.js` owns input fingerprints and run caching, `apps/web/src/i18n.js` owns localized copy and report-progress stages, and `apps/web/src/virtual-panel.js` owns the pure model logic for panel members, three discussion rounds, and moderator summaries; `apps/web/app.js` still owns page orchestration, reports, graph, panel rendering, and PDF flow for the next split.
 
 ## Local Usage
 
@@ -214,7 +214,9 @@ http://localhost:5173
 node --check apps/web/src/domain-data.js
 node --check apps/web/src/run-cache.js
 node --check apps/web/src/i18n.js
+node --check apps/web/src/virtual-panel.js
 node --check apps/web/app.js
+node scripts/virtual_panel_test.js
 python scripts/smoke_test.py
 git diff --check
 ```
