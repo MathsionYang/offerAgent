@@ -15,7 +15,49 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  test:
+    name: Test static MVP
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: JavaScript syntax check
+        shell: bash
+        run: |
+          for f in apps/web/src/*.js; do node --check "$f"; done
+          node --check apps/web/app.js
+      - name: JavaScript tests
+        shell: bash
+        run: |
+          for f in scripts/*_test.js; do
+            if [ "$(basename "$f")" != "visual_regression_test.js" ]; then
+              node "$f"
+            fi
+          done
+      - name: Smoke test
+        run: python scripts/smoke_test.py
+      - name: Visual regression
+        run: node scripts/visual_regression_test.js
+      - name: Upload visual regression screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-regression-current
+          path: artifacts/visual-regression/current
+          if-no-files-found: ignore
+      - name: Whitespace check
+        run: git diff --check
+
   deploy:
+    needs: test
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

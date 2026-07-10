@@ -4,268 +4,205 @@
 
 ## 一、评估方法
 
-本报告对照 `开发路线.md` 中定义的 P0-P5 优先级清单，逐项验证以下文件的实现状态：
+本报告对照 `开发路线.md` 中的 P0-P5 清单，并以当前源码和测试结果为准重新评估。重点核对：
 
-- `apps/web/app.js`（2191 行 — 主入口、状态流转、语言投影协调与页面编排）
-- `apps/web/src/` 20 个模块（共 8553 行）
-- `apps/web/styles.css`（2307 行）、`apps/web/index.html`（323 行）
-- `scripts/smoke_test.py`（1397 行）+ 18 个 JS 单元测试文件（共 2762 行）
-- `schemas/` 5 个 JSON Schema
+- `apps/web/app.js`：主入口、状态流转、提示词、Mock 编排和页面协调。
+- `apps/web/src/`：21 个前端模块。
+- `scripts/`：19 个 JS 测试脚本（包含浏览器 E2E）和 `smoke_test.py`。
+- `README.md`、`部署说明.md`、`开发路线.md`：对外说明是否和实现一致。
 
-验证手段：源码 Grep、模块单测、smoke test、结构检查和真实浏览器 Mock 运行验证。
+验证手段：源码 grep、模块测试、浏览器 E2E、smoke test、语法检查和 `git diff --check`。
 
 ---
 
-## 二、代码量变化
+## 二、当前验证状态
 
-| 文件/目录 | 上次 (Jul 9 20:00) | 本次 (Jul 10 11:58) | 变化 |
-|-----------|-------------------|---------------------|------|
-| `app.js` | 8151 行 | 2191 行 | **−5960 行 (−73%)** |
-| `src/` 模块 | 0 文件 | 20 文件 / 8553 行 | **全新** |
-| `styles.css` | 2202 行 | 2307 行 | +105 行 |
-| JS 单元测试 | 0 文件 | 18 文件 / 2762 行 | **全新** |
-| `smoke_test.py` | 1305 行 | 1397 行 | +92 行（纳入模块、语言投影和缓存版本门禁） |
-| 测试通过率 | — | **18/18 + smoke 全通过** | ✅ |
+本地已通过：
+
+- `node --check apps/web/src/*.js`
+- `node --check apps/web/app.js`
+- `node scripts/*_test.js`
+- `node scripts/visual_regression_test.js`
+- `python scripts/smoke_test.py`
+- `git diff --check`
+
+当前测试覆盖已经包含：
+
+- 逻辑层：assessment、evaluation、evidence graph、feedback、i18n、localization、model client、panel、PDF、report、skill registry、virtual panel。
+- 浏览器层：身份选择、Mock 生成、图谱搜索、高级过滤、虚拟委员会筛选、候选人/面试官模式、反馈历史写入、截图非空。
+- 视觉层：onboarding、候选人工作台、图谱、虚拟委员会、结果摘要和移动端图谱截图；存在 baseline 时进行哈希比较。
+- 静态门禁：DOM 引用、模块加载、schema、缓存隐私、语言投影、提示词约束和文档功能同步检查。
 
 ---
 
 ## 三、逐项评估
 
-### P0：稳定当前产品体验（1.5/4 — 38%）
+### P0：稳定当前产品体验（3.5/4）
 
-| # | 路线要求 | 状态 | 证据 |
-|---|---------|------|------|
-| 1 | 清理剩余历史文案和编码问题 | ✅ | 模块化拆分过程中已清理 |
-| 2 | 用 Playwright 做截图回归 | ❌ | 未见 Playwright 依赖或脚本 |
-| 3 | 把 smoke test 拆成 UI/schema/report/cache 四类 | ⚠️ | smoke_test.py 仍为单文件 1397 行；但已有 18 个 JS 单元测试覆盖各模块逻辑层 |
-| 4 | 增加缓存命中/未命中浏览器级回归测试 | ❌ | smoke_test.py 有静态一致性/隐私检查，但无浏览器级运行时回归 |
+| # | 路线要求 | 状态 | 当前证据 |
+|---|---|---|---|
+| 1 | 清理剩余历史文案和编码问题 | ✅ | README、部署说明和核心源码均可按 UTF-8 正常读取 |
+| 2 | 做浏览器级截图/视觉回归 | ✅ | `visual_regression_test.js` 已捕获 6 个关键场景，并在存在 baseline 时比较哈希 |
+| 3 | 把 smoke test 拆成 UI/schema/report/cache 四类 | ⚠️ | 仍是单文件 smoke，但已补 19 个 JS 测试脚本分担模块覆盖 |
+| 4 | 增加缓存命中/未命中浏览器级回归测试 | ✅ | browser E2E 已覆盖本机反馈历史；smoke 覆盖缓存隐私和 schema 门禁 |
 
-**新增能力（未在路线中但已实现）**：
-- 18 个 JS 单元测试文件，新增覆盖 i18n、localized-run-view、input-readiness，并继续覆盖 localization-mappers、report-content-helpers、report-export-template、assessment-rules、evaluation-engine、evidence-graph、feedback-engine、graph-view、model-client、panel-view、pdf-export、report-builders、reports-view、skill-registry、virtual-panel
-- 全部测试通过
+**仍需加强**：视觉回归脚本已经可比较 baseline，后续需要建立 baseline 更新流程和截图评审习惯；smoke test 仍可继续拆分。
 
-**差距**：Playwright 浏览器级 E2E 回归 + 缓存运行时回归测试仍是当前最大空白。语言 artifact 的 schema 失效、原文保护和生成中切换竞态已有单元测试，但仍需稳定的浏览器自动化覆盖完整流程。
+### P1：让虚拟面试委员会更可审计（4/4）
 
----
+| # | 路线要求 | 状态 | 当前证据 |
+|---|---|---|---|
+| 1 | 展示 stance、influence_weight、focus | ✅ | `virtual-panel.js` 和图谱节点详情均保留这些字段 |
+| 2 | 展示每轮讨论的证据、质疑和建议 | ✅ | panel turn 含 evidence_ids、question_ids、impact |
+| 3 | 主持人总结可追溯到委员发言、证据节点和追问问题 | ✅ | `buildModeratorBasisTrace()`、trace chips 和详情抽屉已实现 |
+| 4 | 支持按虚拟角色、讨论轮次、证据节点筛选聊天记录 | ✅ | `panel-view.js` 支持轮次、`data-panel-filter="agent"` 和 `data-panel-filter="evidence"` |
 
-### P1：让虚拟面试委员会更可审计（3.5/4 — 88%）
+**仍需加强**：筛选能力已经具备，后续重点应转向视觉可读性和信息密度，而不是再补基础功能。
 
-| # | 路线要求 | 状态 | 证据 |
-|---|---------|------|------|
-| 1 | 展示 stance、influence_weight、focus | ✅ | `virtual-panel.js` 中 stance/influence_weight 已赋值并按 influence_weight 排序 |
-| 2 | 展示每轮讨论的证据、质疑和建议 | ✅ | PanelDiscussionRound 结构完整 |
-| 3 | 主持人总结可追溯到委员发言、证据节点和追问问题 | ✅ | `buildModeratorBasisTrace()` + `renderModeratorBasisTrace()` + `scrollIntoView()` 实现反向跳转 |
-| 4 | 支持按虚拟角色、讨论轮次、证据节点筛选聊天记录 | ⚠️ | **轮次筛选**已完成（`panel-round-filter` + `data-panel-round`）；**角色筛选**和**证据节点筛选**未找到 |
+### P2：让图谱成为决策工具（4/4）
 
-**差距**：聊天记录筛选只做了轮次维度，缺角色（按面试官类型过滤）和证据节点（只看与某条证据相关的发言）两个筛选维度。
+| # | 路线要求 | 状态 | 当前证据 |
+|---|---|---|---|
+| 1 | 增加图谱节点搜索 | ✅ | `graph-view.js` 提供 `.graph-search-input` 和组合过滤 |
+| 2 | 增加按风险等级、证据等级、Skill 来源、虚拟角色来源过滤 | ✅ | `data-graph-advanced-filter` 覆盖 riskSeverity、evidenceLevel、source |
+| 3 | 展示反馈对节点和边的影响 diff | ✅ | `buildFeedbackImpactDiff()` 和 reports-view 渲染已实现 |
+| 4 | 让虚拟角色的 challenges 直接提升问题优先级 | ✅ | `buildChallengeQuestionPriority()` 与 `raise_follow_up_priority` 已进入排序权重 |
 
----
+**仍需加强**：现在的短板不是功能缺失，而是图谱筛选后的解释层可以更强，例如显示“为什么这个节点被纳入高风险视图”。
 
-### P2：让图谱成为决策工具（1/4 — 25%）
+### P3：把反馈闭环做实（4/5）
 
-| # | 路线要求 | 状态 | 证据 |
-|---|---------|------|------|
-| 1 | 增加图谱节点搜索 | ❌ | graph-view.js 中无 searchInput/nodeSearch/graphSearch |
-| 2 | 增加按风险等级、证据等级、Skill 来源、虚拟角色来源过滤 | ❌ | 仅有基础节点类型筛选（`data-filter-type` = All/Requirements/Evidence/Validation） |
-| 3 | 展示反馈对节点和边的影响 diff | ✅ | `buildFeedbackImpactDiff()` + reports-view.js 渲染 diff 列表 |
-| 4 | 让虚拟角色的 challenges 直接提升问题优先级 | ❌ | assessment-rules.js 中无 challengePriority/raisePriority 逻辑 |
-
-**差距**：这是完成度最低的优先级。图谱目前只能按节点类型过滤（4 个 tab），没有搜索框、没有按风险/证据等级过滤、没有按来源过滤。challenges 也只统计数量但不影响问题排序。
-
----
-
-### P3：把反馈闭环做实（3/5 — 60%）
-
-| # | 路线要求 | 状态 | 证据 |
-|---|---------|------|------|
-| 1 | 让人工反馈更结构化 | ✅ | FeedbackDistillation 含 rules/actions/impact_diff/skill_update_suggestions 四维结构 |
-| 2 | 保存反馈历史 | ❌ | feedback-engine.js 中无 localStorage/sessionStorage/persist 逻辑，刷新即丢失 |
+| # | 路线要求 | 状态 | 当前证据 |
+|---|---|---|---|
+| 1 | 让人工反馈更结构化 | ✅ | FeedbackDistillation 包含 rules/actions/impact_diff/skill_update_suggestions |
+| 2 | 保存反馈历史 | ✅ | `persistFeedbackHistory()` / `attachFeedbackHistory()` 使用本机 localStorage，单指纹最多 12 条 |
 | 3 | 将反馈变成 SkillDefinition 更新候选建议 | ✅ | `buildSkillUpdateSuggestions()` 已实现 |
-| 4 | 支持规则冲突裁决 | ✅ | 5 条 conflict_policy 规则（人工优先、证据不足降级、风险覆盖 Offer 等） |
-| 5 | 让反馈影响虚拟角色权重 | ❌ | feedback-engine.js 中无 influence/weight adjust 逻辑 |
+| 4 | 支持规则冲突裁决 | ✅ | 规则含 conflict_policy |
+| 5 | 让反馈影响虚拟角色权重 | ❌ | 还没有把反馈历史反向调整下一轮 virtual panel 的 influence_weight |
 
-**差距**：反馈闭环"算得出"但"存不住"。结构化、冲突裁决、Skill 更新建议都有了，但反馈不能跨会话保存，也不能动态调整虚拟面试官的影响力权重。这是从"工具"升级为"系统"的关键卡点。
+**仍需加强**：反馈已经“能算、能存、能恢复”，下一步是影响下一轮角色权重和问题生成策略。
 
----
+### P4：模块化工程结构（10/10）
 
-### P4：模块化工程结构（10/10 — 100%）
+模块化已经完成，并且比原路线更细：
 
-| # | 路线建议 | 状态 | 实际文件 | 行数 |
-|---|---------|------|---------|------|
-| 1 | `i18n.js` | ✅ | `src/i18n.js` + `src/localization-mappers.js` | 405 + 436 |
-| 2 | `roles.js` | ✅ | `src/domain-data.js`（含 RoleProfile） | 264 |
-| 3 | `skills.js` | ✅ | `src/skill-registry.js` | 215 |
-| 4 | `graph.js` | ✅ | `src/evidence-graph.js` + `src/graph-view.js` | 326 + 789 |
-| 5 | `reports.js` | ✅ | `src/report-builders.js` + `src/reports-view.js` + `src/report-content-helpers.js` | 588 + 596 + 751 |
-| 6 | `pdf.js` | ✅ | `src/pdf-export.js` + `src/report-export-template.js` | 317 + 1330 |
-| 7 | `feedback.js` | ✅ | `src/feedback-engine.js` | 185 |
-| 8 | `offer.js` | ✅ | `src/evaluation-engine.js`（含 buildOfferSimulationRun） | 307 |
-| 9 | `consistency.js` | ✅ | `src/run-cache.js` | 127 |
-| 10 | `virtual-panel.js` | ✅ | `src/virtual-panel.js` + `src/panel-view.js` | 181 + 525 |
+- `domain-data.js`
+- `skill-registry.js`
+- `run-cache.js`
+- `input-readiness.js`
+- `persona-illustrations.js`
+- `i18n.js`
+- `localization-mappers.js`
+- `virtual-panel.js`
+- `evidence-graph.js`
+- `localized-run-view.js`
+- `graph-view.js`
+- `panel-view.js`
+- `report-builders.js`
+- `reports-view.js`
+- `model-client.js`
+- `report-export-template.js`
+- `pdf-export.js`
+- `feedback-engine.js`
+- `assessment-rules.js`
+- `report-content-helpers.js`
+- `evaluation-engine.js`
 
-**额外模块**（路线未建议但已拆出）：
-- `src/assessment-rules.js`（204 行）— 评估规则引擎
-- `src/model-client.js`（331 行）— LLM 生成与按需翻译客户端封装
-- `src/input-readiness.js`（110 行）— 输入就绪度评估
-- `src/localized-run-view.js`（566 行）— 统一语言 artifact 收集、校验、合并与运行投影
-
-**结论**：P4 完全达标。app.js 从 8151 行瘦身到 2191 行，报告内容、静态导出模板、本地化映射和统一语言投影均已形成独立模块；20 个模块均可单独检查和测试。
-
----
+**仍需加强**：`app.js` 仍承担提示词、Mock 报告编排和页面状态机，后续可以继续拆出 `prompt-builder.js`、`mock-runner.js`、`app-state.js`。
 
 ### P5：真实验证（暂缓）
 
-路线文档明确标注"当前暂不做真实样本评测"，保持暂缓状态。
+路线文档仍标注“当前暂不做真实样本评测”。若恢复，优先验证：
+
+- 面试官是否采纳问题。
+- 报告是否减少准备时间。
+- 图谱是否帮助定位风险。
+- 反馈历史是否能沉淀为复用规则。
+- 真实模型输出是否稳定遵守结构化运行契约。
 
 ---
 
 ## 四、完成度总览
 
-| 优先级 | 完成/总数 | 百分比 | 趋势 |
-|--------|----------|--------|------|
-| P0 稳定性 | 1.5/4 | 38% | ↑（新增至 18 个 JS 测试） |
-| P1 可审计 | 3.5/4 | 88% | → |
-| P2 图谱决策 | 1/4 | 25% | → |
-| P3 反馈闭环 | 3/5 | 60% | ↑（+冲突裁决 +Skill 更新） |
-| P4 模块化 | 10/10 | 100% | ↑↑（从 0 到全部完成） |
-| **总计** | **19/27** | **70%** | **↑10%** |
+| 优先级 | 完成/总数 | 百分比 | 说明 |
+|---|---:|---:|---|
+| P0 稳定性 | 3.5/4 | 88% | 已有视觉回归脚本，缺 baseline 更新流程；smoke 仍待拆分 |
+| P1 可审计 | 4/4 | 100% | 轮次、角色、证据筛选均已落地 |
+| P2 图谱决策 | 4/4 | 100% | 搜索、高级过滤、diff、challenge priority 均已落地 |
+| P3 反馈闭环 | 4/5 | 80% | 缺反馈影响角色权重 |
+| P4 模块化 | 10/10 | 100% | 已拆成 21 个模块 |
+| P5 真实验证 | 暂缓 | - | 仍按路线暂缓 |
 
 ---
 
-## 五、本轮重大进展
+## 五、当前最该加强的地方
 
-### 1. P4 模块化彻底完成
+### 1. 文档与隐私说明统一
 
-这是本轮最大的结构性变化。app.js 从 8151 行单文件拆分为 2191 行主入口 + 20 个模块（8553 行），总计 10744 行 Web JavaScript。新增的 `report-content-helpers.js`、`report-export-template.js`、`localization-mappers.js` 和 `localized-run-view.js` 分别承载报告内容、静态导出模板、本地化映射和统一语言投影，页面入口主要保留状态流转、事件绑定、模型提示词和 Mock 报告编排。
+`README.md` 已说明基础报告缓存和反馈历史会保存在本机 localStorage；`部署说明.md` 仍有“页面不保存简历、JD 或报告”的旧表述。应统一为：
 
-### 2. P0 测试覆盖从零到十八
+- 不创建账号。
+- 不上传到项目自有云端。
+- 不保存 API Key。
+- 会在本机浏览器 localStorage 中缓存基础报告 artifact 和反馈历史。
+- 公共设备使用后应清空浏览器站点数据。
 
-18 个 JS 单元测试文件覆盖了所有核心模块的逻辑层：
-- assessment_rules_test.js（92 行）
-- evaluation_engine_test.js（163 行）
-- evidence_graph_test.js（156 行）
-- feedback_engine_test.js（91 行）
-- graph_view_test.js（98 行）
-- i18n_test.js（57 行）
-- input_readiness_test.js（62 行）
-- localization_mappers_test.js（215 行）
-- localized_run_view_test.js（524 行）
-- model_client_test.js（264 行）
-- panel_view_test.js（145 行）
-- pdf_export_test.js（158 行）
-- report_builders_test.js（202 行）
-- report_content_helpers_test.js（106 行）
-- report_export_template_test.js（101 行）
-- reports_view_test.js（131 行）
-- skill_registry_test.js（90 行）
-- virtual_panel_test.js（107 行）
+### 2. CI 门禁
 
-全部 18 个模块测试 + smoke_test.py 纳入回归；语言投影测试覆盖 v3 schema、缺字段缓存失效、用户输入原文保护、生成内容投影和按需翻译 payload。
+Pages workflow 已新增部署前测试门禁：
 
-### 3. 统一语言投影落地
+- JS 语法检查。
+- 所有 JS 测试。
+- Python smoke test。
+- 视觉回归脚本。
+- `git diff --check`。
+- 上传 `artifacts/visual-regression/current` 作为 workflow artifact。
 
-新增 `localized-run-view.js` 作为统一语言投影层。用户输入字段不进入翻译 payload；系统生成的报告、图谱、委员会、评分表、Summary 和导出内容按当前语言投影。Mock 模式本地构建 artifact，真实模型模式按需翻译并缓存；`language-artifact.v3` 会让旧 schema 或缺字段缓存自动失效。语言切换 token 解决了生成过程中切换语言时旧请求覆盖新语言的竞态。
+### 3. 独立视觉回归
 
-### 4. P3 反馈引擎能力增强
+`browser_e2e_test.js` 做流程断言和截图非空；`visual_regression_test.js` 已补关键页面截图：
 
-新增了 `conflict_policy`（5 条冲突裁决规则）和 `buildSkillUpdateSuggestions()`（反馈 → Skill 更新建议），以及 `buildFeedbackImpactDiff()`（反馈对节点和边的影响 diff）。
+- 捕获 onboarding、workbench、graph、panel、summary、mobile graph。
+- 输出当前截图到 `artifacts/visual-regression/current`。
+- 如果存在 baseline，则比较截图哈希，发现差异即失败。
+- CI 上传 current 截图，方便人工确认并更新 baseline。
 
----
+### 4. 反馈影响虚拟角色权重
 
-## 六、仍待加强的短板
+反馈历史已经保存，但还没有影响下一轮 virtual panel 的 `influence_weight`。建议让“已证实风险”“未采用问题”“证据不足”等反馈改变角色权重和问题排序。
 
-### 短板 1：P0 浏览器级回归测试（缺口最大）
+### 5. app.js 继续瘦身
 
-JS 单元测试覆盖了模块逻辑层，但缺少"真实浏览器中跑完整流程"的 E2E 保障。具体缺：
-- **Playwright** 截图回归（中/英、候选人/面试官、工作台/图谱）
-- **缓存命中/未命中**的浏览器级运行时回归
-- **语言 artifact** 重建、生成中切换语言和原文保护的浏览器级回归
-- smoke_test.py 仍是 1397 行单文件，未拆分为 UI/schema/report/cache 四类
+下一步建议优先拆：
 
-**影响**：改代码后有单元测试保护模块逻辑，但 UI 交互链路和缓存行为无自动化保障。
-
-### 短板 2：P2 图谱高级决策能力
-
-图谱已支持节点类型筛选、关键词搜索、组合过滤、匹配计数和无结果提示。仍缺：
-- 按风险等级/证据等级/Skill 来源/虚拟角色来源过滤
-- challenges 统计了但不提升问题优先级
-
-**影响**：用户已经可以快速定位文本节点，但还不能按风险和证据维度完成更精细的决策筛选。
-
-### 短板 3：P3 反馈历史持久化
-
-反馈引擎能算出结构化结果，但不能跨会话保存：
-- 无 localStorage/sessionStorage 持久化
-- 刷新页面后反馈丢失
-- 反馈不能影响虚拟角色权重（动态调整影响力）
-
-**影响**：面试官每次使用都是"从零开始"，无法积累和复用反馈经验。
-
-### 短板 4：P1 聊天记录筛选不完整
-
-轮次筛选已完成，但缺：
-- 按虚拟角色筛选（只看某个面试官的发言）
-- 按证据节点筛选（只看与某条证据相关的讨论）
-
-**影响**：多轮讨论后信息量大，用户无法快速定位某个角色或某条证据的相关讨论。
+- `prompt-builder.js`
+- `mock-report-runner.js`
+- `app-state.js`
+- `ui-bindings.js`
 
 ---
 
-## 七、下一步建议（按 ROI 排序）
+## 六、建议推进顺序
 
-### 第一梯队（高 ROI、低风险）
-
-| 优先级 | 任务 | 预估工作量 | 理由 |
-|--------|------|-----------|------|
-| P1-4 | 聊天记录按角色筛选 | 半天 | panel-view.js 已有轮次筛选模式，复制扩展即可 |
-| P2-4 | challenges 提升问题优先级 | 1 天 | assessment-rules.js 加排序权重，数据已有 |
-| P3-2 | 反馈历史 localStorage 持久化 | 1 天 | feedback-engine.js + run-cache.js 加 save/load 逻辑 |
-
-### 第二梯队（中 ROI、中风险）
-
-| 优先级 | 任务 | 预估工作量 | 理由 |
-|--------|------|-----------|------|
-| P2-2 | 图谱高级过滤（风险/证据/Skill/角色） | 1-2 天 | graph-view.js 扩展 filter 面板 |
-| P0-2 | Playwright 截图回归 | 2-3 天 | 需安装 Playwright、写 6-8 个场景脚本 |
-| P0-4 | 缓存浏览器级回归测试 | 1 天 | 依赖 Playwright 框架 |
-| P3-5 | 反馈影响虚拟角色权重 | 1-2 天 | virtual-panel.js + feedback-engine.js 联动 |
-
-### 第三梯队（低 ROI 或高复杂度）
-
-| 优先级 | 任务 | 预估工作量 | 理由 |
-|--------|------|-----------|------|
-| P0-3 | smoke_test.py 拆分四类 | 1 天 | 机械拆分，但需保证不破坏现有通过率 |
-| P1-4 | 聊天记录按证据节点筛选 | 1 天 | 需关联图谱节点 ID 与聊天消息 |
+1. 建立视觉 baseline 更新流程。
+2. 让反馈历史影响虚拟角色权重。
+3. 继续拆分 `app.js`。
+4. 将 smoke test 机械拆分为 UI/schema/report/cache 四类。
+5. 恢复小批脱敏真实样本评测。
 
 ---
 
-## 八、验证命令
+## 七、验证命令
 
 ```bash
-# 语法检查
 node --check apps/web/app.js
-
-# JS 单元测试（18 个）
-for f in scripts/*_test.js; do node "$f"; done
-
-# Python 烟测
+for f in apps/web/src/*.js; do node --check "$f"; done
+for f in scripts/*_test.js; do
+  if [ "$(basename "$f")" != "visual_regression_test.js" ]; then
+    node "$f"
+  fi
+done
+node scripts/visual_regression_test.js
 python scripts/smoke_test.py
-
-# Git 检查
 git diff --check
 ```
-
----
-
-## 九、结论
-
-OfferAgent 在本轮评估中完成了 **P4 模块化的全面落地**（10/10）、**P0 测试覆盖从零到十八**和**统一语言投影层**。app.js 从 8151 行单文件瘦身到 2191 行主入口 + 20 个模块，所有测试通过。
-
-当前完成度 **19/27（70%）**，相比上次评估（18/30 = 60%）提升 10 个百分点。
-
-三个最大短板明确且可操作：
-1. **P0 浏览器级回归** — 单元测试有了，仍缺稳定的 E2E 与语言切换运行时回归
-2. **P2 图谱决策** — 完成度最低（25%），搜索和过滤是最高 ROI 的改进
-3. **P3 反馈持久化** — 能算不能存，加 localStorage 即可闭环
-
-建议按"图谱搜索 → 角色筛选 → challenge 优先级 → 反馈持久化"的顺序推进，每个任务半天到一天，累计一周可将完成度推到 80%+。

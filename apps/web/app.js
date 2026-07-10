@@ -1438,7 +1438,7 @@ function applyCleanChineseCopy() {
   setText("#clearBtn", "清空当前页面");
   setText("#generateBtn", "生成评估报告");
   setText("#feedback-title", "人工反馈");
-  setText(".feedback-panel .run-badge", "仅当前页面有效");
+  setText(".feedback-panel .run-badge", "本机浏览器保存");
   setText("#report-title", "评估报告");
   setText("#decision-summary-title", "结果摘要");
   setText("#interviewer-scorecard-title", "面试官评分表");

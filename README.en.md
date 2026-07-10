@@ -108,9 +108,9 @@ To make same-input reports more stable, the current version includes a consisten
 
 1. Input fingerprinting through `input_fingerprint`.
 2. Structured JSON intermediate layer through `structured_evaluation`.
-3. Local base-report cache reuse for identical inputs.
+3. Local browser localStorage base-report cache reuse for identical inputs.
 4. Live model calls use `temperature: 0` and include a `seed`.
-5. API keys and human feedback are not stored in the base-report cache.
+5. The base-report cache does not store API keys or human feedback.
 
 ### 6. Interviewer Lens Library
 
@@ -158,7 +158,7 @@ In Interviewer mode, human feedback can be written into the report. Feedback is 
 3. Delete questions.
 4. Keep questions.
 5. Track feedback impact on risks, offer decisions, and Skill update suggestions.
-6. Feedback history for the same input fingerprint is saved locally and restored after refresh or cache reuse.
+6. Feedback history for the same input fingerprint is saved in the local browser localStorage and restored after refresh or cache reuse.
 
 ## Implemented
 
@@ -178,10 +178,11 @@ In Interviewer mode, human feedback can be written into the report. Feedback is 
 14. FeedbackDistillation visualization and local feedback history.
 15. GitHub Pages deployment.
 16. Cloudflare Worker proxy example.
-17. Static smoke test script.
+17. Static smoke test, browser E2E, and visual regression scripts.
 18. Input readiness feedback for resume / JD length, limited context, and interviewer-role selection.
 19. Unified language projection: user input remains verbatim while the interface, reports, graph, virtual panel, scorecards, summaries, and exports follow the active language. Mock runs build language artifacts locally, while live-model runs translate on demand and cache the result.
 20. Per-visit persona selection through two illustrated role cards; the selected workspace appears only after entry, identity is not persisted, and model configuration stays collapsed under Advanced by default.
+21. GitHub Actions pre-deploy test gate: syntax checks, JS tests, smoke test, visual regression, and whitespace checks.
 
 ## Current Limits
 
@@ -270,10 +271,11 @@ node scripts/feedback_engine_test.js
 node scripts/assessment_rules_test.js
 node scripts/evaluation_engine_test.js
 node scripts/browser_e2e_test.js
+node scripts/visual_regression_test.js
 python scripts/smoke_test.py
 git diff --check
 ```
 
 ## Privacy
 
-Mock Demo does not call external models. In live-model mode, the API key is only used temporarily in the current browser page and is not written to the repository or the consistency cache. Translation is requested only when a target-language artifact is missing; generated language artifacts may be cached with the base run, but API keys and human feedback are not stored in that base-report cache. Interviewer feedback history is saved separately in localStorage by input fingerprint so the same browser can restore recent feedback. Avoid entering real sensitive resume data on public or untrusted devices.
+Mock Demo does not call external models. In live-model mode, the API key is only used temporarily in the current browser page and is not written to the repository or localStorage. OfferAgent has no user account system, team cloud workspace, or project-owned server-side report store. The browser does store two kinds of local data in localStorage: base reports and language artifacts keyed by input fingerprint, and interviewer feedback history keyed by input fingerprint. The base-report cache does not include API keys or human feedback. Avoid entering real sensitive resume data on public or untrusted devices; if you do, clear the browser site data afterward.
