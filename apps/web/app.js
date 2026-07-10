@@ -39,7 +39,10 @@ const skillToggleEls = Array.from(document.querySelectorAll(".skill-toggle"));
 const audienceModeEls = Array.from(document.querySelectorAll("[data-audience-mode]"));
 const workspaceViewEls = Array.from(document.querySelectorAll("[data-workspace-view]"));
 const resultViewEls = Array.from(document.querySelectorAll("[data-result-view]"));
+const personaChoiceEls = Array.from(document.querySelectorAll("[data-persona-choice]"));
 const appShellEl = document.querySelector(".page");
+const personaGateEl = $("personaGate");
+const configViewEl = $("configView");
 
 if (languageEl) languageEl.value = "zh";
 
@@ -722,6 +725,7 @@ function renderAllOutputSurfaces(run, options = {}) {
 
 renderStreamProgress("", getText().progressWaiting, false);
 setAudienceMode(activeAudienceMode);
+setAudienceOnboardingComplete(false);
 setWorkspaceView("workbench");
 setReportDownloadsAvailable(false);
 refreshInputReadiness();
@@ -762,7 +766,21 @@ resultViewEls.forEach((button) => {
 });
 
 audienceModeEls.forEach((button) => {
-  button.addEventListener("click", () => setAudienceMode(button.dataset.audienceMode));
+  button.addEventListener("click", () => {
+    setAudienceOnboardingComplete(true);
+    setAudienceMode(button.dataset.audienceMode);
+  });
+});
+
+personaChoiceEls.forEach((button) => {
+  button.addEventListener("click", () => {
+    setAudienceMode(button.dataset.personaChoice);
+    setAudienceOnboardingComplete(true);
+    requestAnimationFrame(() => {
+      configViewEl?.focus({ preventScroll: true });
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  });
 });
 
 bindClick("mockBtn", () => {
@@ -1024,12 +1042,20 @@ function getPageMode() {
   return activeAudienceMode;
 }
 
+function setAudienceOnboardingComplete(completed) {
+  const isComplete = Boolean(completed);
+  document.body?.classList.toggle("onboarding-active", !isComplete);
+  if (personaGateEl) personaGateEl.hidden = isComplete;
+  if (configViewEl) configViewEl.hidden = !isComplete;
+}
+
 function setAudienceMode(mode) {
   activeAudienceMode = mode === "interviewer" ? "interviewer" : "candidate";
   if (document.body?.dataset) {
     document.body.dataset.pageMode = activeAudienceMode;
   }
   applyInterviewerMode();
+  applyAudienceFlowCopy();
   const displayRun = getDisplayRun();
   renderDecisionSummaryCard(displayRun);
   renderInterviewerScorecard(displayRun);
@@ -1045,6 +1071,21 @@ function applyInterviewerMode() {
     button.classList.toggle("active", isActive);
     button.setAttribute("aria-selected", isActive ? "true" : "false");
   });
+}
+
+function applyAudienceFlowCopy() {
+  const text = getText();
+  const flow = text.audienceFlows?.[getPageMode()];
+  if (!flow) return;
+  setText("#config-card-title", flow.configCardTitle);
+  setText("#config-card-subtitle", flow.configCardSubtitle);
+  setText(".sandbox-panel .sub-panel-head span", flow.sandbox);
+  setText(".sandbox-panel .sub-panel-head small", flow.sandboxHint);
+  setText("#input-title", flow.inputTitle);
+  setText("#input-card-subtitle", flow.inputCardSubtitle);
+  setText("#skill-card-title", flow.skillCardTitle);
+  setText("#skill-card-subtitle", flow.skillHint);
+  setText("#generateBtn", flow.generateBtn);
 }
 
 function setReportDownloadsAvailable(available) {
@@ -1175,8 +1216,9 @@ async function applyLanguage(language) {
   );
   document.querySelector(".config-panel")?.setAttribute(
     "aria-label",
-    text.labels.modelPanelTitle,
+    text.labels.advancedModelTitle,
   );
+  personaGateEl?.setAttribute("aria-label", text.labels.personaGateTitle);
   document.querySelector(".sandbox-panel")?.setAttribute(
     "aria-label",
     text.labels.offerSandboxLabel,
@@ -1218,8 +1260,19 @@ async function applyLanguage(language) {
 
   setText("#config-card-title", text.labels.configCardTitle);
   setText("#config-card-subtitle", text.labels.configCardSubtitle);
-  setText("#config-title", text.labels.modelPanelTitle);
-  setText("#config-panel-hint", text.labels.modelPanelHint);
+  setText("#persona-gate-title", text.labels.personaGateTitle);
+  setText("#persona-gate-subtitle", text.labels.personaGateSubtitle);
+  setText("#persona-candidate-title", text.labels.personaCandidateTitle);
+  setText("#persona-candidate-description", text.labels.personaCandidateDescription);
+  setText("#persona-interviewer-title", text.labels.personaInterviewerTitle);
+  setText("#persona-interviewer-description", text.labels.personaInterviewerDescription);
+  setText("#persona-gate-hint", text.labels.personaGateHint);
+  setText('[data-persona-choice="candidate"] .persona-option-kicker', currentLanguage === "en" ? "Prepare for interviews" : "准备面试");
+  setText('[data-persona-choice="interviewer"] .persona-option-kicker', currentLanguage === "en" ? "Evaluate candidates" : "评估候选人");
+  setText('[data-persona-choice="candidate"] .persona-option-action', currentLanguage === "en" ? "Open candidate workspace →" : "进入候选人工作台 →");
+  setText('[data-persona-choice="interviewer"] .persona-option-action', currentLanguage === "en" ? "Open interviewer workspace →" : "进入面试官工作台 →");
+  setText("#config-title", text.labels.advancedModelTitle);
+  setText("#config-panel-hint", text.labels.advancedModelHint);
   setText("#mockBtn", text.labels.mockBtn);
   setFieldLabel(providerEl, text.labels.provider);
   setFieldLabel(modelEl, text.labels.model);
@@ -1322,6 +1375,7 @@ async function applyLanguage(language) {
 
   updateModelMode();
   applyCleanChineseCopy();
+  applyAudienceFlowCopy();
   refreshInputReadiness();
 
   if (!currentRun) {
@@ -1377,7 +1431,8 @@ function applyCleanChineseCopy() {
   setText('[data-result-view="graph"] .tab-label', "证据图谱");
   setText('[data-result-view="panel"] .tab-label', "虚拟委员会");
   setText('[data-result-view="summary"] .tab-label', "结果摘要");
-  setText("#config-title", "临时配置模型");
+  setText("#config-title", "高级设置：模型与代理");
+  setText("#config-panel-hint", "默认使用 Mock Demo，无需配置即可体验");
   setText("#mockBtn", "填充脱敏样例");
   setText("#input-title", "输入简历与 JD");
   setText("#clearBtn", "清空当前页面");

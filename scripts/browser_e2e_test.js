@@ -276,6 +276,79 @@ async function main() {
     assert.equal(languageState.selectValue, "zh");
     assert.equal(languageState.hasEnglishOption, true);
 
+    const onboardingState = await evaluate(client, `(() => {
+      const gate = document.querySelector('#personaGate');
+      const config = document.querySelector('#configView');
+      const results = document.querySelector('#resultsView');
+      const sidebar = document.querySelector('#sidebar');
+      const advanced = document.querySelector('#advancedModelSettings');
+      const header = document.querySelector('.header');
+      return {
+        gateVisible: Boolean(gate) && !gate.hidden && getComputedStyle(gate).display !== 'none',
+        configHidden: Boolean(config?.hidden),
+        workspaceSurfacesHidden: [config, results, sidebar].every(
+          (element) => element && getComputedStyle(element).display === 'none',
+        ),
+        headerHidden: Boolean(header) && getComputedStyle(header).display === 'none',
+        optionCount: document.querySelectorAll('[data-persona-choice]').length,
+        artworkCount: document.querySelectorAll('.persona-illustration svg').length,
+        candidateChoice: Boolean(document.querySelector('[data-persona-choice="candidate"]')),
+        interviewerChoice: Boolean(document.querySelector('[data-persona-choice="interviewer"]')),
+        advancedClosed: Boolean(advanced) && !advanced.open,
+      };
+    })()`);
+    assert.equal(onboardingState.gateVisible, true);
+    assert.equal(onboardingState.configHidden, true);
+    assert.equal(onboardingState.workspaceSurfacesHidden, true);
+    assert.equal(onboardingState.headerHidden, true);
+    assert.equal(onboardingState.optionCount, 2);
+    assert.equal(onboardingState.artworkCount, 2);
+    assert.equal(onboardingState.candidateChoice, true);
+    assert.equal(onboardingState.interviewerChoice, true);
+    assert.equal(onboardingState.advancedClosed, true);
+
+    await evaluate(client, `document.querySelector('[data-persona-choice="candidate"]').click(); true;`);
+    await waitForExpression(
+      client,
+      "!document.querySelector('#configView')?.hidden && document.body.dataset.pageMode === 'candidate' && getComputedStyle(document.querySelector('.header')).display !== 'none'",
+    );
+    const candidateFlowState = await evaluate(client, `(() => ({
+      identityStored: localStorage.getItem('offeragent_audience_preference_v1') !== null,
+      title: document.querySelector('#config-card-title')?.textContent || '',
+      generateLabel: document.querySelector('#generateBtn')?.textContent || '',
+      advancedClosed: !document.querySelector('#advancedModelSettings')?.open,
+    }))()`);
+    assert.equal(candidateFlowState.identityStored, false);
+    assert.match(candidateFlowState.title, /面试目标/);
+    assert.match(candidateFlowState.generateLabel, /我的面试准备/);
+    assert.equal(candidateFlowState.advancedClosed, true);
+
+    await client.send("Page.reload", { ignoreCache: true });
+    await waitForExpression(
+      client,
+      "document.readyState === 'complete' && !document.querySelector('#personaGate')?.hidden && document.querySelector('#configView')?.hidden",
+    );
+    const reopenedAudienceState = await evaluate(client, `(() => ({
+      gateVisible: !document.querySelector('#personaGate')?.hidden,
+      configHidden: Boolean(document.querySelector('#configView')?.hidden),
+      workspaceSurfacesHidden: ['#configView', '#resultsView', '#sidebar'].every(
+        (selector) => getComputedStyle(document.querySelector(selector)).display === 'none'
+      ),
+      headerHidden: getComputedStyle(document.querySelector('.header')).display === 'none',
+      pageMode: document.body.dataset.pageMode || '',
+    }))()`);
+    assert.equal(reopenedAudienceState.gateVisible, true);
+    assert.equal(reopenedAudienceState.configHidden, true);
+    assert.equal(reopenedAudienceState.workspaceSurfacesHidden, true);
+    assert.equal(reopenedAudienceState.headerHidden, true);
+    assert.equal(reopenedAudienceState.pageMode, "candidate");
+
+    await evaluate(client, `document.querySelector('[data-persona-choice="candidate"]').click(); true;`);
+    await waitForExpression(
+      client,
+      "!document.querySelector('#configView')?.hidden && document.body.dataset.pageMode === 'candidate'",
+    );
+
     await evaluate(client, `document.querySelector('#mockBtn').click(); true;`);
     await waitForExpression(
       client,
@@ -396,10 +469,16 @@ async function main() {
       return {
         candidateHidden: candidateDisplay === 'none',
         interviewerVisible: interviewerDisplay !== 'none',
+        identityStored: localStorage.getItem('offeragent_audience_preference_v1') !== null,
+        title: document.querySelector('#config-card-title')?.textContent || '',
+        generateLabel: document.querySelector('#generateBtn')?.textContent || '',
       };
     })()`);
     assert.equal(audienceState.candidateHidden, true);
     assert.equal(audienceState.interviewerVisible, true);
+    assert.equal(audienceState.identityStored, false);
+    assert.match(audienceState.title, /评估目标/);
+    assert.match(audienceState.generateLabel, /候选人评估/);
 
     const feedbackHistoryState = await evaluate(client, `(() => {
       document.querySelector('#feedbackAgreement').value = '部分同意';

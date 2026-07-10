@@ -8,9 +8,9 @@
       name="description"
       content="OfferAgent redesigned workspace for candidate preparation, interviewer evaluation, evidence graph, virtual committee, feedback, and offer simulation."
     />
-    <link rel="stylesheet" href="./styles.css?v=web-20260710-5" />
+    <link rel="stylesheet" href="./styles.css?v=web-20260710-8" />
   </head>
-  <body data-page-mode="candidate">
+  <body class="onboarding-active" data-page-mode="candidate">
     <div class="app page view-workbench">
       <header class="header">
         <div class="header-brand brand">
@@ -40,57 +40,49 @@
       </header>
 
       <main class="main-content" id="mainContent">
-        <section class="primary-col config-view" id="configView" aria-label="工作台">
+        <section class="persona-gate" id="personaGate" aria-label="选择使用身份">
+          <div class="persona-gate-inner">
+            <div class="persona-options" role="group" aria-label="选择使用身份">
+              <button class="persona-option" type="button" data-persona-choice="candidate">
+                <span class="persona-illustration" data-persona-illustration="candidate" aria-hidden="true"></span>
+                <span class="persona-option-content">
+                  <span class="persona-option-kicker">准备面试</span>
+                  <strong id="persona-candidate-title">我是候选人</strong>
+                  <small id="persona-candidate-description">梳理岗位匹配、项目故事、风险补证和面试表达。</small>
+                  <span class="persona-option-action">进入候选人工作台 →</span>
+                </span>
+              </button>
+              <button class="persona-option" type="button" data-persona-choice="interviewer">
+                <span class="persona-illustration" data-persona-illustration="interviewer" aria-hidden="true"></span>
+                <span class="persona-option-content">
+                  <span class="persona-option-kicker">评估候选人</span>
+                  <strong id="persona-interviewer-title">我是面试官</strong>
+                  <small id="persona-interviewer-description">生成证据链、必问追问、评分表和下一轮传递重点。</small>
+                  <span class="persona-option-action">进入面试官工作台 →</span>
+                </span>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section class="primary-col config-view" id="configView" aria-label="工作台" tabindex="-1" hidden>
           <div class="card config-card" id="step1Card">
             <div class="card-header">
               <div class="card-header-left">
                 <div class="card-step-badge section-icon-badge" aria-hidden="true">⚙</div>
                 <div>
-                  <div class="card-title" id="config-card-title">配置模型与 Offer 沙盘</div>
-                  <div class="card-subtitle" id="config-card-subtitle">选择模型服务，设置岗位目标、阶段和谈薪约束</div>
+                  <div class="card-title" id="config-card-title">设置面试目标</div>
+                  <div class="card-subtitle" id="config-card-subtitle">先完成岗位和阶段设置，模型配置可在高级设置中调整</div>
                 </div>
               </div>
               <button id="mockBtn" class="btn btn-secondary btn-sm" type="button">填充脱敏样例</button>
             </div>
             <div class="card-body">
               <div class="model-sandbox-grid">
-                <section class="sub-card config-panel" aria-label="临时配置模型">
-                  <div class="model-panel-head">
-                    <span id="config-title">临时配置模型</span>
-                    <small id="config-panel-hint">支持 Mock Demo 与 OpenAI-compatible 代理</small>
-                  </div>
-                  <div class="form-row cols-2 compact-fields">
-                    <label class="field">
-                      <span class="field-label">模型服务商</span>
-                      <select class="field-select" id="provider">
-                        <option value="mock">Mock Demo</option>
-                        <option value="openai">OpenAI 官方接口</option>
-                        <option value="deepseek">DeepSeek 官方接口</option>
-                        <option value="qwen">通义千问 / DashScope</option>
-                        <option value="kimi">Kimi / Moonshot</option>
-                        <option value="custom">代理 / 自定义接口</option>
-                      </select>
-                    </label>
-                    <label class="field">
-                      <span class="field-label">模型名称</span>
-                      <input class="field-input" id="model" type="text" value="gpt-4.1-mini" autocomplete="off" />
-                    </label>
-                    <label class="field">
-                      <span class="field-label">临时 API Key</span>
-                      <input class="field-input" id="apiKey" type="password" placeholder="Mock 模式不需要 Key" autocomplete="off" spellcheck="false" />
-                    </label>
-                    <label class="field">
-                      <span class="field-label">Base URL（可选）</span>
-                      <input class="field-input" id="baseUrl" type="url" placeholder="https://your-worker.workers.dev" autocomplete="off" spellcheck="false" />
-                    </label>
-                  </div>
-                  <div class="mode-indicator" id="modelMode">当前模式：Mock Demo</div>
-                </section>
-
                 <section class="sub-card sandbox-panel sub-panel" aria-label="Offer 沙盘">
                   <div class="sub-panel-head">
-                    <span>Offer 沙盘</span>
-                    <small>模拟面试推进、录用风险和谈薪约束</small>
+                    <span>面试目标与 Offer 约束</span>
+                    <small>设置目标岗位、面试阶段和可选的谈薪约束</small>
                   </div>
                   <div class="form-row cols-3 compact-fields">
                     <label class="field">
@@ -121,6 +113,43 @@
                     <textarea class="field-textarea" id="offerConstraints" rows="3" placeholder="例如预算范围、竞品 Offer、到岗时间、团队紧急程度。"></textarea>
                   </label>
                 </section>
+
+                <details class="sub-card config-panel advanced-model-settings" id="advancedModelSettings">
+                  <summary class="advanced-model-summary">
+                    <span class="advanced-model-copy">
+                      <strong id="config-title">高级设置：模型与代理</strong>
+                      <small id="config-panel-hint">默认使用 Mock Demo，无需配置即可体验</small>
+                    </span>
+                    <span class="mode-indicator" id="modelMode">当前模式：Mock Demo</span>
+                  </summary>
+                  <div class="advanced-model-body">
+                    <div class="form-row cols-2 compact-fields">
+                      <label class="field">
+                        <span class="field-label">模型服务商</span>
+                        <select class="field-select" id="provider">
+                          <option value="mock">Mock Demo</option>
+                          <option value="openai">OpenAI 官方接口</option>
+                          <option value="deepseek">DeepSeek 官方接口</option>
+                          <option value="qwen">通义千问 / DashScope</option>
+                          <option value="kimi">Kimi / Moonshot</option>
+                          <option value="custom">代理 / 自定义接口</option>
+                        </select>
+                      </label>
+                      <label class="field">
+                        <span class="field-label">模型名称</span>
+                        <input class="field-input" id="model" type="text" value="gpt-4.1-mini" autocomplete="off" />
+                      </label>
+                      <label class="field">
+                        <span class="field-label">临时 API Key</span>
+                        <input class="field-input" id="apiKey" type="password" placeholder="Mock 模式不需要 Key" autocomplete="off" spellcheck="false" />
+                      </label>
+                      <label class="field">
+                        <span class="field-label">Base URL（可选）</span>
+                        <input class="field-input" id="baseUrl" type="url" placeholder="https://your-worker.workers.dev" autocomplete="off" spellcheck="false" />
+                      </label>
+                    </div>
+                  </div>
+                </details>
               </div>
             </div>
           </div>
@@ -302,7 +331,8 @@
     <script src="./src/skill-registry.js?v=web-20260710-1"></script>
     <script src="./src/run-cache.js?v=web-20260710-2"></script>
     <script src="./src/input-readiness.js?v=web-20260710-1"></script>
-    <script src="./src/i18n.js?v=web-20260710-5"></script>
+    <script src="./src/persona-illustrations.js?v=web-20260710-1"></script>
+    <script src="./src/i18n.js?v=web-20260710-7"></script>
     <script src="./src/localization-mappers.js?v=web-20260710-4"></script>
     <script src="./src/virtual-panel.js?v=web-20260710-2"></script>
     <script src="./src/evidence-graph.js?v=web-20260710-2"></script>
@@ -318,6 +348,6 @@
     <script src="./src/assessment-rules.js?v=web-20260710-1"></script>
     <script src="./src/report-content-helpers.js?v=web-20260710-2"></script>
     <script src="./src/evaluation-engine.js?v=web-20260710-1"></script>
-    <script src="./app.js?v=web-20260710-20"></script>
+    <script src="./app.js?v=web-20260710-23"></script>
   </body>
 </html>

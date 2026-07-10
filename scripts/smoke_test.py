@@ -41,6 +41,7 @@ def static_checks():
         "domain_data": web_root / "src" / "domain-data.js",
         "run_cache": web_root / "src" / "run-cache.js",
         "i18n": web_root / "src" / "i18n.js",
+        "persona_illustrations": web_root / "src" / "persona-illustrations.js",
         "css": web_root / "styles.css",
         "readme": ROOT / "README.md",
         "prompt": ROOT / "prompts" / "product-manager-interview-prep.md",
@@ -54,6 +55,7 @@ def static_checks():
         "skill_negotiation": ROOT / "examples" / "skill-definitions" / "negotiation-advisor.json",
         "skill_decision": ROOT / "examples" / "skill-definitions" / "executive-pressure-officer.json",
         "gitignore": ROOT / ".gitignore",
+        "local_proxy": ROOT / "scripts" / "local_proxy.py",
     }
     content = {name: read(path) for name, path in files.items()}
     virtual_panel_content = read(virtual_panel_path) if virtual_panel_path.exists() else ""
@@ -213,7 +215,7 @@ def static_checks():
         "candidate_interviewer_pages_exist": all(
             term in content["index"] + content["candidate"] + content["interviewer"] + content["app"]
             for term in [
-                '<body data-page-mode="candidate">',
+                'data-page-mode="candidate"',
                 'data-workspace-view="workbench"',
                 'data-workspace-view="graph"',
                 'data-audience-mode="candidate"',
@@ -348,6 +350,46 @@ def static_checks():
                 "mode-indicator",
                 ".field-input",
                 ".field-select",
+            ]
+        ),
+        "persona_first_run_flow_exists": all(
+            term in content["index"] + content["app"] + content["css"] + content["i18n"] + content["persona_illustrations"]
+            for term in [
+                "personaGate",
+                'data-persona-choice="candidate"',
+                'data-persona-choice="interviewer"',
+                'data-persona-illustration="candidate"',
+                'data-persona-illustration="interviewer"',
+                "setAudienceOnboardingComplete",
+                "audienceFlows",
+                ".persona-options",
+                ".persona-illustration",
+                "onboarding-active",
+                "OfferAgentPersonaIllustrations",
+            ]
+        ),
+        "persona_artwork_is_embedded_in_js": (
+            "<svg" in content["persona_illustrations"]
+            and "renderPersonaIllustrations" in content["persona_illustrations"]
+            and "persona-candidate.svg" not in content["index"]
+            and "persona-interviewer.svg" not in content["index"]
+        ),
+        "persona_identity_is_not_persisted": all(
+            term not in content["app"]
+            for term in [
+                "offeragent_audience_preference_v1",
+                "persistAudiencePreference",
+                "readAudiencePreference",
+            ]
+        ),
+        "model_config_is_advanced_collapsible": all(
+            term in content["index"] + content["app"] + content["css"]
+            for term in [
+                'id="advancedModelSettings"',
+                "<details",
+                "advanced-model-summary",
+                "advanced-model-body",
+                "高级设置：模型与代理",
             ]
         ),
         "resume_jd_left_right_exists": all(
@@ -1140,9 +1182,10 @@ def static_checks():
         "language_projection_assets_cache_busted": all(
             term in content["index"]
             for term in [
-                "./styles.css?v=web-20260710-5",
-                "./src/i18n.js?v=web-20260710-5",
-                "./app.js?v=web-20260710-20",
+                "./styles.css?v=web-20260710-8",
+                "./src/persona-illustrations.js?v=web-20260710-1",
+                "./src/i18n.js?v=web-20260710-7",
+                "./app.js?v=web-20260710-23",
             ]
         ),
         "virtual_panel_chat_stream_exists": all(
@@ -1261,6 +1304,15 @@ def static_checks():
             re.I,
         ),
         "secret_file_ignored": bool(re.search(r"(?m)^1\.md$", content["gitignore"])),
+        "local_proxy_serves_web_image_mime_types": all(
+            term in content["local_proxy"]
+            for term in [
+                '".svg": "image/svg+xml"',
+                '".png": "image/png"',
+                '".jpg": "image/jpeg"',
+                '".webp": "image/webp"',
+            ]
+        ),
         "docs_reflect_current_features": all(
             term in content["readme"]
             for term in [

@@ -32,14 +32,15 @@ OfferAgent helps candidates and interviewers connect role requirements with proj
 
 ## Current Experience
 
-1. A fixed top bar contains Workbench / Graph, Candidate / Interviewer, and Chinese / English controls.
-2. The Workbench view is used for model configuration, resume input, JD input, offer constraints, and interviewer lenses.
-3. Clicking Generate Report immediately switches to the Graph view while the report is generated.
-4. Candidate mode hides human feedback and only exposes the candidate report export.
-5. Interviewer mode shows human feedback and only exposes the interviewer report export.
-6. Graph nodes can jump back to the corresponding report section.
-7. The Graph view streams the virtual interview panel discussion as compact chat bubbles and keeps the moderator summary at the end.
-8. The same input can reuse a cached base report to reduce repeated-generation drift.
+1. Every page visit starts with two inline-SVG Candidate and Interviewer cards. The workspace remains hidden until a role is selected.
+2. The fixed header keeps Candidate / Interviewer and Workbench / Graph switching available after entry.
+3. The main flow prioritizes role, stage, resume, JD, offer constraints, and interviewer lenses; model and proxy configuration is collapsed under Advanced.
+4. Clicking Generate Report immediately switches to the Graph view while the report is generated.
+5. Candidate mode hides human feedback and only exposes the candidate report export.
+6. Interviewer mode shows human feedback and only exposes the interviewer report export.
+7. Graph nodes can jump back to the corresponding report section.
+8. The Graph view streams the virtual interview panel discussion as compact chat bubbles and keeps the moderator summary at the end.
+9. The same input can reuse a cached base report to reduce repeated-generation drift.
 
 ## Core Capabilities
 
@@ -180,6 +181,7 @@ In Interviewer mode, human feedback can be written into the report. Feedback is 
 17. Static smoke test script.
 18. Input readiness feedback for resume / JD length, limited context, and interviewer-role selection.
 19. Unified language projection: user input remains verbatim while the interface, reports, graph, virtual panel, scorecards, summaries, and exports follow the active language. Mock runs build language artifacts locally, while live-model runs translate on demand and cache the result.
+20. Per-visit persona selection through two illustrated role cards; the selected workspace appears only after entry, identity is not persisted, and model configuration stays collapsed under Advanced by default.
 
 ## Current Limits
 
@@ -200,6 +202,14 @@ In Interviewer mode, human feedback can be written into the report. Feedback is 
 5. A language-switch token prevents stale asynchronous work from overwriting the current language when the user switches languages during generation.
 
 ## Local Usage
+
+Windows users can double-click the following file in the repository root:
+
+```text
+start_offeragent.bat
+```
+
+It runs `python scripts\local_proxy.py --key-file 1.md`, waits for the local service, and opens the page in Google Chrome. Keep the command window open and press `Ctrl+C` to stop the service.
 
 Open the static page directly:
 
