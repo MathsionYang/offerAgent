@@ -19,8 +19,15 @@ def static_checks():
     virtual_panel_path = web_root / "src" / "virtual-panel.js"
     evidence_graph_path = web_root / "src" / "evidence-graph.js"
     graph_view_path = web_root / "src" / "graph-view.js"
+    panel_view_path = web_root / "src" / "panel-view.js"
+    skill_registry_path = web_root / "src" / "skill-registry.js"
+    report_builders_path = web_root / "src" / "report-builders.js"
     reports_view_path = web_root / "src" / "reports-view.js"
     model_client_path = web_root / "src" / "model-client.js"
+    pdf_export_path = web_root / "src" / "pdf-export.js"
+    feedback_engine_path = web_root / "src" / "feedback-engine.js"
+    assessment_rules_path = web_root / "src" / "assessment-rules.js"
+    evaluation_engine_path = web_root / "src" / "evaluation-engine.js"
     files = {
         "index": web_root / "index.html",
         "candidate": web_root / "index.html",
@@ -47,8 +54,15 @@ def static_checks():
     virtual_panel_content = read(virtual_panel_path) if virtual_panel_path.exists() else ""
     evidence_graph_content = read(evidence_graph_path) if evidence_graph_path.exists() else ""
     graph_view_content = read(graph_view_path) if graph_view_path.exists() else ""
+    panel_view_content = read(panel_view_path) if panel_view_path.exists() else ""
+    skill_registry_content = read(skill_registry_path) if skill_registry_path.exists() else ""
+    report_builders_content = read(report_builders_path) if report_builders_path.exists() else ""
     reports_view_content = read(reports_view_path) if reports_view_path.exists() else ""
     model_client_content = read(model_client_path) if model_client_path.exists() else ""
+    pdf_export_content = read(pdf_export_path) if pdf_export_path.exists() else ""
+    feedback_engine_content = read(feedback_engine_path) if feedback_engine_path.exists() else ""
+    assessment_rules_content = read(assessment_rules_path) if assessment_rules_path.exists() else ""
+    evaluation_engine_content = read(evaluation_engine_path) if evaluation_engine_path.exists() else ""
     app_modules = (
         content["app"]
         + content["domain_data"]
@@ -57,8 +71,15 @@ def static_checks():
         + virtual_panel_content
         + evidence_graph_content
         + graph_view_content
+        + panel_view_content
+        + skill_registry_content
+        + report_builders_content
         + reports_view_content
         + model_client_content
+        + pdf_export_content
+        + feedback_engine_content
+        + assessment_rules_content
+        + evaluation_engine_content
     )
     ids = set(re.findall(r'id="([^"]+)"', content["index"]))
     refs = set(re.findall(r'\$\("([^"]+)"\)', content["app"]))
@@ -133,8 +154,8 @@ def static_checks():
         and "当前简历与 JD 部分匹配" in content["app"]
         and "不匹配 / 缺证" in content["app"]
         and "不列追问问题，先要求补充项目证据" in content["app"],
-        "audience_reports_branch_on_mismatch": "当前不列举追问问题" in content["app"]
-        and "简历修改意见与重点准备" in content["app"]
+        "audience_reports_branch_on_mismatch": "当前不列举追问问题" in app_modules
+        and "简历修改意见与重点准备" in app_modules
         and "buildCandidateRevisionAdvice" in content["app"]
         and "blockQuestions" in content["app"],
         "markdown_artifacts_cleaned": all(
@@ -149,7 +170,7 @@ def static_checks():
             for term in ["downloadPdfReport", "createPdfBlobFromJpegs", ".pdf", "application/pdf", "candidate-report", "interviewer-report"]
         ),
         "offer_pdf_has_seven_step_reasoning": all(
-            term in content["app"]
+            term in app_modules
             for term in [
                 "buildOfferSevenStepReasoning",
                 "## 七个步骤推理总览",
@@ -444,7 +465,7 @@ def static_checks():
             ]
         ),
         "non_sample_enhancements_exist": all(
-            term in content["app"] + content["css"] + content["schema_run"] + content["schema_offer"]
+            term in app_modules + content["css"] + content["schema_run"] + content["schema_offer"]
             for term in [
                 "decision_summary_cards",
                 "interviewer_scorecard_rows",
@@ -513,6 +534,356 @@ def static_checks():
                 "buildPanelDiscussionRounds",
                 "buildPanelTurn",
                 "buildModeratorSummary",
+            ]
+        ),
+        "panel_view_module_exists": panel_view_path.exists(),
+        "panel_view_api_exists": all(
+            term in panel_view_content
+            for term in [
+                "OfferAgentPanelView",
+                "createPanelView",
+                "renderVirtualPanelChat",
+                "playVirtualPanelChat",
+                "buildVirtualPanelChatMessages",
+                "renderVirtualPanelRoundTabs",
+                "navigatePanelTraceTarget",
+                "localizePanelClaim",
+                "localizePanelStance",
+            ]
+        ),
+        "panel_view_loads_before_app": content["index"].find("./src/panel-view.js")
+        < content["index"].find("./app.js")
+        and content["index"].find("./src/panel-view.js") >= 0,
+        "panel_view_injected_into_app": all(
+            term in content["app"]
+            for term in [
+                "window.OfferAgentPanelView.createPanelView",
+                "renderVirtualPanelChat,",
+                "playVirtualPanelChat,",
+                "localizeModeratorConsensus,",
+            ]
+        ),
+        "panel_view_removed_from_app": all(
+            f"function {name}" not in content["app"]
+            for name in [
+                "renderVirtualPanelChat",
+                "playVirtualPanelChat",
+                "stopVirtualPanelChat",
+                "buildVirtualPanelChatMessages",
+                "renderVirtualPanelDiscussion",
+                "renderVirtualPanelStats",
+                "renderVirtualPanelConclusion",
+                "renderVirtualPanelRoundTabs",
+                "renderVirtualPanelChatMessage",
+                "bindVirtualPanelRoundFilters",
+                "buildModeratorBasisTrace",
+                "renderModeratorBasisTrace",
+                "renderPanelTraceChips",
+                "bindVirtualPanelTraceNavigation",
+                "navigatePanelTraceTarget",
+                "panelTraceReportAnchor",
+                "buildModeratorTraceIds",
+                "buildPanelMessageMeta",
+                "localizePanelClaim",
+                "localizePanelStage",
+                "localizePanelTopic",
+                "localizePanelStance",
+                "localizePanelImpact",
+                "localizeModeratorConsensus",
+                "localizeFeedbackImpact",
+            ]
+        ),
+        "panel_view_has_english_boundary_comments": all(
+            comment in panel_view_content
+            for comment in [
+                "Render a complete panel state",
+                "Normalize model output",
+                "Resolve trace targets",
+            ]
+        ),
+        "report_builders_module_exists": report_builders_path.exists(),
+        "report_builders_api_exists": all(
+            term in report_builders_content
+            for term in [
+                "OfferAgentReportBuilders",
+                "createReportBuilders",
+                "buildPreviewMarkdown",
+                "buildAudienceMarkdown",
+                "buildVirtualPanelMarkdown",
+                "buildOfferSandboxMarkdown",
+                "buildOfferSevenStepReasoning",
+                "extractSection",
+            ]
+        ),
+        "report_builders_loads_before_app": content["index"].find("./src/report-builders.js")
+        < content["index"].find("./app.js")
+        and content["index"].find("./src/report-builders.js") >= 0,
+        "report_builders_injected_into_app": all(
+            term in content["app"]
+            for term in [
+                "window.OfferAgentReportBuilders.createReportBuilders",
+                "buildPreviewMarkdown,",
+                "buildAudienceMarkdown,",
+                "extractSection,",
+            ]
+        ),
+        "report_builders_removed_from_app": all(
+            f"function {name}" not in content["app"]
+            for name in [
+                "buildPreviewMarkdown",
+                "buildAudienceMarkdown",
+                "buildAudienceMarkdownEn",
+                "buildVirtualPanelMarkdown",
+                "buildOfferSandboxMarkdownEn",
+                "buildOfferSandboxMarkdown",
+                "buildOfferSevenStepReasoning",
+                "summarizeSection",
+                "buildEvidenceChainPlain",
+                "extractSection",
+                "hasSubstantiveSection",
+            ]
+        ),
+        "report_builders_have_english_boundary_comments": all(
+            comment in report_builders_content
+            for comment in [
+                "Compose all audience variants",
+                "Keep audience selection in one place",
+                "Keep the seven-step reasoning deterministic",
+            ]
+        ),
+        "pdf_export_module_exists": pdf_export_path.exists(),
+        "pdf_export_api_exists": all(
+            term in pdf_export_content
+            for term in [
+                "OfferAgentPdfExport",
+                "createPdfExport",
+                "downloadFile",
+                "downloadPdfReport",
+                "renderHtmlDocumentToPdfBlob",
+                "createPdfBlobFromJpegs",
+                "openPdfPrintWindow",
+            ]
+        ),
+        "pdf_export_loads_before_app": content["index"].find("./src/pdf-export.js")
+        < content["index"].find("./app.js")
+        and content["index"].find("./src/pdf-export.js") >= 0,
+        "pdf_export_injected_into_app": all(
+            term in content["app"]
+            for term in [
+                "window.OfferAgentPdfExport",
+                "createPdfExport",
+                "downloadFile,",
+                "downloadPdfReport,",
+                "getText: () => getText()",
+                "reportToStaticHtmlDocument: (...args) => reportToStaticHtmlDocument(...args)",
+            ]
+        ),
+        "pdf_export_removed_from_app": all(
+            f"function {name}" not in content["app"]
+            for name in [
+                "downloadFile",
+                "downloadPdfReport",
+                "renderHtmlDocumentToPdfBlob",
+                "waitForIframeLoad",
+                "waitForLayout",
+                "renderSvgPageToJpeg",
+                "createPdfBlobFromJpegs",
+                "dataUrlToBytes",
+                "escapeXml",
+                "downloadBlob",
+                "openPdfPrintWindow",
+            ]
+        ),
+        "pdf_export_has_english_boundary_comments": all(
+            comment in pdf_export_content
+            for comment in [
+                "Render the static report",
+                "Convert one vertically translated",
+                "Build a minimal PDF object graph",
+                "Keep printing as a last-resort path",
+            ]
+        ),
+        "feedback_engine_module_exists": feedback_engine_path.exists(),
+        "feedback_engine_api_exists": all(
+            term in feedback_engine_content
+            for term in [
+                "OfferAgentFeedbackEngine",
+                "createFeedbackEngine",
+                "buildFeedbackDistillation",
+                "buildFeedbackImpactDiff",
+                "buildSkillUpdateSuggestions",
+            ]
+        ),
+        "feedback_engine_loads_before_app": content["index"].find("./src/feedback-engine.js")
+        < content["index"].find("./app.js")
+        and content["index"].find("./src/feedback-engine.js") >= 0,
+        "feedback_engine_injected_into_app": all(
+            term in content["app"]
+            for term in [
+                "window.OfferAgentFeedbackEngine",
+                "createFeedbackEngine",
+                "buildFeedbackDistillation,",
+                "buildFeedbackImpactDiff,",
+                "buildSkillUpdateSuggestions,",
+            ]
+        ),
+        "feedback_engine_removed_from_app": all(
+            f"function {name}" not in content["app"]
+            for name in [
+                "buildFeedbackDistillation",
+                "buildFeedbackImpactDiff",
+                "buildSkillUpdateSuggestions",
+            ]
+        ),
+        "feedback_engine_has_english_boundary_comments": all(
+            comment in feedback_engine_content
+            for comment in [
+                "Question adoption creates",
+                "Risk validation changes",
+                "Insufficient evidence downgrades",
+            ]
+        ),
+        "skill_registry_module_exists": skill_registry_path.exists(),
+        "skill_registry_api_exists": all(
+            term in skill_registry_content
+            for term in [
+                "OfferAgentSkillRegistry",
+                "createSkillRegistry",
+                "skillLibrary",
+                "buildSkillRegistry",
+                "formatSelectedSkills",
+                "buildSkillQuestionMarkdown",
+            ]
+        ),
+        "skill_registry_loads_before_app": content["index"].find("./src/skill-registry.js")
+        < content["index"].find("./app.js")
+        and content["index"].find("./src/skill-registry.js") >= 0,
+        "skill_registry_injected_into_app": all(
+            term in content["app"]
+            for term in [
+                "window.OfferAgentSkillRegistry",
+                "createSkillRegistry",
+                "skillLibrary,",
+                "buildSkillRegistry,",
+                "formatSelectedSkills,",
+                "buildSkillQuestionMarkdown,",
+            ]
+        ),
+        "skill_registry_removed_from_app": all(
+            f"function {name}" not in content["app"]
+            for name in [
+                "buildSkillRegistry",
+                "formatSelectedSkills",
+                "buildSkillQuestionMarkdown",
+                "buildSkillEvidence",
+                "buildDeepQuestions",
+            ]
+        )
+        and "const skillLibrary = {" not in content["app"],
+        "skill_registry_has_english_boundary_comments": all(
+            comment in skill_registry_content
+            for comment in [
+                "Registry entries expose",
+                "Pull a compact evidence snapshot",
+                "Keep the hard-coded question templates deterministic",
+            ]
+        ),
+        "assessment_rules_module_exists": assessment_rules_path.exists(),
+        "assessment_rules_api_exists": all(
+            term in assessment_rules_content
+            for term in [
+                "OfferAgentAssessmentRules",
+                "createAssessmentRules",
+                "buildRequirementEvidenceRows",
+                "buildGateAssessment",
+                "buildOfferLeverage",
+                "findEvidence",
+            ]
+        ),
+        "assessment_rules_loads_before_evaluation_and_app": content["index"].find("./src/assessment-rules.js")
+        < content["index"].find("./src/evaluation-engine.js")
+        < content["index"].find("./app.js")
+        and content["index"].find("./src/assessment-rules.js") >= 0,
+        "assessment_rules_injected_into_app": all(
+            term in content["app"]
+            for term in [
+                "window.OfferAgentAssessmentRules",
+                "createAssessmentRules",
+                "buildRequirementEvidenceRows,",
+                "buildGateAssessment,",
+                "buildOfferLeverage,",
+                "findEvidence,",
+            ]
+        ),
+        "assessment_rules_removed_from_app": all(
+            f"function {name}" not in content["app"]
+            for name in [
+                "buildRequirementEvidenceRows",
+                "normalizeSnapshot",
+                "classifyEvidenceLevel",
+                "evidenceLevelLabel",
+                "evidenceLevelReason",
+                "buildVerificationQuestion",
+                "buildEvidenceSummary",
+                "buildGateAssessment",
+                "buildTransferPitch",
+                "buildOfferLeverage",
+                "findEvidence",
+            ]
+        ),
+        "assessment_rules_has_english_boundary_comments": all(
+            comment in assessment_rules_content
+            for comment in [
+                "Evidence levels intentionally prefer",
+                "Gate assessment decides",
+                "Offer leverage is a signal",
+            ]
+        ),
+        "evaluation_engine_module_exists": evaluation_engine_path.exists(),
+        "evaluation_engine_api_exists": all(
+            term in evaluation_engine_content
+            for term in [
+                "OfferAgentEvaluationEngine",
+                "createEvaluationEngine",
+                "buildEvaluationSummary",
+                "buildStructuredEvaluation",
+                "buildOfferSimulationRun",
+                "buildOfferScenarios",
+            ]
+        ),
+        "evaluation_engine_loads_before_app": content["index"].find("./src/evaluation-engine.js")
+        < content["index"].find("./app.js")
+        and content["index"].find("./src/evaluation-engine.js") >= 0,
+        "evaluation_engine_injected_into_app": all(
+            term in content["app"]
+            for term in [
+                "window.OfferAgentEvaluationEngine",
+                "createEvaluationEngine",
+                "buildEvaluationSummary,",
+                "buildOfferSimulationRun,",
+                "getLanguage: () => currentLanguage",
+            ]
+        ),
+        "evaluation_engine_removed_from_app": all(
+            f"function {name}" not in content["app"]
+            for name in [
+                "buildEvaluationSummary",
+                "buildRequirementMatches",
+                "buildStructuredInterviewQuestions",
+                "buildStructuredOfferSandbox",
+                "buildStructuredEvidence",
+                "buildStructuredEvaluation",
+                "buildOfferSimulationRun",
+                "buildOfferLifecycleSteps",
+                "buildOfferScenarios",
+            ]
+        ),
+        "evaluation_engine_has_english_boundary_comments": all(
+            comment in evaluation_engine_content
+            for comment in [
+                "Keep question ids stable",
+                "Evidence ids align",
+                "Lifecycle states are intentionally compact",
             ]
         ),
         "evidence_graph_model_module_exists": evidence_graph_path.exists(),
@@ -643,7 +1014,7 @@ def static_checks():
             ]
         ),
         "virtual_panel_chat_stream_exists": all(
-            term in content["index"] + content["app"] + content["css"]
+            term in content["index"] + app_modules + content["css"]
             for term in [
                 "virtualPanelChat",
                 "renderVirtualPanelChat",
@@ -664,7 +1035,7 @@ def static_checks():
             ]
         ),
         "virtual_panel_trace_navigation_exists": all(
-            term in content["app"] + content["css"]
+            term in app_modules + content["css"]
             for term in [
                 "bindVirtualPanelTraceNavigation",
                 "navigatePanelTraceTarget",
@@ -676,7 +1047,7 @@ def static_checks():
             ]
         ),
         "moderator_basis_trace_exists": all(
-            term in content["app"] + content["css"]
+            term in app_modules + content["css"]
             for term in [
                 "buildModeratorBasisTrace",
                 "renderModeratorBasisTrace",
@@ -894,10 +1265,17 @@ def main():
     result = {
         "static": static_checks(),
         "virtual_panel_model": node_test(ROOT / "scripts" / "virtual_panel_test.js"),
+        "panel_view": node_test(ROOT / "scripts" / "panel_view_test.js"),
+        "report_builders": node_test(ROOT / "scripts" / "report_builders_test.js"),
         "evidence_graph_model": node_test(ROOT / "scripts" / "evidence_graph_test.js"),
         "graph_view": node_test(ROOT / "scripts" / "graph_view_test.js"),
         "reports_view": node_test(ROOT / "scripts" / "reports_view_test.js"),
         "model_client": node_test(ROOT / "scripts" / "model_client_test.js"),
+        "pdf_export": node_test(ROOT / "scripts" / "pdf_export_test.js"),
+        "feedback_engine": node_test(ROOT / "scripts" / "feedback_engine_test.js"),
+        "skill_registry": node_test(ROOT / "scripts" / "skill_registry_test.js"),
+        "assessment_rules": node_test(ROOT / "scripts" / "assessment_rules_test.js"),
+        "evaluation_engine": node_test(ROOT / "scripts" / "evaluation_engine_test.js"),
     }
     if args.with_llm:
         result["llm_stream"] = llm_stream_check(args.with_llm, args.model)
@@ -905,10 +1283,17 @@ def main():
     passed = (
         result["static"]["passed"]
         and result["virtual_panel_model"]["passed"]
+        and result["panel_view"]["passed"]
+        and result["report_builders"]["passed"]
         and result["evidence_graph_model"]["passed"]
         and result["graph_view"]["passed"]
         and result["reports_view"]["passed"]
         and result["model_client"]["passed"]
+        and result["pdf_export"]["passed"]
+        and result["feedback_engine"]["passed"]
+        and result["skill_registry"]["passed"]
+        and result["assessment_rules"]["passed"]
+        and result["evaluation_engine"]["passed"]
         and result.get("llm_stream", {"passed": True})["passed"]
     )
     result["passed"] = passed

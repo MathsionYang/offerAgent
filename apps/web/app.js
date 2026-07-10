@@ -45,8 +45,7 @@ let currentLanguage = languageEl?.value || "zh";
 let activeAudienceMode = document.body?.dataset.pageMode === "interviewer" ? "interviewer" : "candidate";
 let activeWorkspaceView = "workbench";
 let activeResultView = "report";
-let virtualPanelChatTimer = null;
-let traceDetailPanelEl = null;
+let panelViewApi = null;
 const { i18n, reportStagesByLanguage } = window.OfferAgentI18n;
 
 const {
@@ -69,6 +68,66 @@ const {
   restoreCachedRun,
   persistRunCache,
 } = window.OfferAgentCache;
+
+const {
+  createPdfExport,
+} = window.OfferAgentPdfExport;
+const {
+  downloadFile,
+  downloadPdfReport,
+} = createPdfExport({
+  document,
+  window,
+  URL,
+  Blob,
+  Image,
+  XMLSerializer,
+  TextEncoder,
+  requestAnimationFrame,
+  setStatus,
+  getText: () => getText(),
+  reportToStaticHtmlDocument: (...args) => reportToStaticHtmlDocument(...args),
+});
+const {
+  buildFeedbackDistillation,
+  buildFeedbackImpactDiff,
+  buildSkillUpdateSuggestions,
+} = window.OfferAgentFeedbackEngine.createFeedbackEngine();
+const {
+  buildRequirementEvidenceRows,
+  normalizeSnapshot,
+  classifyEvidenceLevel,
+  evidenceLevelLabel,
+  evidenceLevelReason,
+  buildVerificationQuestion,
+  buildEvidenceSummary,
+  buildGateAssessment,
+  buildTransferPitch,
+  buildOfferLeverage,
+  findEvidence,
+} = window.OfferAgentAssessmentRules.createAssessmentRules({
+  defaultRoleId,
+  getRoleProfile,
+  clip,
+});
+const {
+  buildEvaluationSummary,
+  buildRequirementMatches,
+  buildStructuredInterviewQuestions,
+  buildStructuredOfferSandbox,
+  buildStructuredEvidence,
+  buildStructuredEvaluation,
+  buildOfferSimulationRun,
+  buildOfferLifecycleSteps,
+  buildOfferScenarios,
+} = window.OfferAgentEvaluationEngine.createEvaluationEngine({
+  schemaVersion: CONSISTENCY_SCHEMA_VERSION,
+  defaultRoleId,
+  getLanguage: () => currentLanguage,
+  clip,
+  interviewerLens,
+  buildEvidenceSummary,
+});
 
 
 guardAppShell();
@@ -202,68 +261,20 @@ const systemPrompt = `你是面试准备助手。
 - 问题必须围绕候选人的具体项目经历与 JD 具体职责展开，不要只输出通用模板问题。
 - 如果证据不足，问题要明确用于验证哪些缺口。`;
 
-const skillLibrary = {
-  hr: {
-    name: "虚拟 HR 面试官",
-    focus: "稳定性、动机、表达清晰度、风险边界",
-    evidence: "从候选人阶段、Offer 约束、岗位动机和简历表达中生成。",
-    proof: "候选人能清楚解释求职动机、岗位偏好、到岗约束和长期稳定性。",
-    risk: "动机泛化、期望不清、对岗位真实挑战理解不足。",
-    questions: [
-      "你为什么考虑这个岗位和公司？最看重的三个因素是什么？",
-      "如果业务节奏比预期更快，你通常如何管理压力和沟通预期？",
-      "你过往离职或转岗的主要原因是什么？这次希望避免什么问题？",
-    ],
-  },
-  business: {
-    name: "虚拟业务负责人",
-    focus: "业务理解、需求判断、指标意识、结果归因",
-    evidence: "从 JD 核心职责、候选人业务项目和结果指标中生成。",
-    proof: "候选人能把项目目标、用户问题、业务指标和取舍逻辑讲清楚。",
-    risk: "只描述功能交付，无法还原业务判断和结果归因。",
-    questions: [
-      "请选一个最能代表你产品判断力的项目，说明你如何识别真实需求。",
-      "你如何定义项目成功指标？哪些指标是你亲自推动改善的？",
-      "如果业务方、客户和研发对优先级判断不同，你如何做取舍？",
-    ],
-  },
-  project: {
-    name: "虚拟项目推进面试官",
-    focus: "目标拆解、里程碑、资源协调、风险控制、复盘机制",
-    evidence: "从 JD 的跨团队推进要求和候选人项目协作经历中生成。",
-    proof: "候选人能说明如何拆目标、控风险、协调资源并形成复盘机制。",
-    risk: "只说“推动协作”，缺少具体阻力、决策、里程碑和责任边界。",
-    questions: [
-      "项目中最关键的里程碑是什么？你如何提前发现延期风险？",
-      "跨团队协作中最大阻力是什么？你做过哪些具体推动动作？",
-      "上线后你如何组织复盘？哪些结论沉淀成后续机制？",
-    ],
-  },
-  negotiation: {
-    name: "虚拟谈薪顾问",
-    focus: "期望差距、竞争 Offer、入职概率、谈薪策略",
-    evidence: "从目标职级、预算、到岗时间、竞争机会和候选人偏好中生成。",
-    proof: "候选人能说明机会选择标准、薪资结构偏好和可接受条件。",
-    risk: "关键条件后置暴露，导致 Offer 推进节奏和成功率不可控。",
-    questions: [
-      "你当前最看重薪资、成长、团队还是业务确定性？优先级如何排序？",
-      "如果有多个机会，你会基于哪些标准做最终选择？",
-      "在入职时间、薪资结构或职责范围上，哪些条件最影响你的决定？",
-    ],
-  },
-  decision: {
-    name: "决策层压力官",
-    focus: "战略取舍、预算削减、资源约束、投入产出、极端压力判断",
-    evidence: "从 JD 的战略职责、资源约束、项目复杂度和 Offer 上下文中生成，固定用于压力测试。",
-    proof: "候选人能用业务指标、用户价值、风险等级和投入产出解释取舍，而不是只表达主观偏好。",
-    risk: "无法解释判断依据，遇到预算缩减或方向冲突时只做被动执行。",
-    questions: [
-      "如果上级要求砍掉你负责模块一半预算，你如何重新排定需求优先级？请用具体指标说服我。",
-      "如果你判断一个战略方向值得做，但短期 ROI 不好看，你会如何争取资源？",
-      "如果项目投入三个月后效果不达预期，你会继续、收缩还是停止？依据是什么？",
-    ],
-  },
-};
+const {
+  skillLibrary,
+  buildSkillRegistry,
+  formatSelectedSkills,
+  buildSkillQuestionMarkdown,
+  buildSkillEvidence,
+  buildDeepQuestions,
+} = window.OfferAgentSkillRegistry.createSkillRegistry({
+  defaultRoleId,
+  getRoleLabel,
+  getLanguage: () => currentLanguage,
+  getText: () => getText(),
+  clip,
+});
 
 const {
   buildVirtualInterviewPanel,
@@ -308,8 +319,36 @@ const {
   clip,
   riskToneClass,
   localizeSkillId,
-  localizePanelStance,
+  localizePanelStance: (value) => panelViewApi?.localizePanelStance(value) || value || "",
 });
+
+panelViewApi = window.OfferAgentPanelView.createPanelView({
+  virtualPanelChatEl,
+  virtualPanelChatStatusEl,
+  evidenceGraphEl,
+  getLanguage: () => currentLanguage,
+  getText: () => window.OfferAgentI18n.getText(currentLanguage),
+  detectEvidenceGraphGaps,
+  reportAnchorForNodeType,
+  escapeHtml,
+  cssEscape,
+  setWorkspaceView,
+  openPanelMessageDetail,
+  openGraphNodeDetail,
+  openReportAnchorDetail,
+  findGraphNodeById,
+});
+
+const {
+  renderVirtualPanelChat,
+  playVirtualPanelChat,
+  localizePanelClaim,
+  localizePanelStage,
+  localizePanelStance,
+  localizePanelImpact,
+  localizeModeratorConsensus,
+  localizeFeedbackImpact,
+} = panelViewApi;
 
 const {
   cleanReportMarkdown,
@@ -355,6 +394,51 @@ const {
   translateMatchStatus,
   openTraceDetailPanel,
   renderTraceDetailRows,
+});
+
+const {
+  buildPreviewMarkdown,
+  buildAudienceMarkdown,
+  extractSection,
+} = window.OfferAgentReportBuilders.createReportBuilders({
+  getLanguage: () => currentLanguage,
+  getRunLanguage,
+  clip,
+  buildDirectConclusion,
+  buildGateAssessment,
+  buildOfferLeverage,
+  buildConcreteJobAnalysis,
+  buildAbilityTransferAnalysis,
+  buildConcreteGapTable,
+  buildCandidateRevisionAdvice,
+  buildCandidateStrategyAdvice,
+  buildConcreteCandidateQuestions,
+  buildPressureInterviewGuide,
+  buildHumanFeedbackMarkdown,
+  buildInterviewerResumeBrief,
+  buildCandidateProfile,
+  buildInterviewerScorecard,
+  buildInterviewerSignalTable,
+  buildInterviewerFollowupPaths,
+  buildInterviewerDecisionAdvice,
+  buildRoleAwareInterviewerModules,
+  buildInterviewHandoffCard,
+  buildPostInterviewEvaluationTemplate,
+  buildConcreteInterviewerQuestions,
+  localizePanelStance,
+  localizePanelStage,
+  localizePanelImpact,
+  localizePanelClaim,
+  localizeModeratorConsensus,
+  localizeFeedbackImpact,
+  buildRequirementEvidenceRows,
+  translateGateResult,
+  translateStage,
+  translateOfferRating,
+  summarizeEvidenceCounts,
+  normalizeSnapshot,
+  buildEvidenceSummary,
+  buildJdHiddenPainRows,
 });
 
 const {
@@ -1140,472 +1224,6 @@ function enrichEvaluationRun(run) {
   };
 }
 
-function buildEvaluationSummary(gate, rows, offerLeverage, feedback) {
-  const strongCount = rows.filter((row) => row.evidenceLevel === 1).length;
-  const mediumCount = rows.filter((row) => row.evidenceLevel === 2).length;
-  const weakCount = rows.filter((row) => row.evidenceLevel === 3 || row.isMissing).length;
-  const weakestRows = rows.filter((row) => row.isMissing || row.evidenceLevel >= 2);
-  const nextFocus = weakestRows.slice(0, 3).map((row) => row.capability);
-
-  return {
-    gate_result: gate.result,
-    enter_sandbox: gate.enterSandbox,
-    matched_count: gate.matchedCount,
-    total_requirements: rows.length,
-    evidence_summary: buildEvidenceSummary(rows),
-    strong_evidence_count: strongCount,
-    medium_evidence_count: mediumCount,
-    weak_or_missing_evidence_count: weakCount,
-    next_validation_focus: nextFocus,
-    offer_leverage_rating: offerLeverage.rating,
-    offer_leverage_summary: offerLeverage.summary,
-    feedback_status: feedback
-      ? {
-          agreement: feedback.agreement,
-          question_use: feedback.question_use,
-          disagreement_reason: feedback.disagreement_reason,
-          evidence_sufficiency: feedback.evidence_sufficiency,
-          risk_validation: feedback.risk_validation,
-        }
-      : null,
-  };
-}
-
-function buildRequirementMatches(rows) {
-  return rows.map((row, index) => ({
-    id: `req_${index + 1}`,
-    capability: row.capability,
-    jd_evidence: row.jdEvidence,
-    resume_evidence: row.resumeEvidence,
-    evidence_level: row.evidenceLevel,
-    evidence_level_label: row.evidenceLevelLabel,
-    evidence_reason: row.evidenceReason,
-    match_status: row.matchStatus,
-    is_missing: row.isMissing,
-    verification_question: row.verificationQuestion,
-  }));
-}
-
-function buildStructuredInterviewQuestions(snapshot, rows, feedback) {
-  return rows.map((row, index) => ({
-    id: `q_${index + 1}`,
-    lens: interviewerLens(index),
-    capability: row.capability,
-    question: row.verificationQuestion,
-    evidence_anchor: row.resumeEvidence,
-    jd_anchor: row.jdEvidence,
-    evaluation_goal: row.isMissing
-      ? "补齐岗位核心能力项目证据"
-      : row.evidenceLevel === 1
-        ? "复核指标口径、周期和个人贡献"
-        : "验证真实角色、决策链和结果归因",
-    expected_signal: row.evidenceLevel === 1 ? "可复核高可信证据" : "待追问中低可信证据",
-    adoption_status: feedback?.question_use || "未反馈",
-    asked_status: feedback?.question_use && feedback.question_use !== "未反馈" ? "reviewed" : "pending",
-  }));
-}
-
-function buildStructuredOfferSandbox(snapshot, gate, offerLeverage, rows) {
-  const missingRows = rows.filter((row) => row.isMissing || row.evidenceLevel >= 3);
-  const mediumRows = rows.filter((row) => row.evidenceLevel === 2);
-  return {
-    stage: snapshot.candidate_stage || "",
-    target_level: snapshot.target_level || "",
-    readiness: gate.result,
-    enter_sandbox: gate.enterSandbox,
-    negotiation_leverage: offerLeverage.rating,
-    leverage_detail: offerLeverage.detail,
-    risks: [
-      ...missingRows.slice(0, 3).map((row) => `${row.capability}：${row.evidenceReason}`),
-      ...mediumRows.slice(0, 2).map((row) => `${row.capability}：需追问验证真实贡献`),
-    ],
-    next_actions: [
-      gate.nextStep,
-      "面试后回填实际问题、候选人回答、证据等级变化和 Offer 约束变化",
-      "仅将一级证据或已验证证据转化为职级、薪资和推进建议",
-    ],
-  };
-}
-
-function buildStructuredEvidence(snapshot, rows) {
-  const baseEvidence = [
-    {
-      id: "ev_resume_snapshot",
-      source_type: "resume",
-      claim: snapshot.resume ? clip(snapshot.resume) : "未提供简历快照",
-      confidence: snapshot.resume ? 0.6 : 0,
-      source_excerpt: snapshot.resume ? clip(snapshot.resume) : "",
-    },
-    {
-      id: "ev_jd_snapshot",
-      source_type: "job_description",
-      claim: snapshot.job_description ? clip(snapshot.job_description) : "未提供 JD 快照",
-      confidence: snapshot.job_description ? 0.8 : 0,
-      source_excerpt: snapshot.job_description ? clip(snapshot.job_description) : "",
-    },
-    {
-      id: "ev_offer_constraints",
-      source_type: "offer_constraints",
-      claim: snapshot.offer_constraints ? clip(snapshot.offer_constraints) : "未提供 Offer / 谈薪约束",
-      confidence: snapshot.offer_constraints ? 0.5 : 0,
-      source_excerpt: snapshot.offer_constraints ? clip(snapshot.offer_constraints) : "",
-    },
-  ];
-
-  const requirementEvidence = rows.map((row, index) => ({
-    id: `ev_req_${index + 1}`,
-    source_type: row.isMissing ? "missing_resume_evidence" : "resume_requirement_match",
-    capability: row.capability,
-    claim: row.isMissing ? `${row.capability} 缺少简历证据` : row.resumeEvidence,
-    confidence: row.evidenceLevel === 1 ? 0.85 : row.evidenceLevel === 2 ? 0.55 : 0.25,
-    evidence_level: row.evidenceLevel,
-    evidence_level_label: row.evidenceLevelLabel,
-    source_excerpt: row.resumeEvidence,
-    jd_excerpt: row.jdEvidence,
-    verification_question: row.verificationQuestion,
-  }));
-
-  return [...baseEvidence, ...requirementEvidence];
-}
-
-function buildStructuredEvaluation(snapshot, rows, gate, offerLeverage, feedback) {
-  return {
-    schema_version: CONSISTENCY_SCHEMA_VERSION,
-    target_role: snapshot.target_role || defaultRoleId,
-    language: snapshot.language || currentLanguage,
-    summary: buildEvaluationSummary(gate, rows, offerLeverage, feedback),
-    requirement_matches: buildRequirementMatches(rows),
-    interview_questions: buildStructuredInterviewQuestions(snapshot, rows, feedback),
-    offer_sandbox: buildStructuredOfferSandbox(snapshot, gate, offerLeverage, rows),
-    evidence: buildStructuredEvidence(snapshot, rows),
-    decision_basis: {
-      gate_result: gate.result,
-      gate_summary: gate.summary,
-      next_step: gate.nextStep,
-      offer_leverage_rating: offerLeverage.rating,
-      offer_leverage_detail: offerLeverage.detail,
-    },
-    feedback_status: feedback
-      ? {
-          agreement: feedback.agreement,
-          question_use: feedback.question_use,
-          evidence_sufficiency: feedback.evidence_sufficiency,
-          risk_validation: feedback.risk_validation,
-        }
-      : null,
-  };
-}
-
-function buildOfferSimulationRun(run, snapshot, gate, offerLeverage, rows, feedback) {
-  const missingRows = rows.filter((row) => row.isMissing || row.evidenceLevel >= 3);
-  const mediumRows = rows.filter((row) => row.evidenceLevel === 2);
-  const riskRows = [...missingRows, ...mediumRows].slice(0, 5);
-  const supportingEvidenceIds = rows
-    .map((row, index) => ({ row, id: `ev_req_${index + 1}` }))
-    .filter(({ row }) => !row.isMissing && row.evidenceLevel <= 2)
-    .map(({ id }) => id);
-
-  return {
-    id: `offer_${run.id}`,
-    evaluation_run_id: run.id,
-    created_at: run.created_at,
-    version: "offer_simulation_run.v2",
-    lifecycle_state: feedback ? "feedback_distilled" : gate.enterSandbox ? "offer_probability" : "evidence_validation",
-    lifecycle_steps: buildOfferLifecycleSteps(gate, feedback),
-    history: [
-      {
-        at: run.created_at,
-        event: "run_created",
-        summary: "生成评估报告、证据图谱和 Offer 推演初始状态",
-      },
-      ...(feedback
-        ? [
-            {
-              at: feedback.updated_at,
-              event: "feedback_applied",
-              summary: `人工反馈已回填：${feedback.agreement} / ${feedback.question_use} / ${feedback.risk_validation}`,
-            },
-          ]
-        : []),
-    ],
-    stage: snapshot.candidate_stage || "",
-    target_level: snapshot.target_level || "",
-    readiness: gate.result,
-    enter_sandbox: gate.enterSandbox,
-    offer_leverage: {
-      rating: offerLeverage.rating,
-      summary: offerLeverage.summary,
-      detail: offerLeverage.detail,
-      supporting_evidence_ids: supportingEvidenceIds,
-    },
-    risks: riskRows.map((row, index) => ({
-      id: `offer_risk_${index + 1}`,
-      risk: `${row.capability}：${row.evidenceReason}`,
-      severity: row.isMissing || row.evidenceLevel >= 3 ? "high" : "medium",
-      evidence_ids: [`ev_req_${rows.indexOf(row) + 1}`],
-      question_ids: [`q_${rows.indexOf(row) + 1}`],
-      status: feedback?.risk_validation || "待验证",
-    })),
-    next_actions: [
-      gate.nextStep,
-      "面试后回填实际追问、候选人回答、证据等级变化和 Offer 约束变化",
-      "仅将一级证据或面试后已证实证据转化为职级、薪资和推进建议",
-    ],
-    feedback_updates: feedback
-      ? [
-          { field: "agreement", value: feedback.agreement, action: "更新闸口判断置信度" },
-          { field: "question_use", value: feedback.question_use, action: "更新追问采用状态" },
-          { field: "risk_validation", value: feedback.risk_validation, action: "更新 Offer 风险状态" },
-        ]
-      : [],
-    scenario_comparison: buildOfferScenarios(gate, offerLeverage, riskRows, feedback),
-    state_backfill: {
-      next_question_focus: riskRows.slice(0, 3).map((row) => row.capability),
-      risk_inputs: riskRows.map((row, index) => `offer_risk_${index + 1}`),
-      negotiation_inputs: [
-        offerLeverage.rating,
-        snapshot.offer_constraints || "Offer / 谈薪约束未充分提供",
-        feedback?.risk_validation || "风险仍待验证",
-      ],
-    },
-    final_decision_hint: gate.enterSandbox
-      ? "可作为下一轮面试准备和谈薪前验证输入，不代表自动录用结论"
-      : "建议先补项目闭环、个人贡献和岗位匹配证据，再进入 Offer 沙盘",
-  };
-}
-
-function buildOfferLifecycleSteps(gate, feedback) {
-  return [
-    { id: "resume_evaluation", label: "简历评估", status: "done" },
-    { id: "question_generation", label: "面试问题", status: "done" },
-    { id: "feedback_distillation", label: "反馈修正", status: feedback ? "done" : "pending" },
-    { id: "offer_probability", label: "Offer 概率", status: gate.enterSandbox ? "active" : "blocked" },
-    { id: "negotiation_strategy", label: "谈判策略", status: feedback && gate.enterSandbox ? "active" : "pending" },
-  ];
-}
-
-function buildOfferScenarios(gate, offerLeverage, riskRows, feedback) {
-  const highRiskCount = riskRows.filter((row) => row.isMissing || row.evidenceLevel >= 3).length;
-  const baseProbability = gate.enterSandbox ? 58 : 32;
-  const leverageBump = offerLeverage.rating === "high" ? 10 : offerLeverage.rating === "medium" ? 4 : -4;
-  const feedbackBump = feedback?.risk_validation === "已证实" ? -10 : feedback?.risk_validation === "已推翻" ? 8 : 0;
-  const riskPenalty = Math.min(22, highRiskCount * 6);
-  const base = Math.max(5, Math.min(90, baseProbability + leverageBump + feedbackBump - riskPenalty));
-  return [
-    {
-      name: "Base",
-      probability: base,
-      assumption: "按当前证据等级、风险验证状态和 Offer 约束推进",
-      next_action: gate.nextStep,
-    },
-    {
-      name: "Optimistic",
-      probability: Math.min(95, base + 18),
-      assumption: "关键追问验证通过，低可信证据升级，候选人接受条件清晰",
-      next_action: "优先复核一级证据和谈薪约束，准备推进话术",
-    },
-    {
-      name: "Conservative",
-      probability: Math.max(3, base - 20),
-      assumption: "风险被证实或候选人约束后置暴露，面试问题未能补证",
-      next_action: "先补证据缺口，再决定是否进入 Offer 沙盘",
-    },
-  ];
-}
-
-function buildSkillRegistry(snapshot, rows) {
-  const selected = snapshot.selected_skills?.length ? snapshot.selected_skills : ["hr", "business", "project", "decision"];
-  const roleLabel = getRoleLabel(snapshot.target_role || defaultRoleId, "zh");
-  return selected
-    .map((id, index) => {
-      const skill = skillLibrary[id];
-      if (!skill) return null;
-      const highRiskRows = rows.filter((row) => row.isMissing || row.evidenceLevel >= 3);
-      return {
-        id,
-        name: skill.name,
-        version: `skill.${id}.v1`,
-        role_id: snapshot.target_role || defaultRoleId,
-        role_label: roleLabel,
-        focus: skill.focus,
-        adoption_status: snapshot.selected_skills?.includes(id) ? "selected" : "auto_selected",
-        priority: id === "decision" || id === "business" ? 5 : 3 + index,
-        audit: {
-          contribution: `${skill.name} 贡献 ${skill.questions.length} 个基础问题，并针对 ${highRiskRows.slice(0, 2).map((row) => row.capability).join("、") || "当前核心证据"} 生成追问视角`,
-          evidence_edges: highRiskRows.slice(0, 3).map((row) => `ev_req_${rows.indexOf(row) + 1}`),
-          question_edges: rows.slice(index, index + 2).map((row) => `q_${rows.indexOf(row) + 1}`),
-        },
-      };
-    })
-    .filter(Boolean);
-}
-
-function buildFeedbackDistillation(feedback, rows, snapshot = {}) {
-  const rules = [
-    {
-      id: "rule_promote_adopted_question",
-      when: "question_use = 采用 或 改写采用",
-      then: "将相关问题升级为高价值候选追问",
-      target: "interview_questions",
-      priority: 80,
-      conflict_policy: "人工采用优先，但若 evidence_sufficiency = 不充分，则仅升级问题，不升级结论",
-    },
-    {
-      id: "rule_demote_rejected_question",
-      when: "question_use = 未采用",
-      then: "将相关问题标记为低价值并进入重写池",
-      target: "interview_questions",
-      priority: 75,
-      conflict_policy: "未采用优先于自动生成题库权重",
-    },
-    {
-      id: "rule_raise_confirmed_risk",
-      when: "risk_validation = 已证实",
-      then: "提高相关风险规则权重并保留为回归样本",
-      target: "risk",
-      priority: 90,
-      conflict_policy: "风险已证实时覆盖乐观 Offer 场景",
-    },
-    {
-      id: "rule_lower_disproved_risk",
-      when: "risk_validation = 已推翻",
-      then: "降低相关风险规则权重并补充反例",
-      target: "risk",
-      priority: 70,
-      conflict_policy: "风险被推翻时保留原始证据，但降低风险权重",
-    },
-    {
-      id: "rule_downgrade_insufficient_evidence",
-      when: "evidence_sufficiency = 不充分",
-      then: "将相关结论降级为待验证",
-      target: "evidence",
-      priority: 85,
-      conflict_policy: "证据不足优先于系统匹配结论",
-    },
-  ];
-
-  const actions = [];
-  const skill_update_suggestions = buildSkillUpdateSuggestions(feedback, rows, snapshot);
-  if (!feedback) return { rules, actions, impact_diff: [], skill_update_suggestions };
-
-  if (feedback.question_use === "采用" || feedback.question_use === "改写采用") {
-    actions.push({
-      id: "action_promote_questions",
-      type: "promote_question",
-      target_id: "interview_questions",
-      reason: `问题采用状态为：${feedback.question_use}`,
-      status: "pending_review",
-    });
-  }
-
-  if (feedback.question_use === "未采用") {
-    actions.push({
-      id: "action_demote_questions",
-      type: "demote_question",
-      target_id: "interview_questions",
-      reason: "面试官明确未采用该批问题",
-      status: "pending_rewrite",
-    });
-  }
-
-  if (feedback.risk_validation === "已证实") {
-    actions.push({
-      id: "action_raise_risk_weight",
-      type: "raise_risk_weight",
-      target_id: "offer_simulation_run.risks",
-      reason: "面试后证实系统风险提示",
-      status: "pending_review",
-    });
-  }
-
-  if (feedback.risk_validation === "已推翻") {
-    actions.push({
-      id: "action_lower_risk_weight",
-      type: "lower_risk_weight",
-      target_id: "offer_simulation_run.risks",
-      reason: "面试后推翻系统风险提示",
-      status: "pending_review",
-    });
-  }
-
-  if (feedback.evidence_sufficiency === "不充分") {
-    rows
-      .filter((row) => row.isMissing || row.evidenceLevel >= 2)
-      .slice(0, 3)
-      .forEach((row, index) => {
-        actions.push({
-          id: `action_downgrade_claim_${index + 1}`,
-          type: "downgrade_claim",
-          target_id: `req_${rows.indexOf(row) + 1}`,
-          reason: `${row.capability} 证据不充分：${row.evidenceReason}`,
-          status: "pending_fix",
-        });
-      });
-  }
-
-  if (feedback.disagreement_reason && feedback.disagreement_reason !== "未反馈") {
-    actions.push({
-      id: "action_add_regression_case",
-      type: "add_regression_case",
-      target_id: "evaluation_run",
-      reason: `人工判断不一致原因：${feedback.disagreement_reason}`,
-      status: "pending_regression",
-    });
-  }
-
-  return {
-    rules,
-    actions,
-    impact_diff: buildFeedbackImpactDiff(feedback, rows),
-    skill_update_suggestions,
-  };
-}
-
-function buildFeedbackImpactDiff(feedback, rows) {
-  const weakRows = rows.filter((row) => row.isMissing || row.evidenceLevel >= 2).slice(0, 4);
-  return [
-    {
-      target: "interview_questions",
-      before: "系统生成问题默认为待验证",
-      after: `追问采用状态回填为：${feedback.question_use}`,
-      affected_ids: weakRows.map((row) => `q_${rows.indexOf(row) + 1}`),
-    },
-    {
-      target: "offer_simulation_run.risks",
-      before: "Offer 风险默认为待验证",
-      after: `风险验证状态回填为：${feedback.risk_validation}`,
-      affected_ids: weakRows.map((row) => `offer_risk_${rows.indexOf(row) + 1}`),
-    },
-    {
-      target: "evidence_graph",
-      before: "证据边由系统置信度计算",
-      after: `人工证据充分性回填为：${feedback.evidence_sufficiency}`,
-      affected_ids: weakRows.map((row) => `ev_req_${rows.indexOf(row) + 1}`),
-    },
-  ];
-}
-
-function buildSkillUpdateSuggestions(feedback, rows, snapshot = {}) {
-  const selected = snapshot.selected_skills?.length ? snapshot.selected_skills : ["hr", "business", "project", "decision"];
-  const weakRows = rows.filter((row) => row.isMissing || row.evidenceLevel >= 2);
-  if (!feedback) {
-    return selected.map((id) => ({
-      skill_id: id,
-      version: `skill.${id}.v1`,
-      suggestion: "等待人工反馈后再沉淀题库权重",
-      reason: "当前仅有系统生成结果，尚无面试后校准信号",
-      status: "waiting_feedback",
-    }));
-  }
-  return selected.map((id) => ({
-    skill_id: id,
-    version: `skill.${id}.v1`,
-    suggestion: feedback.question_use === "未采用" ? "重写该视角的问题模板" : "保留高价值追问并补充反例",
-    reason: `${feedback.disagreement_reason}；受影响能力：${weakRows.slice(0, 2).map((row) => row.capability).join("、") || "暂无明显缺口"}`,
-    status: "pending_review",
-  }));
-}
-
 function buildSystemPrompt(language = "zh") {
   if (language !== "en") return systemPrompt;
   return `${systemPrompt}
@@ -2111,558 +1729,10 @@ function collectSelectedSkills() {
   return Array.from(new Set([...defaults, "decision"]));
 }
 
-function formatSelectedSkills(selectedSkills) {
-  return selectedSkills
-    .map((id) => {
-      const skill = skillLibrary[id];
-      if (!skill) return "";
-      if (currentLanguage === "en") {
-        const skillText = getText().skillCards[id];
-        return skillText ? `- ${skillText[0]}: ${skillText[1]}` : "";
-      }
-      return `- ${skill.name}：${skill.focus}。${skill.evidence}`;
-    })
-    .filter(Boolean)
-    .join("\n");
-}
-
-function buildSkillQuestionMarkdown(selectedSkills, input) {
-  const evidence = buildSkillEvidence(input);
-  return selectedSkills
-    .map((id) => {
-      const skill = skillLibrary[id];
-      if (!skill) return "";
-      const questions = buildDeepQuestions(id, skill, evidence).map((question, index) => `${index + 1}. ${question}`).join("\n");
-      return `### ${skill.name}
-
-- 生成依据：${skill.evidence}
-- 关联证据：${evidence.summary}
-- 关注能力：${skill.focus}
-- 好回答应证明：${skill.proof}
-- 风险信号：${skill.risk}
-
-${questions}`;
-    })
-    .filter(Boolean)
-    .join("\n\n");
-}
-
-function buildSkillEvidence(input) {
-  const text = `${input.resume} ${input.jobDescription} ${input.companyContext} ${input.offerConstraints}`;
-  const projectMatch = input.resume.match(/[^。；;]*(项目|平台|系统|看板|CRM|工单|客户成功|产品|模块)[^。；;]*/);
-  const jdMatch = input.jobDescription.match(/[^。；;]*(负责|要求|能力|经验|推进|指标|职责)[^。；;]*/);
-  const hasMetrics = /指标|数据|提升|下降|转化|留存|响应|成本|营收|%|\d+/.test(text);
-  const hasCollab = /推动|协作|研发|设计|运营|销售|客户|跨团队/.test(text);
-  const hasOffer = /薪|预算|竞品|offer|Offer|到岗|期望|涨幅|入职|稳定/i.test(text);
-  return {
-    project: projectMatch ? projectMatch[0].trim() : "候选人简历中的核心项目经历",
-    jd: jdMatch ? jdMatch[0].trim() : "JD 中的核心职责与能力要求",
-    metric: hasMetrics ? "材料中出现指标或结果线索" : "指标口径和结果归因证据不足",
-    collab: hasCollab ? "材料中出现跨团队推进线索" : "跨团队推进细节证据不足",
-    offer: hasOffer ? "材料中出现 Offer / 到岗 / 期望约束线索" : "Offer 侧约束暂未充分提供",
-    summary: `${clip(input.resume)}；${clip(input.jobDescription)}`,
-  };
-}
-
-function buildDeepQuestions(id, skill, evidence) {
-  const common = {
-    hr: [
-      `你在选择这个岗位时，如何理解 JD 中“${evidence.jd}”对应的真实工作压力？`,
-      `围绕“${evidence.project}”，你希望下一份工作延续什么、避开什么？`,
-      `如果团队要求你在入职后快速接手类似职责，你最担心的适应成本是什么？`,
-      `你的机会选择标准如何排序？请结合岗位职责、成长空间、薪资和到岗时间说明。`,
-    ],
-    business: [
-      `请围绕“${evidence.project}”说明：最初的业务问题是什么，你如何判断它值得做？`,
-      `JD 强调“${evidence.jd}”，你过去哪个项目最能证明这项能力？证据是什么？`,
-      `你提到的项目结果如何定义指标口径？哪些改善来自你的判断和动作？`,
-      `如果业务方、客户和研发对优先级有冲突，你在该项目中如何做取舍？`,
-      `复盘这个项目，如果重新做一次，你会改变哪个关键产品决策？`,
-    ],
-    project: [
-      `请把“${evidence.project}”拆成目标、里程碑、依赖方和风险点。哪个节点最难推进？`,
-      `JD 要求跨团队推进时，你如何建立节奏、同步机制和升级机制？`,
-      `项目中资源不足或需求变化时，你砍掉了什么、保留了什么，依据是什么？`,
-      `上线后你如何组织复盘？哪些结论沉淀成后续机制或产品规范？`,
-      `如果面试官扮演项目经理视角，你会如何证明自己不是只参与执行，而是能推进闭环？`,
-    ],
-    negotiation: [
-      `结合“${evidence.offer}”，哪些条件会显著影响你接受 Offer 的概率？`,
-      `如果岗位职责与预期存在差异，你更看重职责完整度、薪资结构还是团队确定性？`,
-      `你如何比较这个机会和其他机会？请给出可排序的决策标准。`,
-      `到岗时间、薪资结构、职级定位中，哪一项最需要提前确认？为什么？`,
-    ],
-    decision: [
-      `如果上级要求砍掉“${evidence.project}”一半预算，你如何重排优先级？请用指标说明保留和放弃的依据。`,
-      `JD 强调“${evidence.jd}”，如果短期 ROI 不好看但你认为战略上必须做，你会如何争取资源？`,
-      `如果项目投入三个月后效果不达预期，你会继续、收缩还是停止？请说明判断阈值和止损机制。`,
-      `请讲一次你做过的高风险取舍：当时放弃了什么、保护了什么、最终结果如何复盘？`,
-    ],
-  };
-  return common[id] || skill.questions;
-}
-
 function updateModelMode() {
   const useRealModel = providerEl.value !== "mock" && Boolean(apiKeyEl.value.trim());
   modelModeEl.textContent = useRealModel ? getText().modeReal : getText().modeMock;
   modelModeEl.classList.toggle("active", useRealModel);
-}
-
-function renderVirtualPanelChat(run, options = {}) {
-  if (!virtualPanelChatEl) return;
-  stopVirtualPanelChat();
-  const text = getText();
-  if (options.pending) {
-    virtualPanelChatStatusEl.textContent = text.panelChatThinking;
-    virtualPanelChatEl.innerHTML = `<div class="panel-discussion-shell">
-      ${renderVirtualPanelStats([], null)}
-      <section class="panel-conclusion-card">
-        <strong>${escapeHtml(text.panelChatThinking)}</strong>
-        <p>${escapeHtml(text.panelChatSeed)}</p>
-      </section>
-    </div>`;
-    return;
-  }
-
-  const messages = buildVirtualPanelChatMessages(run);
-  virtualPanelChatStatusEl.textContent = messages.length ? text.panelChatDone : text.panelChatWaiting;
-  virtualPanelChatEl.innerHTML = messages.length
-    ? renderVirtualPanelDiscussion(run, messages)
-    : `<div class="panel-discussion-shell">
-        ${renderVirtualPanelStats([], null)}
-        <section class="panel-conclusion-card">
-          <strong>${escapeHtml(text.panelChatWaiting)}</strong>
-          <p>${escapeHtml(text.panelChatEmpty)}</p>
-        </section>
-      </div>`;
-  bindVirtualPanelTraceNavigation();
-  bindVirtualPanelRoundFilters();
-  virtualPanelChatEl.scrollTop = virtualPanelChatEl.scrollHeight;
-}
-
-function playVirtualPanelChat(run) {
-  if (!virtualPanelChatEl) return;
-  stopVirtualPanelChat();
-  const text = getText();
-  const messages = buildVirtualPanelChatMessages(run);
-  if (!messages.length) {
-    renderVirtualPanelChat(run);
-    return;
-  }
-
-  virtualPanelChatStatusEl.textContent = text.panelChatThinking;
-  virtualPanelChatEl.innerHTML = `<div class="panel-discussion-shell">
-    ${renderVirtualPanelStats(messages, run)}
-    ${renderVirtualPanelConclusion(run, messages)}
-    ${renderVirtualPanelRoundTabs(run)}
-    <div class="panel-thread-list"></div>
-  </div>`;
-  const threadList = virtualPanelChatEl.querySelector(".panel-thread-list");
-  bindVirtualPanelRoundFilters();
-  let index = 0;
-  const appendNext = () => {
-    const message = messages[index];
-    if (!message) {
-      virtualPanelChatStatusEl.textContent = text.panelChatDone;
-      virtualPanelChatTimer = null;
-      return;
-    }
-    threadList?.insertAdjacentHTML("beforeend", renderVirtualPanelChatMessage(message));
-    bindVirtualPanelTraceNavigation();
-    virtualPanelChatEl.scrollTop = virtualPanelChatEl.scrollHeight;
-    index += 1;
-    virtualPanelChatTimer = window.setTimeout(appendNext, index < 3 ? 180 : 260);
-  };
-  appendNext();
-}
-
-function stopVirtualPanelChat() {
-  if (virtualPanelChatTimer) {
-    window.clearTimeout(virtualPanelChatTimer);
-    virtualPanelChatTimer = null;
-  }
-}
-
-function buildVirtualPanelChatMessages(run) {
-  const panel = run?.virtual_panel || [];
-  const rounds = run?.panel_discussion_rounds || [];
-  const agentsById = new Map(panel.map((agent) => [agent.id, agent]));
-  const messages = [];
-  const turnTraceItems = [];
-
-  rounds.forEach((round, roundIndex) => {
-    messages.push({
-      id: `${round.id || "round"}_intro`,
-      type: "system",
-      roundId: round.id || `round_${roundIndex + 1}`,
-      roundIndex: roundIndex + 1,
-      name: currentLanguage === "en" ? `Round ${roundIndex + 1}` : `第 ${roundIndex + 1} 轮`,
-      role: localizePanelStage(round.stage),
-      text: localizePanelTopic(round.topic || round.stage),
-      meta: localizePanelStage(round.stage),
-    });
-    (round.turns || []).forEach((turn, turnIndex) => {
-      const agent = agentsById.get(turn.agent_id) || {};
-      const messageId = `${round.id || "round"}_${turn.agent_id || "agent"}_${turnIndex}`;
-      const messageName = agent.name || turn.agent_id || "Agent";
-      const messageText = localizePanelClaim(turn.claim);
-      turnTraceItems.push({
-        id: messageId,
-        label: messageName,
-        summary: messageText,
-        impact: turn.impact || "",
-      });
-      messages.push({
-        id: messageId,
-        type: "agent",
-        roundId: round.id || `round_${roundIndex + 1}`,
-        roundIndex: roundIndex + 1,
-        agentId: turn.agent_id,
-        name: messageName,
-        role: agent.focus || agent.persona || "",
-        stance: turn.stance || agent.stance || "",
-        text: messageText,
-        meta: buildPanelMessageMeta(turn),
-        evidenceIds: turn.evidence_ids || [],
-        questionIds: turn.question_ids || [],
-        reportAnchor: panelTraceReportAnchor(turn),
-      });
-    });
-  });
-
-  if (run?.moderator_summary) {
-    const summary = run.moderator_summary;
-    messages.push({
-      id: summary.id || "moderator_summary",
-      type: "moderator",
-      roundId: "moderator",
-      roundIndex: 0,
-      name: getText().panelChatModerator,
-      role: summary.consensus || "",
-      stance: summary.offer_impact || "",
-      text: localizePanelClaim(summary.final_recommendation || ""),
-      meta: currentLanguage === "en"
-        ? `${summary.disagreement_count || 0} challenges / ${summary.support_count || 0} supports`
-        : `${summary.disagreement_count || 0} 个挑战 / ${summary.support_count || 0} 个支持`,
-      evidenceIds: buildModeratorTraceIds(run, "evidence"),
-      questionIds: buildModeratorTraceIds(run, "question"),
-      turnTraceItems: buildModeratorBasisTrace(turnTraceItems, run),
-      reportAnchor: reportAnchorForNodeType("agent_persona"),
-    });
-  }
-
-  return messages;
-}
-
-function renderVirtualPanelDiscussion(run, messages) {
-  return `<div class="panel-discussion-shell">
-    ${renderVirtualPanelStats(messages, run)}
-    ${renderVirtualPanelConclusion(run, messages)}
-    ${renderVirtualPanelRoundTabs(run)}
-    <div class="panel-thread-list">${messages.map(renderVirtualPanelChatMessage).join("")}</div>
-  </div>`;
-}
-
-function renderVirtualPanelStats(messages, run) {
-  const evidenceCount = new Set(messages.flatMap((message) => message.evidenceIds || [])).size;
-  const riskCount = detectEvidenceGraphGaps(run?.evidence_graph || { nodes: [], edges: [] }).length;
-  const challengeCount = Math.max(
-    messages.filter((message) => /challenge|risk|recalibrate|raise/i.test(message.meta || message.stance || "")).length,
-    run?.moderator_summary?.disagreement_count || 0,
-  );
-  const labels = currentLanguage === "en"
-    ? [["Pending challenges", challengeCount], ["Supporting evidence", evidenceCount], ["High-risk gaps", riskCount]]
-    : [["待验证挑战", challengeCount], ["支持证据", evidenceCount], ["高风险缺口", riskCount]];
-  return `<section class="panel-stats-grid">
-    ${labels.map(([label, value]) => `<div class="panel-stat">
-      <strong>${escapeHtml(String(value))}</strong>
-      <span>${escapeHtml(label)}</span>
-    </div>`).join("")}
-  </section>`;
-}
-
-function renderVirtualPanelConclusion(run, messages) {
-  const summary = run?.moderator_summary;
-  const fallback = messages.find((message) => message.type === "moderator");
-  const title = currentLanguage === "en" ? "Panel conclusion" : "委员会结论";
-  const body = localizePanelClaim(summary?.final_recommendation || fallback?.text || "");
-  const empty = currentLanguage === "en"
-    ? "Generate a report to see the panel's consensus, challenges, and traceable evidence."
-    : "生成报告后，这里会展示委员会共识、分歧挑战和可追溯证据。";
-  return `<section class="panel-conclusion-card">
-    <strong>${escapeHtml(title)}</strong>
-    <p>${escapeHtml(body || empty)}</p>
-  </section>`;
-}
-
-function renderVirtualPanelRoundTabs(run) {
-  const rounds = run?.panel_discussion_rounds || [];
-  if (!rounds.length) return "";
-  const allLabel = currentLanguage === "en" ? "All turns" : "全部轮次";
-  const moderatorLabel = currentLanguage === "en" ? "Moderator summary" : "主持人总结";
-  const roundButtons = rounds.map((round, index) => `<button class="panel-round-filter" type="button" data-panel-round="${escapeHtml(round.id || `round_${index + 1}`)}">${escapeHtml(currentLanguage === "en" ? `Round ${index + 1}` : `第 ${index + 1} 轮`)}</button>`);
-  return `<nav class="panel-round-tabs" aria-label="${escapeHtml(currentLanguage === "en" ? "Panel rounds" : "委员会轮次")}">
-    <button class="panel-round-filter active" type="button" data-panel-round="all">${escapeHtml(allLabel)}</button>
-    ${roundButtons.join("")}
-    <button class="panel-round-filter" type="button" data-panel-round="moderator">${escapeHtml(moderatorLabel)}</button>
-  </nav>`;
-}
-
-function renderVirtualPanelChatMessage(message) {
-  const roundClass = message.type === "system" ? "round-marker" : "";
-  const avatarText = message.type === "system"
-    ? (currentLanguage === "en" ? "R" : "第")
-    : message.type === "moderator"
-      ? (currentLanguage === "en" ? "M" : "总")
-      : (currentLanguage === "en" ? "V" : "虚");
-  return `<article class="chat-bubble ${escapeHtml(message.type || "agent")} ${roundClass}" data-message-id="${escapeHtml(message.id || "")}" data-panel-round="${escapeHtml(message.roundId || "all")}">
-    <span class="panel-message-avatar">${escapeHtml(avatarText)}</span>
-    <div class="chat-message">
-      <div class="chat-meta">
-        <strong>${escapeHtml(message.name || "")}</strong>
-        <span>${escapeHtml(message.role || message.stance || "")}</span>
-      </div>
-      <p>${escapeHtml(message.text || "")}</p>
-      ${message.meta ? `<small>${escapeHtml(message.meta)}</small>` : ""}
-      ${message.type === "moderator" ? renderModeratorBasisTrace(message) : ""}
-      ${renderPanelTraceChips(message)}
-    </div>
-  </article>`;
-}
-
-function bindVirtualPanelRoundFilters() {
-  if (!virtualPanelChatEl) return;
-  const filters = Array.from(virtualPanelChatEl.querySelectorAll(".panel-round-filter"));
-  if (!filters.length) return;
-  filters.forEach((filter) => {
-    if (filter.dataset.filterBound === "true") return;
-    filter.dataset.filterBound = "true";
-    filter.addEventListener("click", () => {
-      const selectedRound = filter.dataset.panelRound || "all";
-      filters.forEach((item) => item.classList.toggle("active", item === filter));
-      virtualPanelChatEl.querySelectorAll(".chat-bubble[hidden]").forEach((messageEl) => {
-        messageEl.hidden = false;
-      });
-
-      if (selectedRound === "all") {
-        virtualPanelChatEl.scrollTo({ top: 0, behavior: "smooth" });
-        return;
-      }
-
-      const target = virtualPanelChatEl.querySelector(`.chat-bubble[data-panel-round="${cssEscape(selectedRound)}"]`);
-      if (!target) return;
-      target.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-  });
-}
-
-function buildModeratorBasisTrace(turnTraceItems, run) {
-  const turns = turnTraceItems
-    .filter((item) => /raise_follow_up_priority|recalibrate|feed_offer|support|keep/i.test(item.impact) || item.summary)
-    .slice(0, 3);
-  const evidenceIds = buildModeratorTraceIds(run, "evidence");
-  const questionIds = buildModeratorTraceIds(run, "question");
-  return {
-    turns,
-    evidenceIds,
-    questionIds,
-  };
-}
-
-function renderModeratorBasisTrace(message) {
-  const basis = message.turnTraceItems || {};
-  const turns = basis.turns || [];
-  const evidenceIds = basis.evidenceIds || message.evidenceIds || [];
-  const questionIds = basis.questionIds || message.questionIds || [];
-  const title = currentLanguage === "en" ? "Based on" : "结论依据";
-  const turnsLabel = currentLanguage === "en" ? "Panel turns" : "委员发言";
-  const evidenceLabel = currentLanguage === "en" ? "Evidence nodes" : "证据节点";
-  const questionsLabel = currentLanguage === "en" ? "Follow-up questions" : "追问问题";
-  const turnChips = turns.map((turn, index) => `<button class="panel-trace-chip panel-turn-chip" type="button" data-trace-message-id="${escapeHtml(turn.id)}" title="${escapeHtml(turn.summary || "")}">${escapeHtml(`${turnsLabel} ${index + 1}`)}</button>`);
-  const evidenceChips = evidenceIds.slice(0, 3).map((id, index) => `<button class="panel-trace-chip basis-evidence" type="button" data-trace-node-id="${escapeHtml(id)}">${escapeHtml(`${evidenceLabel} ${index + 1}`)}</button>`);
-  const questionChips = questionIds.slice(0, 3).map((id, index) => `<button class="panel-trace-chip basis-questions" type="button" data-trace-node-id="${escapeHtml(id)}">${escapeHtml(`${questionsLabel} ${index + 1}`)}</button>`);
-  return `<div class="moderator-basis">
-    <strong>${escapeHtml(title)}</strong>
-    <div class="basis-turns">${turnChips.join("") || `<span class="panel-trace-missing">${escapeHtml(turnsLabel)}</span>`}</div>
-    <div class="basis-evidence">${evidenceChips.join("") || `<span class="panel-trace-missing">${escapeHtml(evidenceLabel)}</span>`}</div>
-    <div class="basis-questions">${questionChips.join("") || `<span class="panel-trace-missing">${escapeHtml(questionsLabel)}</span>`}</div>
-  </div>`;
-}
-
-function renderPanelTraceChips(message) {
-  const evidenceIds = message.evidenceIds || [];
-  const questionIds = message.questionIds || [];
-  const reportAnchor = message.reportAnchor || "";
-  const hasTrace = evidenceIds.length || questionIds.length || reportAnchor;
-  if (!hasTrace) {
-    return `<div class="panel-trace-chips"><span class="panel-trace-missing">${escapeHtml(currentLanguage === "en" ? "Evidence pending" : "待补证据")}</span></div>`;
-  }
-
-  const evidenceChips = evidenceIds.slice(0, 2).map((id, index) => `<button class="panel-trace-chip" type="button" data-trace-node-id="${escapeHtml(id)}">${escapeHtml(currentLanguage === "en" ? `Evidence ${index + 1}` : `证据 ${index + 1}`)}</button>`);
-  const questionChips = questionIds.slice(0, 2).map((id, index) => `<button class="panel-trace-chip" type="button" data-trace-node-id="${escapeHtml(id)}">${escapeHtml(currentLanguage === "en" ? `Question ${index + 1}` : `问题 ${index + 1}`)}</button>`);
-  const reportChip = reportAnchor
-    ? [`<button class="panel-trace-chip report" type="button" data-trace-report-anchor="${escapeHtml(reportAnchor)}">${escapeHtml(currentLanguage === "en" ? "Report" : "报告段落")}</button>`]
-    : [];
-  return `<div class="panel-trace-chips">${[...evidenceChips, ...questionChips, ...reportChip].join("")}</div>`;
-}
-
-function bindVirtualPanelTraceNavigation() {
-  if (!virtualPanelChatEl) return;
-  virtualPanelChatEl.querySelectorAll(".panel-trace-chip").forEach((chip) => {
-    if (chip.dataset.traceBound === "true") return;
-    chip.dataset.traceBound = "true";
-    chip.addEventListener("click", () => navigatePanelTraceTarget(chip));
-  });
-}
-
-function navigatePanelTraceTarget(chip) {
-  const nodeId = chip.dataset.traceNodeId;
-  const reportAnchor = chip.dataset.traceReportAnchor;
-  const messageId = chip.dataset.traceMessageId;
-  if (messageId) {
-    const messageEl = virtualPanelChatEl?.querySelector(`[data-message-id="${cssEscape(messageId)}"]`);
-    if (!messageEl) return;
-    openPanelMessageDetail(messageEl);
-    return;
-  }
-  if (nodeId) {
-    setWorkspaceView("graph");
-    window.setTimeout(() => {
-      const nodeEl = evidenceGraphEl?.querySelector(`[data-node-id="${cssEscape(nodeId)}"]`);
-      const node = findGraphNodeById(nodeId);
-      if (node) {
-        nodeEl?.classList.add("active");
-        openGraphNodeDetail(node);
-      } else if (reportAnchor) {
-        openReportAnchorDetail(reportAnchor);
-      }
-    }, 0);
-    return;
-  }
-  if (reportAnchor) {
-    setWorkspaceView("graph");
-    window.setTimeout(() => {
-      openReportAnchorDetail(reportAnchor);
-    }, 0);
-  }
-}
-
-function panelTraceReportAnchor(turn) {
-  const questionIds = turn.question_ids || [];
-  const evidenceIds = turn.evidence_ids || [];
-  if (questionIds.length) return reportAnchorForNodeType("interview_question");
-  if (evidenceIds.length) return reportAnchorForNodeType("resume_evidence");
-  return reportAnchorForNodeType("agent_persona");
-}
-
-function buildModeratorTraceIds(run, kind) {
-  const rounds = run?.panel_discussion_rounds || [];
-  const ids = rounds
-    .flatMap((round) => round.turns || [])
-    .flatMap((turn) => (kind === "question" ? turn.question_ids || [] : turn.evidence_ids || []));
-  return Array.from(new Set(ids)).slice(0, 3);
-}
-
-function buildPanelMessageMeta(turn) {
-  const evidenceCount = turn.evidence_ids?.length || 0;
-  const questionCount = turn.question_ids?.length || 0;
-  if (currentLanguage === "en") {
-    return `${turn.impact || "panel_signal"} · ${evidenceCount} evidence · ${questionCount} questions`;
-  }
-  return `${localizePanelImpact(turn.impact || "panel_signal")} · ${evidenceCount} 条证据 · ${questionCount} 个问题`;
-}
-
-function localizePanelClaim(claim) {
-  if (!claim) return "";
-  if (currentLanguage === "en") return claim;
-  return claim
-    .replaceAll(" reads ", " 读取 ")
-    .replaceAll(" as ", "，判断为 ")
-    .replaceAll("pending validation", "待验证")
-    .replaceAll("usable evidence", "可用证据")
-    .replaceAll(" challenges whether ", " 挑战：")
-    .replaceAll(" has first-hand evidence", " 是否具备一手证据")
-    .replaceAll(" links ", " 将 ")
-    .replaceAll(" offer leverage to ", " 的 Offer 杠杆关联到 ")
-    .replaceAll("Enter the next interview or offer sandbox only after validating the highest-risk evidence nodes.", "建议先验证最高风险证据节点，再进入下一轮面试或 Offer 沙盘。")
-    .replaceAll("Pause offer progression and request stronger project-loop evidence before deep interview questions.", "建议暂停 Offer 推进，先补强项目闭环证据，再进入深度追问。");
-}
-
-function localizePanelStage(value) {
-  const map = currentLanguage === "en"
-    ? {
-        seed_extraction: "Seed extraction",
-        panel_simulation: "Panel discussion",
-        moderator_report: "Moderator summary",
-      }
-    : {
-        seed_extraction: "种子材料读取",
-        panel_simulation: "委员会讨论",
-        moderator_report: "主持人总结",
-      };
-  return map[value] || value || "";
-}
-
-function localizePanelTopic(value) {
-  const map = currentLanguage === "en"
-    ? {
-        "JD / resume seed reading": "JD / resume seed reading",
-        "risk challenge and counter-evidence": "Risk challenge and counter-evidence",
-        "offer readiness alignment": "Offer readiness alignment",
-        seed_extraction: "JD / resume seed reading",
-        panel_simulation: "Risk challenge and counter-evidence",
-        moderator_report: "Offer readiness alignment",
-      }
-    : {
-        "JD / resume seed reading": "JD / 简历种子读取",
-        "risk challenge and counter-evidence": "风险挑战与反证",
-        "offer readiness alignment": "Offer 就绪度对齐",
-        seed_extraction: "JD / 简历种子读取",
-        panel_simulation: "风险挑战与反证",
-        moderator_report: "Offer 就绪度对齐",
-      };
-  return map[value] || value || "";
-}
-
-function localizePanelStance(value) {
-  if (currentLanguage === "en") return value || "";
-  const map = {
-    supportive: "支持",
-    opposing: "质疑",
-    observer: "观察",
-    neutral: "中立",
-  };
-  return map[value] || value || "";
-}
-
-function localizePanelImpact(value) {
-  if (currentLanguage === "en") return value || "";
-  const map = {
-    raise_follow_up_priority: "提高追问优先级",
-    keep_as_supporting_evidence: "保留为支持证据",
-    recalibrate_with_human_feedback: "结合人工反馈校准",
-    feed_offer_simulation: "回填 Offer 推演",
-    panel_signal: "委员会信号",
-  };
-  return map[value] || value || "";
-}
-
-function localizeModeratorConsensus(value) {
-  if (currentLanguage === "en") return value || "";
-  const map = {
-    conditional_progress: "有条件推进",
-    evidence_first: "证据优先",
-  };
-  return map[value] || value || "";
-}
-
-function localizeFeedbackImpact(value) {
-  if (currentLanguage === "en") return value || "";
-  const map = {
-    human_feedback_applied_to_panel_summary: "人工反馈已纳入委员会总结",
-    waiting_for_human_feedback: "等待人工反馈",
-  };
-  return map[value] || value || "";
 }
 
 function riskToneClass(value) {
@@ -3982,525 +3052,6 @@ function buildPdfSummaryCards(run, audience = "full") {
   ];
 }
 
-function buildPreviewMarkdown(run) {
-  return `${buildAudienceMarkdown(run, "candidate")}
-
-${buildAudienceMarkdown(run, "interviewer")}
-
-${buildAudienceMarkdown(run, "offer")}`;
-}
-
-function buildAudienceMarkdown(run, audience) {
-  if (getRunLanguage(run) === "en") return buildAudienceMarkdownEn(run, audience);
-
-  const report = run.report;
-  const snapshot = run.input_snapshot || {};
-  const resumeEvidence = snapshot.resume ? clip(snapshot.resume) : "未提供简历快照";
-  const jdEvidence = snapshot.job_description ? clip(snapshot.job_description) : "未提供 JD 快照";
-  const directConclusion = buildDirectConclusion(snapshot);
-  const gate = buildGateAssessment(snapshot);
-  const offerLeverage = buildOfferLeverage(snapshot);
-  if (audience === "candidate") {
-    const body = [
-      extractSection(report, "项目匹配闸口"),
-      extractSection(report, "JD 隐性痛点解码"),
-      extractSection(report, "岗位匹配"),
-      extractSection(report, "风险与待验证"),
-      extractSection(report, "候选人准备重点"),
-      extractSection(report, "候选人策略建议"),
-      extractSection(report, "必问追问"),
-      extractSection(report, "动态校准指令"),
-      extractSection(report, "证据链"),
-    ]
-      .filter(hasSubstantiveSection)
-      .join("\n\n");
-    return `# 候选人面试准备报告
-
-## 招聘岗位分析
-
-${buildConcreteJobAnalysis(snapshot)}
-
-## 能力迁移分析
-
-${buildAbilityTransferAnalysis(snapshot)}
-
-## 简历与 JD 不匹配点
-
-${buildConcreteGapTable(snapshot)}
-
-## 今晚行动清单（简历修改意见与重点准备）
-
-${buildCandidateRevisionAdvice(snapshot)}
-
-## 候选人策略建议
-
-${buildCandidateStrategyAdvice(snapshot)}
-
-## 模拟面试路线图
-
-${buildConcreteCandidateQuestions(snapshot)}
-
-## 压力面试应对指南
-
-${buildPressureInterviewGuide(snapshot)}
-
-${body}
-
-${buildHumanFeedbackMarkdown(run)}`;
-  }
-
-  if (audience === "interviewer") {
-    const generatedDecision = extractSection(report, "面试官决策辅助");
-    const generatedQuestions = extractSection(report, "面试官候选问题库（供挑选）");
-    const generatedLens = extractSection(report, "面试官视角库");
-    const generatedEvidence = extractSection(report, "证据链");
-    const recommendation = buildInterviewerRecommendation(gate);
-    const body = [
-      generatedDecision,
-      generatedQuestions,
-      generatedLens,
-      generatedEvidence,
-    ]
-      .filter(hasSubstantiveSection)
-      .join("\n\n");
-    return `# 面试官提问辅助报告
-
-## 简历初评
-
-${buildInterviewerResumeBrief(snapshot)}
-
-## 候选人画像
-
-${buildCandidateProfile(snapshot)}
-
-## 结构化评分卡
-
-${buildInterviewerScorecard(snapshot)}
-
-## 红灯 / 绿灯信号
-
-${buildInterviewerSignalTable(snapshot)}
-
-## 追问路径图
-
-${buildInterviewerFollowupPaths(snapshot)}
-
-## 录用条件与补充验证
-
-${buildInterviewerDecisionAdvice(snapshot)}
-
-## 角色分化面试官模块
-
-${buildRoleAwareInterviewerModules(snapshot)}
-
-## 面试轮次信息传递卡
-
-${buildInterviewHandoffCard(snapshot)}
-
-## 面试后评估
-
-${buildPostInterviewEvaluationTemplate(snapshot)}
-
-${directConclusion.blockQuestions ? `## 面试官处理建议
-
-| 结论 | 原因 | 建议 |
-| --- | --- | --- |
-| 当前不列举追问问题 | 全部核心能力均为待验证 / 缺证，没有足够项目锚点支撑有效追问 | 建议先要求候选人补充能证明缺口能力的项目材料；补齐后再进入追问或沙盘 |
-| 暂不进入下一轮沙盘 | 简历缺少支撑 JD 核心职责的有效项目证据 | 只保留不匹配点和证据缺口，作为筛选记录 |
-` : `## 面试官可选追问
-
-${buildConcreteInterviewerQuestions(snapshot)}
-`}
-
-${buildVirtualPanelMarkdown(run)}
-
-${body}`;
-  }
-
-  if (audience === "offer") {
-    return buildOfferSandboxMarkdown(run);
-  }
-
-  return report;
-}
-
-function buildAudienceMarkdownEn(run, audience) {
-  const report = run.report || "";
-  const snapshot = run.input_snapshot || {};
-  const gate = buildGateAssessment(snapshot);
-  const offerLeverage = buildOfferLeverage(snapshot);
-
-  if (audience === "candidate") {
-    const body = [
-      extractSection(report, "Project Match Gate"),
-      extractSection(report, "JD Hidden Pain Point Decoding"),
-      extractSection(report, "Role Match"),
-      extractSection(report, "Risks and Validation Needed"),
-      extractSection(report, "Candidate Preparation Priorities"),
-      extractSection(report, "Must-Ask Follow-Up Questions"),
-      extractSection(report, "Evidence Chain"),
-    ].filter(hasSubstantiveSection).join("\n\n");
-
-    return `# Candidate Interview Preparation Report
-
-${body || report}
-
-${buildHumanFeedbackMarkdown(run)}`;
-  }
-
-  if (audience === "interviewer") {
-    const body = [
-      extractSection(report, "Interviewer Decision Support"),
-      extractSection(report, "Interviewer Question Bank"),
-      extractSection(report, "Interviewer Lens Library"),
-      extractSection(report, "Evidence Chain"),
-    ].filter(hasSubstantiveSection).join("\n\n");
-
-    return `# Interviewer Question Guide
-
-${buildVirtualPanelMarkdown(run)}
-
-${body || report}`;
-  }
-
-  if (audience === "offer") return buildOfferSandboxMarkdownEn(run);
-
-  return report;
-}
-
-function buildVirtualPanelMarkdown(run) {
-  const panel = run.virtual_panel || [];
-  const rounds = run.panel_discussion_rounds || [];
-  const summary = run.moderator_summary || {};
-  if (!panel.length) return "";
-  const panelRows = panel
-    .map((agent) => `| ${agent.name} | ${localizePanelStance(agent.stance)} | ${agent.influence_weight} | ${agent.focus} |`)
-    .join("\n");
-  const turnRows = rounds
-    .flatMap((round) => (round.turns || []).slice(0, 3).map((turn) => {
-      const agent = panel.find((item) => item.id === turn.agent_id);
-      return `| ${localizePanelStage(round.stage)} | ${agent?.name || turn.agent_id} | ${localizePanelImpact(turn.impact)} | ${localizePanelClaim(turn.claim)} |`;
-    }))
-    .slice(0, 8)
-    .join("\n");
-  if (currentLanguage === "en") {
-    return `## Virtual Interview Panel
-
-| Persona | Stance | Influence | Focus |
-| --- | --- | --- | --- |
-${panelRows}
-
-| Round | Persona | Impact | Claim |
-| --- | --- | --- | --- |
-${turnRows}
-
-| Moderator Summary | Value |
-| --- | --- |
-| Consensus | ${summary.consensus || ""} |
-| Lead persona | ${summary.lead_agent_id || ""} |
-| Final recommendation | ${summary.final_recommendation || ""} |
-| Offer impact | ${summary.offer_impact || ""} |
-| Feedback impact | ${summary.feedback_impact || ""} |`;
-  }
-
-  return `## 虚拟面试委员会
-
-| 委员角色 | 立场 | 影响权重 | 关注点 |
-| --- | --- | --- | --- |
-${panelRows}
-
-| 轮次 | 委员角色 | 影响 | 发言 |
-| --- | --- | --- | --- |
-${turnRows}
-
-| 主持人总结 | 内容 |
-| --- | --- |
-| 共识 | ${localizeModeratorConsensus(summary.consensus)} |
-| 主导委员 | ${panel.find((agent) => agent.id === summary.lead_agent_id)?.name || summary.lead_agent_id || ""} |
-| 最终建议 | ${localizePanelClaim(summary.final_recommendation || "")} |
-| Offer 影响 | ${summary.offer_impact || ""} |
-| 反馈影响 | ${localizeFeedbackImpact(summary.feedback_impact)} |`;
-}
-
-function buildOfferSandboxMarkdownEn(run) {
-  const report = run.report || "";
-  const snapshot = run.input_snapshot || {};
-  const gate = buildGateAssessment(snapshot);
-  const offerLeverage = buildOfferLeverage(snapshot);
-  const rows = buildRequirementEvidenceRows(snapshot);
-
-  return `# Offer Simulation Report
-
-## Simulation Conclusion
-
-| Module | Current Judgment | Next Step |
-| --- | --- | --- |
-| Project gate | ${translateGateResult(gate.result)} | ${gate.enterSandbox ? "Continue to offer-risk validation." : "Pause progression and request stronger project evidence."} |
-| Candidate stage | ${translateStage(snapshot.candidate_stage)} | Align interview-round purpose before negotiation. |
-| Target level | ${snapshot.target_level || "Not provided"} | Clarify scope, level anchor, and evaluation standard. |
-| Negotiation leverage | ${translateOfferRating(offerLeverage.rating)} | ${offerLeverage.detail} |
-| Offer constraints | ${snapshot.offer_constraints ? clip(snapshot.offer_constraints) : "Not provided"} | Add budget, expected compensation, competing offers, start date, and team urgency. |
-| Evidence credibility | ${summarizeEvidenceCounts(rows)} | First-level evidence may support pricing; pending evidence should trigger more validation. |
-
-## Decision Matrix
-
-| Scenario | Recommended Action | Risk Signal |
-| --- | --- | --- |
-| ${gate.enterSandbox ? "Can enter next validation round" : "Do not push forward yet"} | ${gate.enterSandbox ? "Validate project evidence, incident review, metric definition, and motivation constraints." : "Ask the candidate to supplement project loop, personal contribution, and role-fit evidence first."} | Candidate cannot explain ownership, denominator, trade-off, failure, or mechanism change. |
-| Before negotiation | Clarify level, compensation structure, start date, competing offers, and decision criteria. | Key constraints are revealed too late. |
-| After interview | Update role match, evidence credibility, acceptance probability, and negotiation risk. | Feedback is not captured and the question library cannot improve. |
-
-## Extracted Report Context
-
-${[
-  extractSection(report, "Offer Simulation"),
-  extractSection(report, "Interviewer Question Bank"),
-  extractSection(report, "Interviewer Lens Library"),
-  extractSection(report, "Dynamic Calibration Instruction"),
-  extractSection(report, "Evidence Chain"),
-].filter(hasSubstantiveSection).join("\n\n") || "No extracted offer, question bank, lens library, calibration, or evidence-chain content is available yet."}`;
-}
-
-function buildOfferSandboxMarkdown(run) {
-  const report = run.report;
-  const snapshot = run.input_snapshot || {};
-  const gate = buildGateAssessment(snapshot);
-  const offerLeverage = buildOfferLeverage(snapshot);
-  const normalized = normalizeSnapshot(snapshot);
-  const directConclusion = buildDirectConclusion(snapshot);
-  const offerSection = extractSection(report, "Offer 沙盘推演");
-  const summarySection = extractSection(report, "一页摘要");
-  const gateSection = extractSection(report, "项目匹配闸口");
-  const hiddenPainSection = extractSection(report, "JD 隐性痛点解码");
-  const matchSection = extractSection(report, "岗位匹配");
-  const riskSection = extractSection(report, "风险与待验证");
-  const questionSection = extractSection(report, "面试官候选问题库（供挑选）");
-  const interviewerSection = extractSection(report, "面试官视角库");
-  const dynamicSection = extractSection(report, "动态校准指令");
-  const evidenceSection = extractSection(report, "证据链");
-  const requirementRows = buildRequirementEvidenceRows(snapshot);
-  const evidenceSummary = buildEvidenceSummary(requirementRows);
-  const matchedRows = requirementRows.filter((row) => !row.isMissing);
-  const missingRows = requirementRows.filter((row) => row.isMissing);
-  const hiddenPainRows = buildJdHiddenPainRows(snapshot);
-  const sevenStepReasoning = buildOfferSevenStepReasoning({
-    report,
-    snapshot,
-    normalized,
-    gate,
-    directConclusion,
-    offerLeverage,
-    requirementRows,
-    matchedRows,
-    missingRows,
-    hiddenPainRows,
-    sections: {
-      summarySection,
-      gateSection,
-      hiddenPainSection,
-      matchSection,
-      riskSection,
-      offerSection,
-      questionSection,
-      interviewerSection,
-      dynamicSection,
-      evidenceSection,
-    },
-  });
-  const extractedAppendix = [
-    offerSection,
-    questionSection,
-    interviewerSection,
-    dynamicSection,
-    evidenceSection,
-  ].filter(hasSubstantiveSection).join("\n\n");
-
-  return `# Offer 沙盘推演报告
-
-## 沙盘结论
-
-| 模块 | 当前判断 | 推进动作 |
-| --- | --- | --- |
-| 项目闸口 | ${gate.result}：${gate.summary} | ${gate.nextStep} |
-| 候选人阶段 | ${normalized.candidate_stage || "未提供"} | 根据面试轮次决定是补证、深挖还是进入谈薪验证 |
-| 目标职级 | ${normalized.target_level || "未提供"} | 面试前明确职级锚点、职责边界和评估标准 |
-| 谈判杠杆 | ${offerLeverage.rating}：${offerLeverage.summary} | ${offerLeverage.detail} |
-| Offer 约束 | ${normalized.offer_constraints ? clip(normalized.offer_constraints) : "未提供 Offer / 谈薪约束"} | 补充预算范围、候选人期望、竞对 Offer、到岗时间和团队紧急程度 |
-| 证据可信度 | ${evidenceSummary} | 一级证据可用于定价，二级证据需追问，三级证据不得直接转化为 Offer 溢价 |
-
-## 七个步骤推理总览
-
-${sevenStepReasoning.overview}
-
-## 七个步骤详细推演
-
-${sevenStepReasoning.detail}
-
-## Offer 决策矩阵
-
-${sevenStepReasoning.decisionMatrix}
-
-## 推进建议
-
-| 场景 | 建议动作 | 风险信号 |
-| --- | --- | --- |
-| ${gate.enterSandbox ? "可进入下一轮沙盘" : "暂不建议推进"} | ${gate.enterSandbox ? "围绕项目证据、失败复盘、指标口径和动机约束继续验证" : "先要求候选人补齐项目闭环、个人贡献和岗位匹配证据"} | 候选人无法解释真实角色、指标分母、资源取舍或失败复盘 |
-| 谈薪前 | 明确职级、薪资结构、到岗时间、竞对机会和候选人选择标准 | 关键约束后置暴露，导致 Offer 成功率下降 |
-| 面试后 | 根据实际回答更新岗位匹配、证据可信度、入职概率和谈薪风险 | 面试反馈未回填，题库和判断无法迭代 |
-
-## 原始报告摘录
-
-${extractedAppendix || "原始报告中暂无可摘录的 Offer、问题库、视角库、动态校准或证据链内容。"}`
-}
-
-function buildOfferSevenStepReasoning(context) {
-  const {
-    normalized,
-    gate,
-    directConclusion,
-    offerLeverage,
-    requirementRows,
-    matchedRows,
-    missingRows,
-    hiddenPainRows,
-    sections,
-  } = context;
-  const strongestRows = [...requirementRows]
-    .filter((row) => !row.isMissing)
-    .sort((a, b) => a.evidenceLevel - b.evidenceLevel)
-    .slice(0, 3);
-  const weakestRows = (missingRows.length ? missingRows : requirementRows.filter((row) => row.evidenceLevel >= 2))
-    .slice(0, 3);
-  const extractedOfferSummary = summarizeSection(sections.offerSection, "原始报告未生成明确 Offer 沙盘推演正文，需要以闸口、证据和约束补推。");
-  const extractedRiskSummary = summarizeSection(sections.riskSection, "原始报告未生成明确风险段落，按缺证项、约束后置和动机不清处理。");
-  const extractedQuestionSummary = summarizeSection(
-    [sections.questionSection, sections.interviewerSection].filter(Boolean).join("\n"),
-    "原始报告未生成明确问题库，面试中应围绕项目真实性、失败复盘、指标口径和谈薪动机追问。",
-  );
-  const hiddenPainSummary = hiddenPainRows
-    .map((row) => `${row.phrase}：${row.pressure}；准备 ${row.prep}`)
-    .join("；");
-
-  const stepRows = [
-    {
-      step: "1. 证据解析",
-      reasoning: `先读取简历、JD、公司上下文和 Offer 约束。当前证据可信度为 ${buildEvidenceSummary(requirementRows)}。`,
-      evidence: `简历：${normalized.resume ? clip(normalized.resume) : "未提供"}；JD：${normalized.job_description ? clip(normalized.job_description) : "未提供"}`,
-      offerImpact: strongestRows.length
-        ? `可暂作谈判锚点的证据：${strongestRows.map((row) => `${row.capability}（${row.evidenceLevelLabel}）`).join("、")}`
-        : "暂未发现可直接支撑 Offer 溢价的高可信证据。",
-      action: "面试前把每个关键证据补齐分母、周期、个人贡献和可复核结果。",
-    },
-    {
-      step: "2. 匹配闸口",
-      reasoning: `${gate.result}。${gate.summary}`,
-      evidence: gate.bestEvidence,
-      offerImpact: gate.enterSandbox
-        ? "可进入下一轮，但 Offer 强度取决于后续追问能否把二级/三级证据提升为可信项目证据。"
-        : "暂不建议进入谈薪或强推进，否则容易在业务面或谈薪阶段暴露核心不匹配。",
-      action: gate.nextStep,
-    },
-    {
-      step: "3. 岗位匹配",
-      reasoning: `${directConclusion.label}。已匹配 ${matchedRows.length}/${requirementRows.length} 项，缺证 ${missingRows.length} 项。`,
-      evidence: matchedRows.length
-        ? matchedRows.map((row) => `${row.capability}：${row.resumeEvidence}`).join("；")
-        : "简历未体现明确岗位匹配证据。",
-      offerImpact: missingRows.length
-        ? `缺证项会压低职级或薪资空间：${missingRows.slice(0, 3).map((row) => row.capability).join("、")}`
-        : "岗位匹配表面完整，但仍需用反包装追问验证真实角色和指标归因。",
-      action: "把岗位要求转成面试评分项，逐项记录回答质量、证据等级和是否影响 Offer 定级。",
-    },
-    {
-      step: "4. 风险校准",
-      reasoning: extractedRiskSummary,
-      evidence: weakestRows.map((row) => `${row.capability}：${row.resumeEvidence}`).join("；") || "暂无明确风险证据。",
-      offerImpact: "风险项决定是否降级、延后 Offer、加面或要求补材料。",
-      action: "至少追问一次项目延期或线上故障，要求按时间线说明发现、止血、根因、整改和后续机制变化。",
-    },
-    {
-      step: "5. 沙盘推演",
-      reasoning: extractedOfferSummary,
-      evidence: `阶段：${normalized.candidate_stage || "未提供"}；目标职级：${normalized.target_level || "未提供"}；约束：${normalized.offer_constraints ? clip(normalized.offer_constraints) : "未提供"}`,
-      offerImpact: `${offerLeverage.rating}。${offerLeverage.detail}`,
-      action: "在业务面后更新入职概率、竞对机会、薪资底线、到岗时间、职级锚点和团队紧急程度。",
-    },
-    {
-      step: "6. 问题库生成",
-      reasoning: extractedQuestionSummary,
-      evidence: hiddenPainSummary || "JD 暂未识别出明确隐性压力源。",
-      offerImpact: "问题库回答质量会决定是否推进终面、是否追加技术/业务交叉面、是否进入谈薪。",
-      action: "使用业务负责人、项目推进、技术架构、谈薪顾问和决策层压力官视角交叉验证同一项目。",
-    },
-    {
-      step: "7. 证据链收束",
-      reasoning: "将简历证据、JD 证据、公司上下文、Offer 约束和面试反馈收束为可复核决策链。",
-      evidence: buildEvidenceChainPlain(normalized),
-      offerImpact: "只有能被证据链支撑的能力、稀缺性和到岗确定性，才应进入最终 Offer 定价。",
-      action: "面试后把实际追问、候选人回答、证据等级变化和谈薪约束回填到该报告，形成最终推进建议。",
-    },
-  ];
-
-  const overview = `| 步骤 | 推理结论 | Offer 影响 | 下一步 |
-| --- | --- | --- | --- |
-${stepRows.map((row) => `| ${row.step} | ${row.reasoning} | ${row.offerImpact} | ${row.action} |`).join("\n")}`;
-
-  const detail = stepRows
-    .map(
-      (row) => `### ${row.step}
-
-| 维度 | 内容 |
-| --- | --- |
-| 推理内容 | ${row.reasoning} |
-| 证据来源 | ${row.evidence} |
-| 对 Offer 的影响 | ${row.offerImpact} |
-| 必须补充 / 验证 | ${row.action} |`,
-    )
-    .join("\n\n");
-
-  const decisionMatrix = `| 决策项 | 当前判断 | 触发条件 | 建议动作 |
-| --- | --- | --- | --- |
-| 是否继续推进 | ${gate.enterSandbox ? "继续推进，但必须带条件验证" : "暂缓推进"} | ${gate.result}；${gate.summary} | ${gate.nextStep} |
-| 职级定位 | ${normalized.target_level || "未提供"} | 岗位匹配、项目复杂度、真实决策权、研发协同深度 | 面试后根据证据等级决定维持、下调或加面 |
-| 薪资 / 溢价 | ${offerLeverage.rating} | ${offerLeverage.summary} | ${offerLeverage.detail} |
-| 入职概率 | 待验证 | 动机清晰、约束前置、竞对机会透明、到岗时间明确 | HR 面或谈薪前补齐选择标准和关键约束 |
-| 风险处置 | ${missingRows.length ? "存在缺证风险" : "表面完整但需反包装"} | 无法解释失败、指标口径、个人贡献或技术取舍 | 追加项目复盘题和现场推演题 |`;
-
-  return { overview, detail, decisionMatrix };
-}
-
-function summarizeSection(section, fallback) {
-  if (!hasSubstantiveSection(section || "")) return fallback;
-  return clip(
-    section
-      .replace(/^## .+$/m, "")
-      .replace(/\|/g, " ")
-      .replace(/---/g, " ")
-      .replace(/\s+/g, " ")
-      .trim(),
-  );
-}
-
-function buildEvidenceChainPlain(snapshot) {
-  return [
-    `简历：${snapshot.resume ? clip(snapshot.resume) : "未提供"}`,
-    `JD：${snapshot.job_description ? clip(snapshot.job_description) : "未提供"}`,
-    `上下文：${snapshot.company_context ? clip(snapshot.company_context) : "未提供"}`,
-    `Offer 约束：${snapshot.offer_constraints ? clip(snapshot.offer_constraints) : "未提供"}`,
-  ].join("；");
-}
-
-function extractSection(markdown, heading) {
-  const pattern = new RegExp(`(^## ${escapeRegExp(heading)}\\n[\\s\\S]*?)(?=\\n## |$)`, "m");
-  const match = markdown.match(pattern);
-  return match ? match[1].trim() : "";
-}
-
-function hasSubstantiveSection(section) {
-  const body = section.replace(/^## .+$/m, "").replace(/\s+/g, "");
-  return body.length > 30;
-}
-
 function buildInterviewerResumeBrief(snapshot) {
   const rows = buildRequirementEvidenceRows(snapshot);
   const missingRows = rows.filter((row) => row.isMissing);
@@ -5141,167 +3692,6 @@ function buildPostInterviewEvaluationTemplate(snapshot) {
 | 面试官备注 | 记录候选人原话、关键证据、风险信号和建议下一轮追问 |`;
 }
 
-function buildRequirementEvidenceRows(snapshot) {
-  const normalized = normalizeSnapshot(snapshot);
-  const jd = normalized.job_description || "";
-  const resume = normalized.resume || "";
-  const roleProfile = getRoleProfile(normalized.target_role);
-  const requirements = roleProfile.requirements;
-  return requirements.map((requirement) => {
-    const resumeEvidence = findEvidence(resume, requirement.keywords) || "简历未体现明确证据";
-    const evidenceLevel = classifyEvidenceLevel(resumeEvidence);
-    const isMissing = resumeEvidence === "简历未体现明确证据";
-    return {
-      capability: requirement.capability,
-      jdEvidence: findEvidence(jd, requirement.keywords) || "JD 未提供明确原文",
-      resumeEvidence,
-      isMissing,
-      evidenceLevel,
-      evidenceLevelLabel: evidenceLevelLabel(evidenceLevel),
-      evidenceReason: evidenceLevelReason(evidenceLevel, resumeEvidence),
-      matchStatus: isMissing ? "不匹配 / 待补证" : evidenceLevel === 1 ? "匹配但仍需复核口径" : "部分匹配 / 需追问验证",
-      verificationQuestion: buildVerificationQuestion(requirement.capability, resumeEvidence, evidenceLevel, requirement.verificationFocus),
-    };
-  });
-}
-
-function normalizeSnapshot(input) {
-  return {
-    target_role: input.target_role || input.targetRole || defaultRoleId,
-    resume: input.resume || "",
-    job_description: input.job_description || input.jobDescription || "",
-    company_context: input.company_context || input.companyContext || "",
-    candidate_stage: input.candidate_stage || input.candidateStage || "",
-    target_level: input.target_level || input.targetLevel || "",
-    offer_constraints: input.offer_constraints || input.offerConstraints || "",
-    selected_skills: input.selected_skills || input.selectedSkills || [],
-    language: input.language || "zh",
-  };
-}
-
-function classifyEvidenceLevel(evidenceText) {
-  if (!evidenceText || evidenceText === "简历未体现明确证据") return 3;
-  const hasQuant = /(\d+(\.\d+)?\s*%|\d+\s*(万|千|个|人|家|天|周|月|年|次|单|小时|分钟|ms|元|万元|亿)|上线|版本|v\d|ROI|DAU|MAU|GMV|SLA)/i.test(evidenceText);
-  const hasSpecificRole = /主导|负责|Owner|owned|led|牵头|独立|设计|designed|launched|上线|落地|delivered|交付|专利|开源/i.test(evidenceText);
-  const hasVagueTeam = /我们|参与|participated|协助|supported|支持|熟悉|了解|学习|接触|团队|team/i.test(evidenceText);
-  if (hasQuant && hasSpecificRole) return 1;
-  if (hasSpecificRole || hasQuant) return 2;
-  if (hasVagueTeam) return 3;
-  return 2;
-}
-
-function evidenceLevelLabel(level) {
-  if (level === 1) return "一级证据（高可信）";
-  if (level === 2) return "二级证据（中可信）";
-  return "三级证据（低可信 / 待验证）";
-}
-
-function evidenceLevelReason(level, evidenceText) {
-  if (level === 1) return "包含量化结果、上线/版本或明确个人动作，可优先复核口径";
-  if (level === 2) return "包含负责、主导、上线或定性职责描述，需要面试追问验证";
-  if (!evidenceText || evidenceText === "简历未体现明确证据") return "没有可引用的简历证据";
-  return "表达较模糊或偏团队成果，个人贡献边界不清";
-}
-
-function buildVerificationQuestion(capability, evidenceText, level) {
-  const focusSuffix = arguments[3] ? `重点验证：${arguments[3]}。` : "";
-  if (!evidenceText || evidenceText === "简历未体现明确证据") {
-    return `请补充一个能证明“${capability}”的项目，说明背景、目标、个人动作、结果和复盘。${focusSuffix}`;
-  }
-  if (level === 1) {
-    return `围绕“${capability}”说明指标分母、统计周期、上线前后对比和你的直接贡献。${focusSuffix}`;
-  }
-  if (level === 2) {
-    return `你提到“${clip(evidenceText)}”，请拆解真实角色、关键决策、协作对象和结果归因。${focusSuffix}`;
-  }
-  return `这段经历更像模糊团队成果，请说明你个人做了什么、为什么由你负责、失败点是什么。${focusSuffix}`;
-}
-
-function buildEvidenceSummary(rows) {
-  const counts = rows.reduce(
-    (acc, row) => {
-      acc[row.evidenceLevel] += 1;
-      return acc;
-    },
-    { 1: 0, 2: 0, 3: 0 },
-  );
-  return `一级 ${counts[1]} 项，二级 ${counts[2]} 项，三级/缺证 ${counts[3]} 项`;
-}
-
-function buildGateAssessment(snapshot, rows = buildRequirementEvidenceRows(snapshot)) {
-  const normalized = normalizeSnapshot(snapshot);
-  const roleProfile = getRoleProfile(normalized.target_role);
-  const matchedRows = rows.filter((row) => !row.isMissing);
-  const strongRows = rows.filter((row) => row.evidenceLevel === 1);
-  const resume = normalized.resume || "";
-  const jd = normalized.job_description || "";
-  const roleKeywords = roleProfile.requirements.flatMap((item) => item.keywords || []);
-  const roleSignalHits = roleKeywords.filter((keyword) => resume.toLowerCase().includes(String(keyword).toLowerCase())).length;
-  const hasTargetIndustry = normalized.target_role === "product_manager" && /智慧矿山|矿山|GIS|冶金|矿产/i.test(resume);
-  const jdNeedsTargetIndustry = normalized.target_role === "product_manager" && /智慧矿山|矿山|GIS|冶金|矿产/i.test(jd);
-  const hasTransferableSignals =
-    roleSignalHits >= 2 ||
-    /B\s*端|B端|SaaS|企业|客户|方案|架构|研发|平台|系统|0-1|0 到 1|上线|交付|推进|数据|指标|项目|销售|工单|SLA|CRM|pipeline|测试|debug|代码|收入/i.test(resume);
-  const bestEvidence = matchedRows[0]?.resumeEvidence || "简历尚未提供可直接支撑 JD 的项目证据";
-
-  if (matchedRows.length >= 4 && (!jdNeedsTargetIndustry || hasTargetIndustry || strongRows.length >= 2)) {
-    return {
-      result: "匹配进入",
-      enterSandbox: true,
-      matchedCount: matchedRows.length,
-      bestEvidence,
-      summary: `已看到 ${matchedRows.length}/${rows.length} 项 JD 能力证据，具备进入下一轮沙盘的基础。`,
-      nextStep: "进入下一轮沙盘，重点验证一级证据口径、失败复盘和真实决策权",
-      transferPitch: "",
-    };
-  }
-
-  if (matchedRows.length >= 2 || (hasTransferableSignals && matchedRows.length >= 1)) {
-    return {
-      result: "条件性进入（转岗适配）",
-      enterSandbox: true,
-      matchedCount: matchedRows.length,
-      bestEvidence,
-      summary: `目标岗位证据不足，但有 ${matchedRows.length}/${rows.length} 项可迁移能力线索，可进入条件性沙盘验证。`,
-      nextStep: `使用能力迁移话术进入验证，但必须补齐 ${roleProfile.requirements.slice(0, 3).map((row) => row.capability).join("、")} 证据`,
-      transferPitch: buildTransferPitch(normalized, matchedRows),
-    };
-  }
-
-  return {
-    result: "不匹配不推进",
-    enterSandbox: false,
-    matchedCount: matchedRows.length,
-    bestEvidence,
-    summary: `仅看到 ${matchedRows.length}/${rows.length} 项 JD 能力线索，核心项目证据不足。`,
-    nextStep: "暂不进入下一轮沙盘，先补充完整项目闭环、指标口径和个人贡献证据",
-    transferPitch: "",
-  };
-}
-
-function buildTransferPitch(snapshot, matchedRows) {
-  const anchor = matchedRows[0]?.resumeEvidence || clip(snapshot.resume) || "过往复杂项目经历";
-  return `虽然我过往项目未必完全处于 JD 指定行业，但我处理过“${anchor}”这类复杂业务 / 系统问题。其核心能力包括需求拆解、客户沟通、技术方案取舍、研发协同和结果复盘，可迁移到贵司岗位。面试中我会用具体项目说明相似点、差异点和补齐行业认知的计划。`;
-}
-
-function buildOfferLeverage(snapshot) {
-  const normalized = normalizeSnapshot(snapshot);
-  const text = `${normalized.resume} ${normalized.company_context} ${normalized.offer_constraints}`;
-  const levers = [];
-  if (/竞对|竞争|其他 offer|其它 offer|Offer|offer/i.test(text)) levers.push("存在竞争机会 / Offer 线索");
-  if (/S\s*级|A\s*级|绩效|晋升|核心员工|负责人/i.test(text)) levers.push("存在绩效、晋升或核心角色线索");
-  if (/专利|论文|开源|著作权|标准|奖项/i.test(text)) levers.push("存在专利、论文、开源或外部成果");
-  if (/智慧矿山|GIS|矿山|垂直领域|行业资源|客户资源|人脉/i.test(text)) levers.push("存在垂直领域资源或行业经验");
-  if (/0-1|0 到 1|从零|上线|交付|提升|下降|%|\d+/.test(text)) levers.push("存在 0-1、上线交付或量化结果");
-  const rating = levers.length >= 4 ? "强杠杆" : levers.length >= 2 ? "中杠杆" : levers.length >= 1 ? "弱杠杆" : "暂无明确杠杆";
-  const summary = levers.length ? levers.slice(0, 2).join("；") : "材料中未发现竞对 Offer、绩效、专利、开源、垂直资源或明确量化成果";
-  return {
-    rating,
-    summary,
-    detail: levers.length ? `${levers.join("；")}。谈判时应转化为可量化贡献、稀缺经验和到岗确定性。` : "当前缺少可支撑溢价的明确证据，建议先补充竞对机会、绩效结果、垂直行业资源或可复核项目成果。",
-  };
-}
-
 function buildJdHiddenPainRows(snapshot) {
   const jd = normalizeSnapshot(snapshot).job_description || "";
   const candidates = [
@@ -5347,22 +3737,8 @@ function buildEvidenceChainTable(snapshot) {
 ${rows.map((row) => `| ${row[0]} | ${row[1]} | ${row[2]} |`).join("\n")}`;
 }
 
-function findEvidence(text, keywords) {
-  if (!text) return "";
-  const parts = text
-    .split(/[。；;\n]/)
-    .map((item) => item.replace(/\s+/g, " ").trim())
-    .filter(Boolean);
-  const hit = parts.find((part) => keywords.some((keyword) => part.toLowerCase().includes(keyword.toLowerCase())));
-  return hit ? clip(hit) : "";
-}
-
 function interviewerLens(index) {
   return ["业务负责人", "产品负责人", "项目推进", "技术架构", "客户方案", "反包装验证", "决策层压力官"][index % 7];
-}
-
-function escapeRegExp(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function escapeHtml(value) {
@@ -5372,270 +3748,6 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
-}
-
-function downloadFile(filename, content, type) {
-  const blob = new Blob([content], { type });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-}
-
-async function downloadPdfReport(run, audience, filename) {
-  setStatus(getText().statusPdf);
-  try {
-    const html = reportToStaticHtmlDocument(run, audience);
-    const pdfBlob = await renderHtmlDocumentToPdfBlob(html);
-    downloadBlob(filename, pdfBlob);
-    setStatus(getText().statusDownloaded(filename));
-  } catch (error) {
-    console.error(error);
-    setStatus(getText().statusPdfFallback, true);
-    openPdfPrintWindow(reportToStaticHtmlDocument(run, audience), filename);
-  }
-}
-
-async function renderHtmlDocumentToPdfBlob(html) {
-  const iframe = document.createElement("iframe");
-  iframe.setAttribute("aria-hidden", "true");
-  iframe.style.position = "fixed";
-  iframe.style.left = "-10000px";
-  iframe.style.top = "0";
-  iframe.style.width = "920px";
-  iframe.style.height = "1200px";
-  iframe.style.border = "0";
-  iframe.srcdoc = html;
-  document.body.appendChild(iframe);
-
-  try {
-    await waitForIframeLoad(iframe);
-    const doc = iframe.contentDocument;
-    const page = doc?.querySelector(".page");
-    const styleText = Array.from(doc?.querySelectorAll("style") || []).map((style) => style.textContent || "").join("\n");
-    if (!doc || !page) throw new Error("PDF render source is unavailable.");
-
-    await waitForLayout();
-    const widthPx = Math.ceil(page.getBoundingClientRect().width || 920);
-    const pageHeightPx = Math.round(widthPx * 297 / 210);
-    const totalHeightPx = Math.ceil(page.scrollHeight);
-    const pageCount = Math.max(1, Math.ceil(totalHeightPx / pageHeightPx));
-    const serializedPage = new XMLSerializer().serializeToString(page.cloneNode(true));
-    const images = [];
-
-    for (let index = 0; index < pageCount; index += 1) {
-      const offset = index * pageHeightPx;
-      const height = Math.min(pageHeightPx, totalHeightPx - offset);
-      images.push(await renderSvgPageToJpeg({
-        serializedPage,
-        styleText,
-        widthPx,
-        pageHeightPx,
-        contentHeightPx: Math.max(height, 1),
-        offset,
-      }));
-    }
-
-    return createPdfBlobFromJpegs(images);
-  } finally {
-    iframe.remove();
-  }
-}
-
-function waitForIframeLoad(iframe) {
-  return new Promise((resolve, reject) => {
-    const timeout = window.setTimeout(() => reject(new Error("PDF render iframe timed out.")), 8000);
-    iframe.addEventListener("load", () => {
-      window.clearTimeout(timeout);
-      resolve();
-    }, { once: true });
-  });
-}
-
-function waitForLayout() {
-  return new Promise((resolve) => {
-    requestAnimationFrame(() => requestAnimationFrame(resolve));
-  });
-}
-
-async function renderSvgPageToJpeg({ serializedPage, styleText, widthPx, pageHeightPx, contentHeightPx, offset }) {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${widthPx}" height="${pageHeightPx}" viewBox="0 0 ${widthPx} ${pageHeightPx}">
-    <foreignObject width="100%" height="100%">
-      <div xmlns="http://www.w3.org/1999/xhtml" style="width:${widthPx}px;height:${pageHeightPx}px;overflow:hidden;background:#ffffff;">
-        <style>${escapeXml(styleText)}
-          html, body { margin: 0 !important; background: #ffffff !important; }
-          .page { width: ${widthPx}px !important; max-width: ${widthPx}px !important; margin: 0 !important; }
-        </style>
-        <div style="width:${widthPx}px;min-height:${contentHeightPx}px;transform:translateY(-${offset}px);transform-origin:top left;">
-          ${serializedPage}
-        </div>
-      </div>
-    </foreignObject>
-  </svg>`;
-  const svgBlob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
-  const svgUrl = URL.createObjectURL(svgBlob);
-  const image = new Image();
-  image.decoding = "async";
-  image.src = svgUrl;
-
-  try {
-    if (image.decode) {
-      await image.decode();
-    } else {
-      await new Promise((resolve, reject) => {
-        image.onload = resolve;
-        image.onerror = reject;
-      });
-    }
-
-    const canvas = document.createElement("canvas");
-    canvas.width = widthPx;
-    canvas.height = pageHeightPx;
-    const context = canvas.getContext("2d");
-    context.fillStyle = "#ffffff";
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    context.drawImage(image, 0, 0);
-    const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
-    return {
-      bytes: dataUrlToBytes(dataUrl),
-      width: canvas.width,
-      height: canvas.height,
-    };
-  } finally {
-    URL.revokeObjectURL(svgUrl);
-  }
-}
-
-function createPdfBlobFromJpegs(images) {
-  const encoder = new TextEncoder();
-  const pageWidth = 595.28;
-  const pageHeight = 841.89;
-  const objects = [];
-  objects[1] = { text: "<< /Type /Catalog /Pages 2 0 R >>" };
-  objects[2] = { text: "" };
-  const pageObjectNumbers = [];
-  let nextObjectNumber = 3;
-
-  images.forEach((image, index) => {
-    const imageObjectNumber = nextObjectNumber;
-    objects[nextObjectNumber] = {
-      dict: `<< /Type /XObject /Subtype /Image /Width ${image.width} /Height ${image.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${image.bytes.length} >>`,
-      stream: image.bytes,
-    };
-    nextObjectNumber += 1;
-
-    const content = encoder.encode(`q ${pageWidth} 0 0 ${pageHeight} 0 0 cm /Im${index + 1} Do Q`);
-    const contentObjectNumber = nextObjectNumber;
-    objects[nextObjectNumber] = {
-      dict: `<< /Length ${content.length} >>`,
-      stream: content,
-    };
-    nextObjectNumber += 1;
-
-    const pageObjectNumber = nextObjectNumber;
-    pageObjectNumbers.push(pageObjectNumber);
-    objects[nextObjectNumber] = {
-      text: `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /XObject << /Im${index + 1} ${imageObjectNumber} 0 R >> >> /Contents ${contentObjectNumber} 0 R >>`,
-    };
-    nextObjectNumber += 1;
-  });
-
-  objects[2] = {
-    text: `<< /Type /Pages /Kids [${pageObjectNumbers.map((number) => `${number} 0 R`).join(" ")}] /Count ${pageObjectNumbers.length} >>`,
-  };
-
-  const chunks = [];
-  const offsets = [0];
-  let byteLength = 0;
-  const pushAscii = (text) => {
-    const bytes = encoder.encode(text);
-    chunks.push(bytes);
-    byteLength += bytes.length;
-  };
-  const pushBytes = (bytes) => {
-    chunks.push(bytes);
-    byteLength += bytes.length;
-  };
-
-  pushAscii("%PDF-1.4\n%\xE2\xE3\xCF\xD3\n");
-  for (let objectNumber = 1; objectNumber < objects.length; objectNumber += 1) {
-    const object = objects[objectNumber];
-    offsets[objectNumber] = byteLength;
-    pushAscii(`${objectNumber} 0 obj\n`);
-    if (object.stream) {
-      pushAscii(`${object.dict}\nstream\n`);
-      pushBytes(object.stream);
-      pushAscii("\nendstream\nendobj\n");
-    } else {
-      pushAscii(`${object.text}\nendobj\n`);
-    }
-  }
-
-  const xrefOffset = byteLength;
-  pushAscii(`xref\n0 ${objects.length}\n`);
-  pushAscii("0000000000 65535 f \n");
-  for (let objectNumber = 1; objectNumber < objects.length; objectNumber += 1) {
-    pushAscii(`${String(offsets[objectNumber]).padStart(10, "0")} 00000 n \n`);
-  }
-  pushAscii(`trailer\n<< /Size ${objects.length} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`);
-
-  return new Blob(chunks, { type: "application/pdf" });
-}
-
-function dataUrlToBytes(dataUrl) {
-  const base64 = dataUrl.split(",")[1] || "";
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let index = 0; index < binary.length; index += 1) {
-    bytes[index] = binary.charCodeAt(index);
-  }
-  return bytes;
-}
-
-function escapeXml(value) {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
-}
-
-function downloadBlob(filename, blob) {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-}
-
-function openPdfPrintWindow(html, filename) {
-  const pdfHtml = html.replace("</head>", `<script>window.__offerAgentPdfName = ${JSON.stringify(filename)};</script></head>`);
-  const printWindow = window.open("", "_blank", "width=1180,height=900");
-  if (!printWindow) {
-    setStatus(getText().statusPopupBlocked, true);
-    return;
-  }
-
-  printWindow.document.open();
-  printWindow.document.write(
-    pdfHtml.replace(
-      "</body>",
-      `<script>
-        window.addEventListener("load", () => {
-          document.title = (window.__offerAgentPdfName || ${JSON.stringify(filename)}).replace(/\\.pdf$/i, "");
-          setTimeout(() => window.print(), 400);
-        });
-      </script></body>`,
-    ),
-  );
-  printWindow.document.close();
-  setStatus(getText().statusPrintWindow);
 }
 
 function setStatus(message, isError = false) {
