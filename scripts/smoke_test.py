@@ -510,6 +510,8 @@ def static_checks():
                 "buildVirtualInterviewPanel",
                 "buildPanelDiscussionRounds",
                 "buildModeratorSummary",
+                "buildChallengeQuestionPriority",
+                "prioritizeFollowUpQuestions",
                 "virtual_panel",
                 "panel_discussion_rounds",
                 "moderator_summary",
@@ -537,6 +539,7 @@ def static_checks():
                 "buildPanelDiscussionRounds",
                 "buildPanelTurn",
                 "buildModeratorSummary",
+                "buildChallengeQuestionPriority",
             ]
         ),
         "virtual_panel_model_loads_before_app": content["index"].find("./src/virtual-panel.js")
@@ -549,6 +552,7 @@ def static_checks():
                 "buildPanelDiscussionRounds",
                 "buildPanelTurn",
                 "buildModeratorSummary",
+                "buildChallengeQuestionPriority",
             ]
         ),
         "panel_view_module_exists": panel_view_path.exists(),
@@ -561,6 +565,10 @@ def static_checks():
                 "playVirtualPanelChat",
                 "buildVirtualPanelChatMessages",
                 "renderVirtualPanelRoundTabs",
+                "applyVirtualPanelFilters",
+                "data-panel-filter",
+                "data-panel-agent",
+                "data-panel-evidence-ids",
                 "navigatePanelTraceTarget",
                 "localizePanelClaim",
                 "localizePanelStance",
@@ -591,6 +599,7 @@ def static_checks():
                 "renderVirtualPanelRoundTabs",
                 "renderVirtualPanelChatMessage",
                 "bindVirtualPanelRoundFilters",
+                "applyVirtualPanelFilters",
                 "buildModeratorBasisTrace",
                 "renderModeratorBasisTrace",
                 "renderPanelTraceChips",
@@ -727,6 +736,9 @@ def static_checks():
                 "buildFeedbackDistillation",
                 "buildFeedbackImpactDiff",
                 "buildSkillUpdateSuggestions",
+                "loadFeedbackHistory",
+                "persistFeedbackHistory",
+                "attachFeedbackHistory",
             ]
         ),
         "feedback_engine_loads_before_app": content["index"].find("./src/feedback-engine.js")
@@ -740,6 +752,8 @@ def static_checks():
                 "buildFeedbackDistillation,",
                 "buildFeedbackImpactDiff,",
                 "buildSkillUpdateSuggestions,",
+                "persistFeedbackHistory,",
+                "attachFeedbackHistory,",
             ]
         ),
         "feedback_engine_removed_from_app": all(
@@ -748,6 +762,9 @@ def static_checks():
                 "buildFeedbackDistillation",
                 "buildFeedbackImpactDiff",
                 "buildSkillUpdateSuggestions",
+                "loadFeedbackHistory",
+                "persistFeedbackHistory",
+                "attachFeedbackHistory",
             ]
         ),
         "feedback_engine_has_english_boundary_comments": all(
@@ -979,6 +996,7 @@ def static_checks():
                 ".input-readiness-item",
             ]
         ),
+        "browser_e2e_regression_script_exists": (ROOT / "scripts" / "browser_e2e_test.js").exists(),
         "graph_keyword_search_exists": all(
             term in graph_view_content + content["css"]
             for term in [
@@ -987,6 +1005,17 @@ def static_checks():
                 "graph-filter-count",
                 "graph-filter-empty",
                 "applyEvidenceGraphFilters",
+            ]
+        ),
+        "graph_decision_filters_exist": all(
+            term in graph_view_content + content["css"]
+            for term in [
+                "graph-advanced-filters",
+                "data-graph-advanced-filter",
+                "data-graph-decision-view",
+                "graph-decision-filter",
+                "buildHighRiskDecisionNodeIds",
+                "matchesSourceFilter",
             ]
         ),
         "reports_view_module_exists": reports_view_path.exists(),
@@ -1088,6 +1117,14 @@ def static_checks():
                 "translateGeneratedArtifacts",
             ]
         ),
+        "language_artifact_schema_versions_aligned": all(
+            term in localized_run_view_content + model_client_content
+            for term in [
+                "language-artifact.v3",
+                "LANGUAGE_ARTIFACT_SCHEMA_VERSION",
+            ]
+        )
+        and "language-artifact.v1" not in model_client_content,
         "language_selector_hidden_but_projection_kept": all(
             term in content["index"] + content["app"] + content["css"]
             for term in [
@@ -1105,7 +1142,7 @@ def static_checks():
             for term in [
                 "./styles.css?v=web-20260710-5",
                 "./src/i18n.js?v=web-20260710-5",
-                "./app.js?v=web-20260710-19",
+                "./app.js?v=web-20260710-20",
             ]
         ),
         "virtual_panel_chat_stream_exists": all(
@@ -1188,6 +1225,9 @@ def static_checks():
                 "appendFeedbackToReport",
                 "collectFeedback",
                 "human_feedback",
+                "feedback_session_history",
+                "persistFeedbackHistory",
+                "attachFeedbackHistory",
                 "disagreement_reason",
                 "evidence_sufficiency",
                 "risk_validation",
@@ -1237,7 +1277,36 @@ def static_checks():
         ),
         "prompt_reflects_current_features": all(
             term in content["prompt"]
-            for term in ["辅助候选人", "项目匹配闸口", "面试官候选问题库", "候选人准备重点", "面试官视角库", "虚拟生成", "过度包装"]
+            for term in [
+                "辅助候选人",
+                "项目匹配闸口",
+                "面试官候选问题库",
+                "候选人准备重点",
+                "面试官视角库",
+                "虚拟生成",
+                "过度包装",
+                "target_role",
+                "必须保持原文",
+                "章节标题必须保持名称、顺序和层级",
+                "高风险证据",
+                "raise_follow_up_priority",
+                "Markdown 表格",
+            ]
+        ),
+        "prompt_runtime_contract_aligned": all(
+            term in content["prompt"] and term in content["app"]
+            for term in [
+                "target_role",
+                "target_language",
+                "必须保持原文",
+                "evidence_ids",
+                "question_ids",
+                "raise_follow_up_priority",
+                "共识、分歧、证据依据",
+                "Skill 更新建议",
+                "章节标题必须保持名称、顺序和层级",
+                "Markdown 表格",
+            ]
         ),
         "schema_reflects_current_features": all(
             term in content["schema_run"]
@@ -1376,6 +1445,7 @@ def main():
         "skill_registry": node_test(ROOT / "scripts" / "skill_registry_test.js"),
         "assessment_rules": node_test(ROOT / "scripts" / "assessment_rules_test.js"),
         "evaluation_engine": node_test(ROOT / "scripts" / "evaluation_engine_test.js"),
+        "browser_e2e": node_test(ROOT / "scripts" / "browser_e2e_test.js"),
     }
     if args.with_llm:
         result["llm_stream"] = llm_stream_check(args.with_llm, args.model)
@@ -1399,6 +1469,7 @@ def main():
         and result["skill_registry"]["passed"]
         and result["assessment_rules"]["passed"]
         and result["evaluation_engine"]["passed"]
+        and result["browser_e2e"]["passed"]
         and result.get("llm_stream", {"passed": True})["passed"]
     )
     result["passed"] = passed

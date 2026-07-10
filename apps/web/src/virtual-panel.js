@@ -167,11 +167,34 @@
       };
     }
 
+    function buildChallengeQuestionPriority(rounds = []) {
+      const priorityByQuestionId = {};
+      rounds.forEach((round) => {
+        const roundBoost = /risk|challenge|panel_simulation/i.test(`${round.stage || ""} ${round.topic || ""}`)
+          ? 2
+          : 0;
+        (round.turns || []).forEach((turn) => {
+          const impactBoost = turn.impact === "raise_follow_up_priority"
+            ? 10
+            : turn.impact === "recalibrate_with_human_feedback"
+              ? 4
+              : turn.impact === "feed_offer_simulation"
+                ? 2
+                : 1;
+          (turn.question_ids || []).forEach((questionId) => {
+            priorityByQuestionId[questionId] = (priorityByQuestionId[questionId] || 0) + impactBoost + roundBoost;
+          });
+        });
+      });
+      return priorityByQuestionId;
+    }
+
     return {
       buildVirtualInterviewPanel,
       buildPanelDiscussionRounds,
       buildPanelTurn,
       buildModeratorSummary,
+      buildChallengeQuestionPriority,
     };
   }
 

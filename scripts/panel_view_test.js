@@ -109,8 +109,14 @@ const tabs = panelView.renderVirtualPanelRoundTabs(run);
 assert.ok(tabs.includes('data-panel-round="all"'));
 assert.ok(tabs.includes('data-panel-round="round_seed_reading"'));
 assert.ok(tabs.includes('data-panel-round="moderator"'));
+assert.ok(tabs.includes('data-panel-filter="agent"'));
+assert.ok(tabs.includes('data-panel-filter="evidence"'));
+assert.ok(tabs.includes("Business Lead"));
+assert.ok(tabs.includes("ev_req_1"));
 
 const messageHtml = panelView.renderVirtualPanelChatMessage(messages[1]);
+assert.ok(messageHtml.includes('data-panel-agent="agent_business"'));
+assert.ok(messageHtml.includes('data-panel-evidence-ids="ev_req_1"'));
 assert.ok(messageHtml.includes('data-trace-node-id="ev_req_1"'));
 assert.ok(messageHtml.includes('data-trace-report-anchor="anchor:interview_question"'));
 

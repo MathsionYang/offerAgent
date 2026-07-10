@@ -97,6 +97,7 @@
         }
         threadList?.insertAdjacentHTML("beforeend", renderVirtualPanelChatMessage(message));
         bindVirtualPanelTraceNavigation();
+        applyVirtualPanelFilters();
         virtualPanelChatEl.scrollTop = virtualPanelChatEl.scrollHeight;
         index += 1;
         chatTimer = schedule(appendNext, index < 3 ? 180 : 260);
@@ -231,11 +232,19 @@
       const allLabel = resolveLanguage() === "en" ? "All turns" : "全部轮次";
       const moderatorLabel = resolveLanguage() === "en" ? "Moderator summary" : "主持人总结";
       const roundButtons = rounds.map((round, index) => `<button class="panel-round-filter" type="button" data-panel-round="${escapeHtml(round.id || `round_${index + 1}`)}">${escapeHtml(resolveLanguage() === "en" ? `Round ${index + 1}` : `第 ${index + 1} 轮`)}</button>`);
-      return `<nav class="panel-round-tabs" aria-label="${escapeHtml(resolveLanguage() === "en" ? "Panel rounds" : "委员会轮次")}">
-        <button class="panel-round-filter active" type="button" data-panel-round="all">${escapeHtml(allLabel)}</button>
-        ${roundButtons.join("")}
-        <button class="panel-round-filter" type="button" data-panel-round="moderator">${escapeHtml(moderatorLabel)}</button>
-      </nav>`;
+      const labels = getPanelFilterLabels();
+      return `<div class="panel-filter-shell">
+        <nav class="panel-round-tabs" aria-label="${escapeHtml(resolveLanguage() === "en" ? "Panel rounds" : "委员会轮次")}">
+          <button class="panel-round-filter active" type="button" data-panel-round="all">${escapeHtml(allLabel)}</button>
+          ${roundButtons.join("")}
+          <button class="panel-round-filter" type="button" data-panel-round="moderator">${escapeHtml(moderatorLabel)}</button>
+        </nav>
+        <div class="panel-chat-filter-row">
+          ${renderPanelFilterSelect("agent", labels.agent, collectPanelAgentOptions(run, labels))}
+          ${renderPanelFilterSelect("evidence", labels.evidence, collectPanelEvidenceOptions(run, labels))}
+        </div>
+        <p class="panel-filter-empty" hidden>${escapeHtml(labels.empty)}</p>
+      </div>`;
     }
 
     function renderVirtualPanelChatMessage(message) {
@@ -245,7 +254,7 @@
         : message.type === "moderator"
           ? (resolveLanguage() === "en" ? "M" : "总")
           : (resolveLanguage() === "en" ? "V" : "虚");
-      return `<article class="chat-bubble ${escapeHtml(message.type || "agent")} ${roundClass}" data-message-id="${escapeHtml(message.id || "")}" data-panel-round="${escapeHtml(message.roundId || "all")}">
+      return `<article class="chat-bubble ${escapeHtml(message.type || "agent")} ${roundClass}" data-message-id="${escapeHtml(message.id || "")}" data-panel-round="${escapeHtml(message.roundId || "all")}" data-panel-agent="${escapeHtml(message.agentId || message.type || "")}" data-panel-evidence-ids="${escapeHtml((message.evidenceIds || []).join(" "))}">
         <span class="panel-message-avatar">${escapeHtml(avatarText)}</span>
         <div class="chat-message">
           <div class="chat-meta">
@@ -260,29 +269,99 @@
       </article>`;
     }
 
+    function getPanelFilterLabels() {
+      return resolveLanguage() === "en"
+        ? {
+            agent: "Role",
+            evidence: "Evidence",
+            allAgents: "All roles",
+            allEvidence: "All evidence",
+            moderator: "Moderator",
+            evidenceItem: (index) => `Evidence ${index + 1}`,
+            empty: "No panel turns match the current filters.",
+          }
+        : {
+            agent: "角色",
+            evidence: "证据",
+            allAgents: "全部角色",
+            allEvidence: "全部证据",
+            moderator: "主持人",
+            evidenceItem: (index) => `证据 ${index + 1}`,
+            empty: "当前筛选条件下没有匹配发言。",
+          };
+    }
+
+    function renderPanelFilterSelect(kind, label, options) {
+      return `<label class="panel-chat-filter">
+        <span>${escapeHtml(label)}</span>
+        <select class="panel-chat-filter-select" data-panel-filter="${escapeHtml(kind)}">
+          ${options.map(([value, optionLabel]) => `<option value="${escapeHtml(value)}">${escapeHtml(optionLabel)}</option>`).join("")}
+        </select>
+      </label>`;
+    }
+
+    function collectPanelAgentOptions(run, labels = getPanelFilterLabels()) {
+      const options = [["all", labels.allAgents]];
+      (run?.virtual_panel || []).forEach((agent) => {
+        options.push([agent.id, agent.name || agent.focus || agent.id]);
+      });
+      options.push(["moderator", labels.moderator]);
+      return options;
+    }
+
+    function collectPanelEvidenceOptions(run, labels = getPanelFilterLabels()) {
+      const ids = new Set();
+      (run?.panel_discussion_rounds || [])
+        .flatMap((round) => round.turns || [])
+        .flatMap((turn) => turn.evidence_ids || [])
+        .forEach((id) => ids.add(id));
+      return [
+        ["all", labels.allEvidence],
+        ...Array.from(ids).map((id, index) => [id, `${labels.evidenceItem(index)} · ${id}`]),
+      ];
+    }
+
     function bindVirtualPanelRoundFilters() {
       if (!virtualPanelChatEl) return;
       const filters = Array.from(virtualPanelChatEl.querySelectorAll(".panel-round-filter"));
-      if (!filters.length) return;
       filters.forEach((filter) => {
         if (filter.dataset.filterBound === "true") return;
         filter.dataset.filterBound = "true";
         filter.addEventListener("click", () => {
           const selectedRound = filter.dataset.panelRound || "all";
           filters.forEach((item) => item.classList.toggle("active", item === filter));
-          virtualPanelChatEl.querySelectorAll(".chat-bubble[hidden]").forEach((messageEl) => {
-            messageEl.hidden = false;
-          });
-
-          if (selectedRound === "all") {
-            virtualPanelChatEl.scrollTo({ top: 0, behavior: "smooth" });
-            return;
-          }
-
-          const target = virtualPanelChatEl.querySelector(`.chat-bubble[data-panel-round="${cssEscape(selectedRound)}"]`);
+          applyVirtualPanelFilters();
+          const target = selectedRound === "all"
+            ? virtualPanelChatEl.querySelector(".chat-bubble:not([hidden])")
+            : virtualPanelChatEl.querySelector(`.chat-bubble[data-panel-round="${cssEscape(selectedRound)}"]:not([hidden])`);
           target?.scrollIntoView({ behavior: "smooth", block: "start" });
         });
       });
+      virtualPanelChatEl.querySelectorAll(".panel-chat-filter-select").forEach((selectEl) => {
+        if (selectEl.dataset.filterBound === "true") return;
+        selectEl.dataset.filterBound = "true";
+        selectEl.addEventListener("change", applyVirtualPanelFilters);
+      });
+      applyVirtualPanelFilters();
+    }
+
+    function applyVirtualPanelFilters() {
+      if (!virtualPanelChatEl) return;
+      const selectedRound = virtualPanelChatEl.querySelector(".panel-round-filter.active")?.dataset.panelRound || "all";
+      const selectedAgent = virtualPanelChatEl.querySelector('[data-panel-filter="agent"]')?.value || "all";
+      const selectedEvidence = virtualPanelChatEl.querySelector('[data-panel-filter="evidence"]')?.value || "all";
+      let visibleCount = 0;
+      virtualPanelChatEl.querySelectorAll(".chat-bubble").forEach((messageEl) => {
+        const roundMatches = selectedRound === "all" || messageEl.dataset.panelRound === selectedRound;
+        const agentMatches = selectedAgent === "all" || messageEl.dataset.panelAgent === selectedAgent;
+        const evidenceIds = String(messageEl.dataset.panelEvidenceIds || "").split(/\s+/).filter(Boolean);
+        const evidenceMatches = selectedEvidence === "all" || evidenceIds.includes(selectedEvidence);
+        const visible = roundMatches && agentMatches && evidenceMatches;
+        messageEl.hidden = !visible;
+        if (visible) visibleCount += 1;
+      });
+      const emptyEl = virtualPanelChatEl.querySelector(".panel-filter-empty");
+      if (emptyEl) emptyEl.hidden = visibleCount !== 0;
     }
 
     function buildModeratorBasisTrace(turnTraceItems, run) {
@@ -506,6 +585,7 @@
       renderPanelTraceChips,
       bindVirtualPanelTraceNavigation,
       navigatePanelTraceTarget,
+      applyVirtualPanelFilters,
       panelTraceReportAnchor,
       buildModeratorTraceIds,
       buildPanelMessageMeta,

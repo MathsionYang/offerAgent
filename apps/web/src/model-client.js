@@ -2,6 +2,8 @@
 (function initOfferAgentModelClient(global) {
   "use strict";
 
+  const LANGUAGE_ARTIFACT_SCHEMA_VERSION = "language-artifact.v3";
+
   function createModelClient(dependencies = {}) {
     const providerDefaults = dependencies.providerDefaults || {};
     const fetchImpl = dependencies.fetchImpl || global.fetch?.bind(global);
@@ -85,7 +87,7 @@
       const targetLanguage = normalizeLanguage(input.targetLanguage);
       const textById = validateLocalizationTextMap(input.textById);
       const requestPayload = {
-        schema_version: "language-artifact.v1",
+        schema_version: LANGUAGE_ARTIFACT_SCHEMA_VERSION,
         source_language: sourceLanguage,
         target_language: targetLanguage,
         report_markdown: String(input.reportMarkdown || ""),
@@ -174,7 +176,7 @@
         "Preserve markdown structure, numbers, URLs, identifiers, model names, and product names.",
         "Keep quoted resume, JD, company-context, target-level, and offer-constraint excerpts in their original language.",
         "Human feedback values and free-text notes are user-authored source material and must remain verbatim.",
-        "Set schema_version to language-artifact.v1 and source to translated.",
+        `Set schema_version to ${LANGUAGE_ARTIFACT_SCHEMA_VERSION} and source to translated.`,
       ].join("\n");
     }
 
@@ -190,7 +192,7 @@
         !payload
         || typeof payload !== "object"
         || Array.isArray(payload)
-        || payload.schema_version !== "language-artifact.v1"
+        || payload.schema_version !== LANGUAGE_ARTIFACT_SCHEMA_VERSION
         || typeof payload.report_markdown !== "string"
         || !payload.text_by_id
         || typeof payload.text_by_id !== "object"
@@ -212,7 +214,7 @@
       });
 
       return {
-        schema_version: "language-artifact.v1",
+        schema_version: LANGUAGE_ARTIFACT_SCHEMA_VERSION,
         source: "translated",
         report_markdown: payload.report_markdown,
         text_by_id: normalizedTextById,

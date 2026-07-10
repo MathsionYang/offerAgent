@@ -21,7 +21,16 @@
     let traceDetailPanelEl = null;
     let activeFilterType = "all";
     let searchQuery = "";
+    let advancedFilters = {
+      riskSeverity: "all",
+      evidenceLevel: "all",
+      source: "all",
+      decisionView: "all",
+    };
     let currentNodesById = new Map();
+    let currentEdges = [];
+    let currentEdgesByNodeId = new Map();
+    let currentHighRiskNodeIds = new Set();
 
     // Render graph state and bind node, relation, filter, and gap interactions.
     function renderEvidenceGraph(run) {
@@ -42,6 +51,9 @@
 
       const nodesById = new Map(graph.nodes.map((node) => [node.id, node]));
       currentNodesById = nodesById;
+      currentEdges = graph.edges || [];
+      currentEdgesByNodeId = buildEdgesByNodeId(currentEdges);
+      currentHighRiskNodeIds = buildHighRiskDecisionNodeIds(graph);
       const grouped = groupEvidenceGraphNodes(graph.nodes);
       const labels = getEvidenceGraphLabels();
       const gaps = detectEvidenceGraphGaps(graph);
@@ -93,6 +105,34 @@
         applyEvidenceGraphFilters();
       });
 
+      evidenceGraphEl.querySelectorAll("[data-graph-advanced-filter]").forEach((controlEl) => {
+        controlEl.addEventListener("change", () => {
+          const key = controlEl.dataset.graphAdvancedFilter;
+          if (Object.prototype.hasOwnProperty.call(advancedFilters, key)) {
+            advancedFilters = {
+              ...advancedFilters,
+              [key]: controlEl.value || "all",
+            };
+            applyEvidenceGraphFilters();
+          }
+        });
+      });
+
+      evidenceGraphEl.querySelectorAll("[data-graph-decision-view]").forEach((filterEl) => {
+        filterEl.addEventListener("click", () => {
+          const view = filterEl.dataset.graphDecisionView || "all";
+          advancedFilters = {
+            ...advancedFilters,
+            decisionView: advancedFilters.decisionView === view ? "all" : view,
+          };
+          evidenceGraphEl.querySelectorAll("[data-graph-decision-view]").forEach((item) => {
+            item.classList.toggle("active", item.dataset.graphDecisionView === advancedFilters.decisionView);
+            item.setAttribute("aria-pressed", item.dataset.graphDecisionView === advancedFilters.decisionView ? "true" : "false");
+          });
+          applyEvidenceGraphFilters();
+        });
+      });
+
       evidenceGraphEl.querySelectorAll(".evidence-gap-item").forEach((gapEl) => {
         gapEl.addEventListener("click", () => {
           const target = evidenceGraphEl.querySelector(`[data-node-id="${cssEscape(gapEl.dataset.gapNodeId)}"]`);
@@ -136,6 +176,33 @@
           searchLabel: "Search evidence graph nodes",
           resultCount: (visible, total) => `${visible} / ${total} nodes`,
           noResults: "No nodes match the current search and filter.",
+          advanced: {
+            riskLabel: "Risk",
+            riskOptions: [
+              ["all", "All risks"],
+              ["high", "High"],
+              ["medium", "Medium"],
+              ["low", "Low"],
+            ],
+            evidenceLabel: "Evidence",
+            evidenceOptions: [
+              ["all", "All levels"],
+              ["1", "Level 1"],
+              ["2", "Level 2"],
+              ["3", "Level 3 / missing"],
+            ],
+            sourceLabel: "Source",
+            sourceOptions: [
+              ["all", "All sources"],
+              ["skill_registry", "Skill"],
+              ["virtual_panel", "Panel"],
+              ["human_feedback", "Feedback"],
+              ["generated", "Generated rules"],
+              ["resume_jd", "JD / resume"],
+              ["offer", "Offer"],
+            ],
+            highRiskDecision: "High-risk decision",
+          },
           columns: {
             requirements: "JD Requirements",
             evidence: "Resume Evidence",
@@ -172,6 +239,33 @@
         searchLabel: "搜索证据图谱节点",
         resultCount: (visible, total) => `${visible} / ${total} 个节点`,
         noResults: "当前搜索和筛选条件下没有匹配节点。",
+        advanced: {
+          riskLabel: "风险",
+          riskOptions: [
+            ["all", "全部风险"],
+            ["high", "高"],
+            ["medium", "中"],
+            ["low", "低"],
+          ],
+          evidenceLabel: "证据",
+          evidenceOptions: [
+            ["all", "全部等级"],
+            ["1", "一级"],
+            ["2", "二级"],
+            ["3", "三级 / 缺证"],
+          ],
+          sourceLabel: "来源",
+          sourceOptions: [
+            ["all", "全部来源"],
+            ["skill_registry", "Skill"],
+            ["virtual_panel", "委员会"],
+            ["human_feedback", "反馈"],
+            ["generated", "生成规则"],
+            ["resume_jd", "JD / 简历"],
+            ["offer", "Offer"],
+          ],
+          highRiskDecision: "高风险决策",
+        },
         columns: {
           requirements: "JD 要求",
           evidence: "简历证据",
@@ -197,7 +291,22 @@
             <span class="graph-filter-count"></span>
           </label>
         </div>
+        <div class="graph-advanced-filters">
+          ${renderGraphFilterSelect("riskSeverity", labels.advanced.riskLabel, labels.advanced.riskOptions)}
+          ${renderGraphFilterSelect("evidenceLevel", labels.advanced.evidenceLabel, labels.advanced.evidenceOptions)}
+          ${renderGraphFilterSelect("source", labels.advanced.sourceLabel, labels.advanced.sourceOptions)}
+          <button class="graph-decision-filter ${advancedFilters.decisionView === "high_risk" ? "active" : ""}" type="button" data-graph-decision-view="high_risk" aria-pressed="${advancedFilters.decisionView === "high_risk" ? "true" : "false"}">${escapeHtml(labels.advanced.highRiskDecision)}</button>
+        </div>
         <p class="graph-filter-empty" hidden>${escapeHtml(labels.noResults)}</p>`;
+    }
+
+    function renderGraphFilterSelect(key, label, options) {
+      return `<label class="graph-advanced-select">
+        <span>${escapeHtml(label)}</span>
+        <select data-graph-advanced-filter="${escapeHtml(key)}">
+          ${options.map(([value, optionLabel]) => `<option value="${escapeHtml(value)}" ${advancedFilters[key] === value ? "selected" : ""}>${escapeHtml(optionLabel)}</option>`).join("")}
+        </select>
+      </label>`;
     }
 
     function applyEvidenceGraphFilters() {
@@ -208,6 +317,12 @@
         const visible = matchesEvidenceGraphNode(node, {
           type: activeFilterType,
           query: searchQuery,
+          riskSeverity: advancedFilters.riskSeverity,
+          evidenceLevel: advancedFilters.evidenceLevel,
+          source: advancedFilters.source,
+          decisionView: advancedFilters.decisionView,
+          highRiskNodeIds: currentHighRiskNodeIds,
+          relatedEdges: currentEdgesByNodeId.get(node?.id) || [],
         });
         nodeEl.classList.toggle("graph-node-hidden", !visible);
         if (visible) visibleCount += 1;
@@ -229,14 +344,145 @@
       const query = normalizeSearchText(options.query || "");
       const typeMatches = type === "all" || node.type === type;
       if (!typeMatches) return false;
+      if (!matchesDecisionView(node, options)) return false;
+      if (!matchesRiskSeverity(node, options.riskSeverity)) return false;
+      if (!matchesEvidenceLevel(node, options.evidenceLevel)) return false;
+      if (!matchesSourceFilter(node, options.source, options.relatedEdges || [])) return false;
       if (!query) return true;
       const searchableText = normalizeSearchText([
         node.label,
         node.summary,
         node.type,
         typeLabel(node.type),
+        ...(Object.values(node.metadata || {}).map((value) => String(value ?? ""))),
       ].filter(Boolean).join(" "));
       return searchableText.includes(query);
+    }
+
+    function matchesDecisionView(node, options = {}) {
+      if ((options.decisionView || "all") !== "high_risk") return true;
+      const highRiskNodeIds = options.highRiskNodeIds;
+      return Boolean(highRiskNodeIds?.has?.(node.id) || isHighRiskDecisionSeedNode(node));
+    }
+
+    function matchesRiskSeverity(node, riskSeverity = "all") {
+      if (!riskSeverity || riskSeverity === "all") return true;
+      return normalizeSeverity(node.metadata?.severity) === riskSeverity;
+    }
+
+    function matchesEvidenceLevel(node, evidenceLevel = "all") {
+      if (!evidenceLevel || evidenceLevel === "all") return true;
+      const level = Number(node.metadata?.evidence_level);
+      if (!Number.isFinite(level)) return false;
+      return String(level) === String(evidenceLevel);
+    }
+
+    function matchesSourceFilter(node, source = "all", relatedEdges = []) {
+      if (!source || source === "all") return true;
+      const nodeSource = node.metadata?.source || "";
+      const edgeSources = relatedEdges.map((edge) => edge.source || "");
+      const sources = [nodeSource, ...edgeSources];
+      if (source === "skill_registry") {
+        return node.type === "skill" || sources.includes("skill_registry");
+      }
+      if (source === "virtual_panel") {
+        return node.type === "agent_persona" || sources.some((item) => [
+          "persona_generation",
+          "mirofish_persona_generation",
+          "virtual_panel_memory",
+          "seed_extraction",
+          "panel_simulation",
+          "moderator_report",
+        ].includes(item));
+      }
+      if (source === "human_feedback") {
+        return node.type === "feedback" || sources.includes("human_feedback");
+      }
+      if (source === "generated") {
+        return sources.some((item) => [
+          "generated_question_bank",
+          "generated_interview_question",
+          "evidence_gap_detection",
+          "risk_rule",
+          "offer_simulation_rule",
+        ].includes(item));
+      }
+      if (source === "resume_jd") {
+        return sources.some((item) => [
+          "job_description",
+          "resume_requirement_match",
+          "missing_resume_evidence",
+        ].includes(item));
+      }
+      if (source === "offer") {
+        return node.type === "offer_signal" || sources.some((item) => [
+          "offer_constraints",
+          "offer_simulation_rule",
+        ].includes(item));
+      }
+      return sources.includes(source);
+    }
+
+    function buildEdgesByNodeId(edges = []) {
+      const byNode = new Map();
+      edges.forEach((edge) => {
+        [edge.from, edge.to].filter(Boolean).forEach((nodeId) => {
+          if (!byNode.has(nodeId)) byNode.set(nodeId, []);
+          byNode.get(nodeId).push(edge);
+        });
+      });
+      return byNode;
+    }
+
+    function buildHighRiskDecisionNodeIds(graph) {
+      const nodes = graph?.nodes || [];
+      const edges = graph?.edges || [];
+      const nodesById = new Map(nodes.map((node) => [node.id, node]));
+      const highRiskIds = new Set(
+        nodes
+          .filter(isHighRiskDecisionSeedNode)
+          .map((node) => node.id),
+      );
+      const expansionTypes = new Set([
+        "questions",
+        "impacts_offer",
+        "challenges",
+        "supports",
+        "contradicts",
+        "validates",
+        "discusses",
+      ]);
+
+      edges.forEach((edge) => {
+        if (!expansionTypes.has(edge.type)) return;
+        if (highRiskIds.has(edge.from) || highRiskIds.has(edge.to)) {
+          if (nodesById.has(edge.from)) highRiskIds.add(edge.from);
+          if (nodesById.has(edge.to)) highRiskIds.add(edge.to);
+        }
+      });
+
+      return highRiskIds;
+    }
+
+    function isHighRiskDecisionSeedNode(node) {
+      const meta = node?.metadata || {};
+      if (node?.type === "risk") return normalizeSeverity(meta.severity) === "high";
+      if (node?.type === "resume_evidence") {
+        const level = Number(meta.evidence_level);
+        return level >= 3
+          || /缺证|低可信|待验证|missing|weak|low/i.test(
+            `${node.label || ""} ${node.summary || ""} ${meta.evidence_level_label || ""}`,
+          );
+      }
+      return false;
+    }
+
+    function normalizeSeverity(value) {
+      const text = String(value || "").trim().toLowerCase();
+      if (/高|high|严重|critical|p0/.test(text)) return "high";
+      if (/中|medium|moderate|p1/.test(text)) return "medium";
+      if (/低|low|minor|p2/.test(text)) return "low";
+      return text;
     }
 
     function renderEvidenceGraphGaps(gaps, labels) {
@@ -770,6 +1016,10 @@
       getEvidenceGraphLabels,
       typeLabel,
       matchesEvidenceGraphNode,
+      matchesSourceFilter,
+      buildEdgesByNodeId,
+      buildHighRiskDecisionNodeIds,
+      isHighRiskDecisionSeedNode,
       focusReportAnchor,
       normalizeSearchText,
       resolveReportAnchorAliases,

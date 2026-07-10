@@ -130,7 +130,7 @@ EvidenceGraph connects JD requirements, resume evidence, questions, risks, feedb
 Current support:
 
 1. Node details.
-2. Graph filtering.
+2. Type filters, keyword search, risk-level / evidence-level / source filters, and a high-risk decision view.
 3. Evidence-gap prompts.
 4. Edge confidence / weight / source fields.
 5. Node-to-report-section jump.
@@ -157,6 +157,7 @@ In Interviewer mode, human feedback can be written into the report. Feedback is 
 3. Delete questions.
 4. Keep questions.
 5. Track feedback impact on risks, offer decisions, and Skill update suggestions.
+6. Feedback history for the same input fingerprint is saved locally and restored after refresh or cache reuse.
 
 ## Implemented
 
@@ -169,11 +170,11 @@ In Interviewer mode, human feedback can be written into the report. Feedback is 
 7. Chunked streaming report output.
 8. Candidate and interviewer report split.
 9. Two-module PDF export.
-10. EvidenceGraph display, type filters, keyword search, match counts, gap detection, and report-section jump.
-11. VirtualPanel, PanelDiscussionRound, ModeratorSummary, and chat-style panel streaming.
+10. EvidenceGraph display, type filters, keyword search, advanced decision filters, match counts, gap detection, and report-section jump.
+11. VirtualPanel, PanelDiscussionRound, ModeratorSummary, and chat-style panel streaming with round, role, and evidence-node filters.
 12. Consistency mode with input fingerprinting, structured intermediate state, and local cache reuse.
 13. Structured Offer sandbox state.
-14. FeedbackDistillation visualization.
+14. FeedbackDistillation visualization and local feedback history.
 15. GitHub Pages deployment.
 16. Cloudflare Worker proxy example.
 17. Static smoke test script.
@@ -258,10 +259,11 @@ node scripts/pdf_export_test.js
 node scripts/feedback_engine_test.js
 node scripts/assessment_rules_test.js
 node scripts/evaluation_engine_test.js
+node scripts/browser_e2e_test.js
 python scripts/smoke_test.py
 git diff --check
 ```
 
 ## Privacy
 
-Mock Demo does not call external models. In live-model mode, the API key is only used temporarily in the current browser page and is not written to the repository or the consistency cache. Translation is requested only when a target-language artifact is missing; generated language artifacts may be cached with the run, but API keys and human feedback are not. Avoid entering real sensitive resume data on public or untrusted devices.
+Mock Demo does not call external models. In live-model mode, the API key is only used temporarily in the current browser page and is not written to the repository or the consistency cache. Translation is requested only when a target-language artifact is missing; generated language artifacts may be cached with the base run, but API keys and human feedback are not stored in that base-report cache. Interviewer feedback history is saved separately in localStorage by input fingerprint so the same browser can restore recent feedback. Avoid entering real sensitive resume data on public or untrusted devices.

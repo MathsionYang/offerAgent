@@ -61,6 +61,12 @@ assert.equal(rounds[0].turns[0].impact, "raise_follow_up_priority");
 assert.deepEqual(rounds[0].turns[0].evidence_ids, ["ev_req_2"]);
 assert.deepEqual(rounds[0].turns[0].question_ids, ["q_2"]);
 assert.equal(rounds[2].turns[0].impact, "recalibrate_with_human_feedback");
+const challengePriority = model.buildChallengeQuestionPriority(rounds);
+const supportOnlyPriority = model.buildChallengeQuestionPriority([
+  { turns: [{ question_ids: ["q_1"], impact: "keep_as_supporting_evidence" }] },
+]);
+assert.ok(challengePriority.q_2 > supportOnlyPriority.q_1);
+assert.ok(challengePriority.q_3 > 0);
 
 const summary = model.buildModeratorSummary(panel, rounds, gate, offerLeverage, feedback);
 assert.equal(summary.lead_agent_id, "agent_decision");

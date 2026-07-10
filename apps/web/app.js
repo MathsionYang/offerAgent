@@ -89,6 +89,9 @@ const {
   buildFeedbackDistillation,
   buildFeedbackImpactDiff,
   buildSkillUpdateSuggestions,
+  loadFeedbackHistory,
+  persistFeedbackHistory,
+  attachFeedbackHistory,
 } = window.OfferAgentFeedbackEngine.createFeedbackEngine();
 const {
   buildRequirementEvidenceRows,
@@ -204,6 +207,8 @@ guardAppShell();
 
 
 
+// Runtime mirror of prompts/product-manager-interview-prep.md.
+// scripts/smoke_test.py keeps the critical product contracts aligned.
 const systemPrompt = `你是面试准备助手。
 
 请基于用户提供的简历、JD、Offer 沙盘上下文和已选择的虚拟面试官视角，生成中文 Markdown 面试准备报告。报告的核心用途是帮助候选人更好准备面试，同时生成可供面试官挑选使用的候选人追问题库。
@@ -222,6 +227,16 @@ const systemPrompt = `你是面试准备助手。
 - 潜力只能表达为行为证据和待验证假设。
 - 报告优先服务于候选人的面试准备，帮助候选人补齐项目证据、表达结构和风险预案。
 - 报告同时服务于面试官提问，输出可挑选的岗位要求、项目经历、项目推进和 Offer 动机问题。
+
+运行时契约：
+- 根据 target_role 调整能力模型、评分维度、追问重点、虚拟面试官组合和风险判断。产品、开发、技术支持、销售岗位必须使用各自的岗位判断框架；其他岗位从 JD 动态抽取可验证维度。
+- 简历、JD、公司上下文、候选人阶段、目标职级、Offer 约束、人工反馈、证据摘录及其他用户输入必须保持原文，不得翻译、改写或润色。
+- 只有系统生成的标题、结论、图谱说明、委员会内容、评分表、问题说明和导出文案跟随 target_language 投影。
+- 切换展示语言不得改变事实判断、证据等级、风险等级、评分、evidence_ids、question_ids 和推进建议。
+- 每个关键结论必须包含证据原文、证据等级、风险等级、来源、关联追问和下一步动作。高风险证据、三级证据和缺证项优先进入决策摘要与必问追问。
+- 委员会 challenge 必须关联 evidence_ids 和 question_ids；影响为 raise_follow_up_priority 时，必须提升对应追问优先级。
+- 委员会总结必须包含共识、分歧、证据依据、待验证问题和下一轮动作，不能只生成角色介绍。
+- 人工反馈保持原文，并影响问题采用、风险校准、证据判断和 Skill 更新建议；与原判断冲突时保留前后差异，不得静默覆盖。
 
 请使用以下标题：
 ## 一页摘要
@@ -246,6 +261,8 @@ const systemPrompt = `你是面试准备助手。
 ## 证据链
 ## 人工反馈建议
 ## 动态校准指令
+
+以上章节标题必须保持名称、顺序和层级，不得自由改名、合并或调换。证据不足时仍须保留章节，输出“证据不足 / 待验证”、缺失信息和下一步验证问题，不得删除章节或输出空章节。
 
 排版要求：
 - 不要输出大段纯文本。优先使用 Markdown 表格、分层列表和短句。
@@ -350,6 +367,7 @@ const {
   buildVirtualInterviewPanel,
   buildPanelDiscussionRounds,
   buildModeratorSummary,
+  buildChallengeQuestionPriority,
 } = window.OfferAgentVirtualPanel.createVirtualPanelModel({
   skillLibrary,
   defaultRoleId,
@@ -819,11 +837,11 @@ generateBtn.addEventListener("click", async () => {
   try {
     const cachedRun = restoreCachedRun(inputFingerprint);
     if (cachedRun) {
-      currentRun = await ensureDisplayLanguageArtifact(enrichEvaluationRun({
+      currentRun = await ensureDisplayLanguageArtifact(enrichEvaluationRun(attachFeedbackHistory({
         ...cachedRun,
         cache_status: "hit",
         restored_at: new Date().toISOString(),
-      }));
+      })));
       persistRunCache(currentRun);
       const displayRun = getDisplayRun();
       renderAllOutputSurfaces(displayRun, {
@@ -872,7 +890,7 @@ generateBtn.addEventListener("click", async () => {
       },
       report: cleanedReport,
     };
-    currentRun = await ensureDisplayLanguageArtifact(enrichEvaluationRun(currentRun));
+    currentRun = await ensureDisplayLanguageArtifact(enrichEvaluationRun(attachFeedbackHistory(currentRun)));
     persistRunCache(currentRun);
 
     renderAllOutputSurfaces(getDisplayRun(), {
@@ -928,7 +946,9 @@ appendFeedbackBtn.addEventListener("click", async () => {
 
   const feedback = collectFeedback();
   const sourceLanguage = getRunLanguage(currentRun);
+  const feedbackSessionHistory = persistFeedbackHistory(currentRun, feedback);
   currentRun.human_feedback = feedback;
+  currentRun.feedback_session_history = feedbackSessionHistory;
   currentRun.report = appendFeedbackToReport(currentRun.report, feedback);
   currentRun = enrichEvaluationRun(currentRun);
   currentRun.localized_artifacts = {};
@@ -941,7 +961,6 @@ appendFeedbackBtn.addEventListener("click", async () => {
       localizationError = error;
     }
   }
-  persistRunCache(currentRun);
   renderAllOutputSurfaces(getDisplayRun(), { playPanel: true });
   downloadMdBtn.disabled = false;
   setInterviewerDownloadDisabled(false);
@@ -1557,6 +1576,26 @@ function appendFeedbackToReport(report, feedback) {
 
   return `${report.trim()}\n\n${feedbackMarkdown}`;
 }
+
+function prioritizeFollowUpQuestions(interviewQuestions = [], panelDiscussionRounds = []) {
+  const challengePriority = buildChallengeQuestionPriority(panelDiscussionRounds);
+  return [...interviewQuestions]
+    .map((question, index) => {
+      const validationSignal = /待|补齐|验证|pending|missing|weak/i.test(
+        `${question.evaluation_goal || ""} ${question.expected_signal || ""}`,
+      ) ? 1 : 0;
+      return {
+        question,
+        index,
+        score: (challengePriority[question.id] || 0) + validationSignal,
+      };
+    })
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score || a.index - b.index)
+    .slice(0, 3)
+    .map((item) => item.question);
+}
+
 function enrichEvaluationRun(run) {
   const snapshot = normalizeSnapshot(run.input_snapshot || {});
   const requirementRows = buildRequirementEvidenceRows(snapshot);
@@ -1593,9 +1632,7 @@ function enrichEvaluationRun(run) {
     interview_questions: interviewQuestions,
     decision_summary_cards: decisionSummary,
     interviewer_scorecard_rows: interviewerScorecard,
-    top_follow_up_questions: interviewQuestions
-      .filter((question) => /待|补齐|验证|pending|missing|weak/i.test(`${question.evaluation_goal} ${question.expected_signal}`))
-      .slice(0, 3),
+    top_follow_up_questions: prioritizeFollowUpQuestions(interviewQuestions, panelDiscussionRounds),
     offer_sandbox: buildStructuredOfferSandbox(snapshot, gate, offerLeverage, requirementRows),
     evidence: buildStructuredEvidence(snapshot, requirementRows),
     structured_evaluation: buildStructuredEvaluation(snapshot, requirementRows, gate, offerLeverage, feedback),

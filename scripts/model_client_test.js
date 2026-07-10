@@ -148,7 +148,7 @@ async function main() {
 
   let localizationRequest = null;
   let localizationPayload = {
-    schema_version: "language-artifact.v1",
+    schema_version: "language-artifact.v3",
     source: "translated",
     report_markdown: "# Candidate Report",
     text_by_id: {
@@ -213,7 +213,7 @@ async function main() {
   assert.match(localizationBody.messages[0].content, /human feedback/i);
   assert.match(localizationBody.messages[0].content, /must remain verbatim/i);
   assert.deepEqual(JSON.parse(localizationBody.messages[1].content), {
-    schema_version: "language-artifact.v1",
+    schema_version: "language-artifact.v3",
     source_language: "zh",
     target_language: "en",
     report_markdown: "# 候选人报告",
@@ -223,7 +223,7 @@ async function main() {
   });
 
   localizationPayload = {
-    schema_version: "language-artifact.v1",
+    schema_version: "language-artifact.v3",
     source: "translated",
     report_markdown: "# Candidate Report",
     text_by_id: {

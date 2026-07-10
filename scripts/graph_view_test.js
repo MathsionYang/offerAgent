@@ -41,6 +41,10 @@ const searchableRisk = {
   type: "risk",
   label: "Metrics ownership is unclear",
   summary: "Validate denominator and personal contribution",
+  metadata: {
+    severity: "high",
+    source: "evidence_gap_detection",
+  },
 };
 
 assert.equal(
@@ -62,6 +66,81 @@ assert.equal(
 assert.equal(
   graphView.matchesEvidenceGraphNode(searchableRisk, { type: "risk", query: "salary" }),
   false,
+);
+assert.equal(
+  graphView.matchesEvidenceGraphNode(searchableRisk, { type: "risk", riskSeverity: "high" }),
+  true,
+);
+assert.equal(
+  graphView.matchesEvidenceGraphNode(searchableRisk, { type: "risk", riskSeverity: "medium" }),
+  false,
+);
+assert.equal(
+  graphView.matchesEvidenceGraphNode(searchableRisk, { type: "risk", source: "generated" }),
+  true,
+);
+
+const weakEvidence = {
+  id: "ev_req_1",
+  type: "resume_evidence",
+  label: "Ownership evidence is missing",
+  summary: "No explicit resume evidence",
+  metadata: {
+    evidence_level: 3,
+    evidence_level_label: "Level 3 / missing",
+    source: "missing_resume_evidence",
+  },
+};
+assert.equal(
+  graphView.matchesEvidenceGraphNode(weakEvidence, { type: "resume_evidence", evidenceLevel: "3" }),
+  true,
+);
+assert.equal(
+  graphView.matchesEvidenceGraphNode(weakEvidence, { type: "resume_evidence", evidenceLevel: "1" }),
+  false,
+);
+
+const skillQuestion = {
+  id: "q_1",
+  type: "interview_question",
+  label: "Metric question",
+  summary: "Ask for denominator",
+  metadata: { source: "generated_question_bank" },
+};
+assert.equal(
+  graphView.matchesSourceFilter(skillQuestion, "skill_registry", [
+    { from: "skill_business", to: "q_1", source: "skill_registry" },
+  ]),
+  true,
+);
+
+const highRiskIds = graphView.buildHighRiskDecisionNodeIds({
+  nodes: [
+    weakEvidence,
+    searchableRisk,
+    skillQuestion,
+    { id: "offer_signal_1", type: "offer_signal", label: "Offer", summary: "" },
+    { id: "agent_business", type: "agent_persona", label: "Business agent", summary: "" },
+  ],
+  edges: [
+    { from: "q_1", to: "ev_req_1", type: "questions" },
+    { from: "ev_req_1", to: "risk_1", type: "supports" },
+    { from: "risk_1", to: "offer_signal_1", type: "impacts_offer" },
+    { from: "agent_business", to: "ev_req_1", type: "challenges" },
+  ],
+});
+assert.equal(highRiskIds.has("ev_req_1"), true);
+assert.equal(highRiskIds.has("risk_1"), true);
+assert.equal(highRiskIds.has("q_1"), true);
+assert.equal(highRiskIds.has("offer_signal_1"), true);
+assert.equal(highRiskIds.has("agent_business"), true);
+assert.equal(
+  graphView.matchesEvidenceGraphNode(skillQuestion, {
+    type: "all",
+    decisionView: "high_risk",
+    highRiskNodeIds: highRiskIds,
+  }),
+  true,
 );
 
 assert.deepEqual(

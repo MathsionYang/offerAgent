@@ -2,7 +2,13 @@
 (function initOfferAgentFeedbackEngine(global) {
   "use strict";
 
-  function createFeedbackEngine() {
+  const FEEDBACK_HISTORY_PREFIX = "offeragent_feedback_history_v1:";
+  const FEEDBACK_HISTORY_LIMIT = 12;
+
+  function createFeedbackEngine(dependencies = {}) {
+    const storage = dependencies.storage || global.localStorage;
+    const now = dependencies.now || (() => new Date().toISOString());
+
     function buildFeedbackDistillation(feedback, rows, snapshot = {}) {
       const rules = [
         {
@@ -172,10 +178,78 @@
       }));
     }
 
+    function loadFeedbackHistory(inputFingerprint) {
+      if (!inputFingerprint || !storage) return [];
+      try {
+        const raw = storage.getItem(`${FEEDBACK_HISTORY_PREFIX}${inputFingerprint}`);
+        const parsed = JSON.parse(raw || "[]");
+        return Array.isArray(parsed) ? parsed.filter(isFeedbackHistoryEntry) : [];
+      } catch {
+        return [];
+      }
+    }
+
+    function persistFeedbackHistory(run, feedback) {
+      const inputFingerprint = run?.input_fingerprint || feedback?.input_fingerprint || "";
+      if (!inputFingerprint || !feedback || !storage) return [];
+      const entry = normalizeFeedbackHistoryEntry(run, feedback);
+      const history = [
+        entry,
+        ...loadFeedbackHistory(inputFingerprint).filter((item) => item.id !== entry.id),
+      ].slice(0, FEEDBACK_HISTORY_LIMIT);
+      try {
+        storage.setItem(`${FEEDBACK_HISTORY_PREFIX}${inputFingerprint}`, JSON.stringify(history));
+      } catch {
+        return history;
+      }
+      return history;
+    }
+
+    function attachFeedbackHistory(run) {
+      if (!run?.input_fingerprint) return run;
+      const feedback_session_history = loadFeedbackHistory(run.input_fingerprint);
+      if (!feedback_session_history.length) return run;
+      return {
+        ...run,
+        human_feedback: run.human_feedback || feedback_session_history[0],
+        feedback_session_history,
+      };
+    }
+
+    function normalizeFeedbackHistoryEntry(run, feedback) {
+      const updatedAt = feedback.updated_at || now();
+      return {
+        id: `${run?.id || "run"}:${updatedAt}`,
+        evaluation_run_id: run?.id || "",
+        input_fingerprint: run?.input_fingerprint || feedback.input_fingerprint || "",
+        agreement: feedback.agreement || "未反馈",
+        question_use: feedback.question_use || "未反馈",
+        disagreement_reason: feedback.disagreement_reason || "未反馈",
+        evidence_sufficiency: feedback.evidence_sufficiency || "未反馈",
+        risk_validation: feedback.risk_validation || "未反馈",
+        notes: feedback.notes || "",
+        updated_at: updatedAt,
+      };
+    }
+
+    function isFeedbackHistoryEntry(value) {
+      return Boolean(
+        value
+        && typeof value === "object"
+        && !Array.isArray(value)
+        && typeof value.updated_at === "string"
+        && typeof value.input_fingerprint === "string",
+      );
+    }
+
     return {
       buildFeedbackDistillation,
       buildFeedbackImpactDiff,
       buildSkillUpdateSuggestions,
+      loadFeedbackHistory,
+      persistFeedbackHistory,
+      attachFeedbackHistory,
+      normalizeFeedbackHistoryEntry,
     };
   }
 

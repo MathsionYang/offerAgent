@@ -130,7 +130,7 @@ EvidenceGraph 把 JD、简历、证据、问题、风险、反馈、Offer 信号
 当前支持：
 
 1. 节点详情查看。
-2. 图谱筛选。
+2. 图谱类型筛选、关键词搜索、风险等级 / 证据等级 / 来源过滤和高风险决策视图。
 3. 证据缺口提示。
 4. 边的 confidence / weight / source 信息。
 5. 点击节点跳转报告对应段落。
@@ -157,6 +157,7 @@ OfferSimulationRun 已从报告段落升级为可回填的结构化状态。
 3. 哪些问题删除。
 4. 哪些问题保留。
 5. 哪些反馈会影响风险判断、Offer 判断和 Skill 更新建议。
+6. 同一输入指纹下的反馈历史会独立保存在本机，用于刷新或复用缓存后恢复最近反馈。
 
 ## 已实现
 
@@ -169,11 +170,11 @@ OfferSimulationRun 已从报告段落升级为可回填的结构化状态。
 7. 报告分块流式输出。
 8. 候选人报告与面试官报告拆分。
 9. 双模式 PDF 导出。
-10. EvidenceGraph 图谱显示、类型筛选、关键词搜索、匹配计数、缺口检测和报告段落跳转。
-11. VirtualPanel、PanelDiscussionRound、ModeratorSummary 与虚拟委员会群聊式流式展示。
+10. EvidenceGraph 图谱显示、类型筛选、关键词搜索、高级决策过滤、匹配计数、缺口检测和报告段落跳转。
+11. VirtualPanel、PanelDiscussionRound、ModeratorSummary 与虚拟委员会群聊式流式展示，支持按轮次、角色和证据节点过滤。
 12. 一致性模式：输入指纹、结构化中间层、本地缓存复用。
 13. Offer 沙盘结构化状态。
-14. FeedbackDistillation 可视化。
+14. FeedbackDistillation 可视化和本机反馈历史。
 15. GitHub Pages 部署。
 16. Cloudflare Worker 代理示例。
 17. smoke test 静态验收脚本。
@@ -258,10 +259,11 @@ node scripts/pdf_export_test.js
 node scripts/feedback_engine_test.js
 node scripts/assessment_rules_test.js
 node scripts/evaluation_engine_test.js
+node scripts/browser_e2e_test.js
 python scripts/smoke_test.py
 git diff --check
 ```
 
 ## 隐私说明
 
-Mock Demo 不会调用外部模型。真实模型模式下，API Key 只在当前浏览器页面内临时使用，不会写入仓库，也不会写入一致性缓存。语言切换所需的真实模型翻译只在目标语言 artifact 缺失时按需调用；缓存可保存生成后的语言 artifact，但不保存 API Key 和人工反馈。请不要在公共设备或不可信环境中输入真实敏感简历信息。
+Mock Demo 不会调用外部模型。真实模型模式下，API Key 只在当前浏览器页面内临时使用，不会写入仓库，也不会写入一致性缓存。语言切换所需的真实模型翻译只在目标语言 artifact 缺失时按需调用；基础报告缓存可保存生成后的语言 artifact，但不保存 API Key 和人工反馈。面试官写入的反馈历史会按输入指纹独立保存在本机 localStorage，用于同一浏览器内恢复最近反馈。请不要在公共设备或不可信环境中输入真实敏感简历信息。
