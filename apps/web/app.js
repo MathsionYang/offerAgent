@@ -49,7 +49,6 @@ let virtualPanelChatTimer = null;
 let traceDetailPanelEl = null;
 const { i18n, reportStagesByLanguage } = window.OfferAgentI18n;
 
-const MODEL_REQUEST_TIMEOUT_MS = 90000;
 const {
   CONSISTENCY_SCHEMA_VERSION,
   MIROFISH_REFERENCE_WORKFLOW,
@@ -308,6 +307,16 @@ const {
   riskToneClass,
   localizeSkillId,
   localizePanelStance,
+});
+
+const {
+  generateWithLLM,
+} = window.OfferAgentModelClient.createModelClient({
+  providerDefaults,
+  buildSystemPrompt,
+  buildLlmUserPrompt,
+  streamMarkdownByBlocks,
+  cleanReportMarkdown,
 });
 
 
@@ -1549,74 +1558,6 @@ function buildSkillUpdateSuggestions(feedback, rows, snapshot = {}) {
   }));
 }
 
-async function generateWithLLM(input, onDelta = () => {}) {
-  const endpoint = resolveChatCompletionsEndpoint(input);
-  const body = {
-    model: input.model,
-    messages: [
-      { role: "system", content: buildSystemPrompt(input.language) },
-      {
-        role: "user",
-        content: buildLlmUserPrompt(input),
-      },
-    ],
-    temperature: 0,
-    seed: 20260709,
-    stream: true,
-  };
-
-  const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), MODEL_REQUEST_TIMEOUT_MS);
-  let response;
-
-  try {
-    response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${input.apiKey}`,
-      },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
-  } finally {
-    window.clearTimeout(timeoutId);
-  }
-
-  if (!response.ok) {
-    const text = await safeReadResponseText(response);
-    throw new Error(formatHttpGenerationError(response, text));
-  }
-
-  const contentType = response.headers.get("content-type") || "";
-  if (response.body && !contentType.includes("application/json")) {
-    const streamed = await readStreamResponse(response, onDelta);
-    if (streamed.trim()) return streamed;
-  }
-
-  const data = await response.json();
-  const content = data?.choices?.[0]?.message?.content;
-  if (!content) {
-    throw new Error("模型返回为空或格式不兼容。");
-  }
-  await streamMarkdownByBlocks(content, onDelta, 120);
-  return cleanReportMarkdown(content);
-}
-
-async function safeReadResponseText(response) {
-  try {
-    return await response.text();
-  } catch {
-    return "";
-  }
-}
-
-function formatHttpGenerationError(response, bodyText = "") {
-  const excerpt = bodyText.replace(/\s+/g, " ").trim().slice(0, 260);
-  const statusText = response.statusText ? ` ${response.statusText}` : "";
-  return `HTTP ${response.status}${statusText}${excerpt ? `: ${excerpt}` : ""}`;
-}
-
 function buildSystemPrompt(language = "zh") {
   if (language !== "en") return systemPrompt;
   return `${systemPrompt}
@@ -1681,74 +1622,6 @@ Offer / 谈薪约束：${input.offerConstraints || "未提供"}
 
 # 已选择面试官视角
 ${formatSelectedSkills(input.selectedSkills)}`;
-}
-
-async function readStreamResponse(response, onDelta) {
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder("utf-8");
-  let buffer = "";
-  let content = "";
-  let lastRenderAt = 0;
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split(/\r?\n/);
-    buffer = lines.pop() || "";
-
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith(":")) continue;
-
-      if (!trimmed.startsWith("data:")) {
-        content += trimmed;
-        continue;
-      }
-
-      const payload = trimmed.replace(/^data:\s*/, "");
-      if (payload === "[DONE]") continue;
-
-      const delta = extractDeltaFromStreamPayload(payload);
-      if (!delta) continue;
-
-      content += delta;
-      const now = performance.now();
-      if (now - lastRenderAt > 70) {
-        onDelta(content);
-        lastRenderAt = now;
-      }
-    }
-  }
-
-  if (buffer.trim()) {
-    const payload = buffer.trim().replace(/^data:\s*/, "");
-    const delta = extractDeltaFromStreamPayload(payload);
-    if (delta) content += delta;
-  }
-
-  onDelta(content);
-  return content;
-}
-
-function extractDeltaFromStreamPayload(payload) {
-  try {
-    const data = JSON.parse(payload);
-    return data?.choices?.[0]?.delta?.content || data?.choices?.[0]?.message?.content || "";
-  } catch {
-    return "";
-  }
-}
-
-function resolveBaseUrl(input) {
-  if (input.baseUrl) return input.baseUrl;
-  return providerDefaults[input.provider]?.baseUrl || providerDefaults.openai.baseUrl;
-}
-
-function resolveChatCompletionsEndpoint(input) {
-  const baseUrl = resolveBaseUrl(input).trim().replace(/\/+$/, "");
-  return /\/chat\/completions$/i.test(baseUrl) ? baseUrl : `${baseUrl}/chat/completions`;
 }
 
 function generateMockReport(input) {
