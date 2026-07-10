@@ -22,6 +22,7 @@ def static_checks():
         "app": web_root / "app.js",
         "domain_data": web_root / "src" / "domain-data.js",
         "run_cache": web_root / "src" / "run-cache.js",
+        "i18n": web_root / "src" / "i18n.js",
         "css": web_root / "styles.css",
         "readme": ROOT / "README.md",
         "prompt": ROOT / "prompts" / "product-manager-interview-prep.md",
@@ -37,7 +38,7 @@ def static_checks():
         "gitignore": ROOT / ".gitignore",
     }
     content = {name: read(path) for name, path in files.items()}
-    app_modules = content["app"] + content["domain_data"] + content["run_cache"]
+    app_modules = content["app"] + content["domain_data"] + content["run_cache"] + content["i18n"]
     ids = set(re.findall(r'id="([^"]+)"', content["index"]))
     refs = set(re.findall(r'\$\("([^"]+)"\)', content["app"]))
     all_text = "\n".join(content.values())
@@ -81,7 +82,7 @@ def static_checks():
             term in content["index"]
             for term in ["虚拟 HR 面试官", "虚拟业务负责人", "虚拟项目推进面试官", "虚拟谈薪顾问"]
         ),
-        "llm_mode_visible": "modelMode" in ids and "当前模式：真实模型调用" in content["app"],
+        "llm_mode_visible": "modelMode" in ids and "当前模式：真实模型调用" in app_modules,
         "streaming_report_enabled": all(
             term in content["app"]
             for term in [
@@ -123,7 +124,7 @@ def static_checks():
         ),
         "no_raw_backticks_in_system_prompt": "例如 **、---、```" not in content["app"],
         "pdf_export_exists": all(
-            term in content["app"]
+            term in app_modules
             for term in ["downloadPdfReport", "createPdfBlobFromJpegs", ".pdf", "application/pdf", "candidate-report", "interviewer-report"]
         ),
         "offer_pdf_has_seven_step_reasoning": all(
