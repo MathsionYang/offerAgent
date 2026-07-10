@@ -76,6 +76,83 @@
     },
   };
   
+  const sampleScenarios = {
+    candidate_prep: {
+      zh: {
+        ...samples.zh,
+        label: "候选人准备",
+      },
+      en: {
+        ...samples.en,
+        label: "Candidate prep",
+      },
+    },
+    interviewer_eval: {
+      zh: {
+        ...samples.zh,
+        label: "面试官评估",
+        targetRole: "developer",
+        resume:
+          "候选人：李四，6 年后端开发经验，主要使用 Java、Go 和 MySQL。曾负责订单履约系统拆分、库存扣减链路改造和线上故障排查，推动核心接口 P95 延迟从 480ms 降到 210ms。简历中有较多工程结果，但对系统设计取舍、压测口径、事故复盘中的个人贡献说明不足。",
+        job:
+          "岗位：高级后端开发工程师。\n1、负责核心交易链路、库存和履约系统设计与开发；\n2、能独立完成高并发场景下的系统设计、接口边界、容量评估和稳定性治理；\n3、具备线上问题定位、日志分析、监控告警和故障复盘经验；\n4、重视代码质量、单元测试、Code Review 和持续交付；\n5、能与产品、测试、运维协同推进复杂项目。",
+        context:
+          "公司正从单体系统迁移到服务化架构，本轮面试重点验证候选人在高并发链路、稳定性治理、个人贡献边界和跨团队协作上的真实深度。",
+        offerConstraints:
+          "目标职级：高级工程师。团队希望候选人能 6 周内到岗，后续可能承担交易链路 Owner 角色。",
+        candidateStage: "业务终面",
+        targetLevel: "高级后端开发工程师",
+      },
+      en: {
+        ...samples.en,
+        label: "Interviewer evaluation",
+        targetRole: "developer",
+        resume:
+          "Candidate: Jordan Li, 6 years of backend engineering experience with Java, Go, and MySQL. Owned order fulfillment decomposition, inventory deduction redesign, and production incident response. Reduced core API P95 latency from 480ms to 210ms. The resume shows engineering outcomes, but system-design tradeoffs, load-test definitions, incident retrospective depth, and personal ownership boundaries remain unclear.",
+        job:
+          "Role: Senior Backend Engineer.\n1. Own core transaction, inventory, and fulfillment system design and development.\n2. Independently handle high-concurrency system design, API boundaries, capacity planning, and reliability governance.\n3. Diagnose production issues through logs, monitoring, alerting, and incident retrospectives.\n4. Care about code quality, unit tests, code review, and continuous delivery.\n5. Collaborate with product, QA, and operations on complex delivery.",
+        context:
+          "The company is moving from a monolith to services. This interview should validate real depth in high-concurrency flows, reliability, personal contribution, and cross-team execution.",
+        offerConstraints:
+          "Target level: Senior Backend Engineer. The team hopes the candidate can join within 6 weeks and may become owner of the transaction flow.",
+        candidateStage: "Final business interview",
+        targetLevel: "Senior Backend Engineer",
+      },
+    },
+    offer_negotiation: {
+      zh: {
+        ...samples.zh,
+        label: "Offer 谈判",
+        targetRole: "sales",
+        resume:
+          "候选人：王五，7 年企业软件销售经验，覆盖制造业和能源行业客户。近两年负责华东区大客户拓展，年签约额约 1200 万，曾推进一个 6 个月 POC 项目并完成转化。简历突出结果，但缺少客户决策链、价格异议处理和 CRM 预测准确性的细节。",
+        job:
+          "岗位：大客户销售经理。\n1、负责制造业与能源行业大客户线索发现、商机推进和收入达成；\n2、能拆解决策链、识别关键人、推动 POC / 招投标 / 合同流程；\n3、具备价格谈判、竞品对比、异议处理和回款推进经验；\n4、保持 CRM 管道纪律，能稳定输出 Forecast 和复盘。",
+        context:
+          "公司正在扩大行业大客户销售团队，希望验证候选人的可复制打法、真实收入贡献、谈判底线和到岗动机。",
+        offerConstraints:
+          "预算：固定薪资略低于候选人预期，但有更高提成和行业资源支持。候选人手上另有一家传统软件公司的 Offer，需要判断谈判空间和流失风险。",
+        candidateStage: "Offer 前",
+        targetLevel: "大客户销售经理",
+      },
+      en: {
+        ...samples.en,
+        label: "Offer negotiation",
+        targetRole: "sales",
+        resume:
+          "Candidate: Casey Wang, 7 years of enterprise software sales experience across manufacturing and energy accounts. Recently owned key account expansion in East China, with roughly 12M annual bookings, including one 6-month POC converted to a deal. The resume highlights results but lacks detail on decision chains, price objections, and CRM forecast accuracy.",
+        job:
+          "Role: Key Account Sales Manager.\n1. Own lead discovery, opportunity progression, and revenue for manufacturing and energy accounts.\n2. Map decision chains, identify champions, and drive POC, bidding, and contract processes.\n3. Handle pricing negotiation, competitor comparison, objections, and payment collection.\n4. Maintain CRM pipeline discipline with reliable forecasts and retrospectives.",
+        context:
+          "The company is expanding its industry key-account sales team and wants to validate repeatable playbooks, true revenue contribution, negotiation boundaries, and motivation.",
+        offerConstraints:
+          "Budget: base salary is slightly below expectation, but commission and industry resources are stronger. The candidate also has an offer from a traditional software company, so negotiation room and drop-off risk need validation.",
+        candidateStage: "Before offer",
+        targetLevel: "Key Account Sales Manager",
+      },
+    },
+  };
+
   const sample = samples.zh;
   
   const roleProfiles = {
@@ -255,6 +332,7 @@
     MIROFISH_REFERENCE_WORKFLOW,
     providerDefaults,
     samples,
+    sampleScenarios,
     sample,
     roleProfiles,
     defaultRoleId,

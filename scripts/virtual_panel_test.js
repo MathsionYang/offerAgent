@@ -50,6 +50,20 @@ assert.equal(panel[0].stance, "opposing");
 assert.equal(panel[1].influence_weight, 3);
 assert.deepEqual(panel[0].memory_scope.graph_memory_nodes, ["req_2", "ev_req_2"]);
 
+const feedbackAdjustedPanel = model.buildVirtualInterviewPanel(
+  {
+    target_role: "developer",
+    selected_skills: ["business", "decision"],
+  },
+  rows,
+  gate,
+  { risk_validation: "已证实", evidence_sufficiency: "不充分" },
+);
+assert.ok(feedbackAdjustedPanel[0].influence_weight > panel[0].influence_weight);
+assert.ok(feedbackAdjustedPanel[1].influence_weight > panel[1].influence_weight);
+assert.equal(feedbackAdjustedPanel[1].stance, "opposing");
+assert.match(feedbackAdjustedPanel[1].audit.feedback_influence.reason, /confirmed risk/);
+
 const rounds = model.buildPanelDiscussionRounds(panel, rows, gate, offerLeverage, feedback);
 assert.equal(rounds.length, 3);
 assert.deepEqual(rounds.map((round) => round.id), [

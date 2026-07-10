@@ -1,6 +1,6 @@
 # OfferAgent 功能差距评估报告
 
-更新时间：2026-07-10
+更新时间：2026-07-11
 
 ## 一、评估方法
 
@@ -44,7 +44,7 @@
 | 1 | 清理剩余历史文案和编码问题 | ✅ | README、部署说明和核心源码均可按 UTF-8 正常读取 |
 | 2 | 做浏览器级截图/视觉回归 | ✅ | `visual_regression_test.js` 已捕获 6 个关键场景，并在存在 baseline 时比较哈希 |
 | 3 | 把 smoke test 拆成 UI/schema/report/cache 四类 | ⚠️ | 仍是单文件 smoke，但已补 19 个 JS 测试脚本分担模块覆盖 |
-| 4 | 增加缓存命中/未命中浏览器级回归测试 | ✅ | browser E2E 已覆盖本机反馈历史；smoke 覆盖缓存隐私和 schema 门禁 |
+| 4 | 增加缓存命中/未命中浏览器级回归测试 | ✅ | browser E2E 已覆盖本机缓存状态、反馈历史、缓存清理；smoke 覆盖缓存隐私和 schema 门禁 |
 
 **仍需加强**：视觉回归脚本已经可比较 baseline，后续需要建立 baseline 更新流程和截图评审习惯；smoke test 仍可继续拆分。
 
@@ -68,7 +68,7 @@
 | 3 | 展示反馈对节点和边的影响 diff | ✅ | `buildFeedbackImpactDiff()` 和 reports-view 渲染已实现 |
 | 4 | 让虚拟角色的 challenges 直接提升问题优先级 | ✅ | `buildChallengeQuestionPriority()` 与 `raise_follow_up_priority` 已进入排序权重 |
 
-**仍需加强**：现在的短板不是功能缺失，而是图谱筛选后的解释层可以更强，例如显示“为什么这个节点被纳入高风险视图”。
+**仍需加强**：高风险视图解释已补齐，下一步可增强为逐节点解释，例如显示具体关联了哪些 risk / challenge / evidence gap。
 
 ### P3：把反馈闭环做实（4/5）
 
@@ -78,9 +78,9 @@
 | 2 | 保存反馈历史 | ✅ | `persistFeedbackHistory()` / `attachFeedbackHistory()` 使用本机 localStorage，单指纹最多 12 条 |
 | 3 | 将反馈变成 SkillDefinition 更新候选建议 | ✅ | `buildSkillUpdateSuggestions()` 已实现 |
 | 4 | 支持规则冲突裁决 | ✅ | 规则含 conflict_policy |
-| 5 | 让反馈影响虚拟角色权重 | ❌ | 还没有把反馈历史反向调整下一轮 virtual panel 的 influence_weight |
+| 5 | 让反馈影响虚拟角色权重 | ✅ | `buildFeedbackInfluenceAdjustment()` 已根据已证实风险、证据不充分、追问采用 / 未采用调整 `influence_weight`、stance 和 `feedback_influence` 审计字段 |
 
-**仍需加强**：反馈已经“能算、能存、能恢复”，下一步是影响下一轮角色权重和问题生成策略。
+**仍需加强**：反馈已经“能算、能存、能恢复、能影响虚拟角色权重”，下一步是进一步影响问题生成策略和风险权重。
 
 ### P4：模块化工程结构（10/10）
 
@@ -129,7 +129,7 @@
 | P0 稳定性 | 3.5/4 | 88% | 已有视觉回归脚本，缺 baseline 更新流程；smoke 仍待拆分 |
 | P1 可审计 | 4/4 | 100% | 轮次、角色、证据筛选均已落地 |
 | P2 图谱决策 | 4/4 | 100% | 搜索、高级过滤、diff、challenge priority 均已落地 |
-| P3 反馈闭环 | 4/5 | 80% | 缺反馈影响角色权重 |
+| P3 反馈闭环 | 5/5 | 100% | 反馈结构化、历史保存、Skill 建议、冲突裁决和角色权重影响均已落地 |
 | P4 模块化 | 10/10 | 100% | 已拆成 21 个模块 |
 | P5 真实验证 | 暂缓 | - | 仍按路线暂缓 |
 
@@ -169,7 +169,7 @@ Pages workflow 已新增部署前测试门禁：
 
 ### 4. 反馈影响虚拟角色权重
 
-反馈历史已经保存，但还没有影响下一轮 virtual panel 的 `influence_weight`。建议让“已证实风险”“未采用问题”“证据不足”等反馈改变角色权重和问题排序。
+已完成。`risk_validation = 已证实`、`evidence_sufficiency = 不充分`、`question_use = 采用 / 改写采用 / 未采用` 会影响虚拟面试官 `influence_weight`、stance 和审计字段。下一步可继续让这些反馈影响问题生成策略和风险权重。
 
 ### 5. app.js 继续瘦身
 

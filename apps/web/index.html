@@ -62,6 +62,11 @@
                 </span>
               </button>
             </div>
+            <div class="persona-guide" aria-label="本地工作流说明">
+              <span><strong>1</strong> 输入简历 / JD</span>
+              <span><strong>2</strong> 生成摘要、图谱和追问</span>
+              <span><strong>3</strong> 本机缓存，可随时清理</span>
+            </div>
           </div>
         </section>
 
@@ -75,8 +80,20 @@
                   <div class="card-subtitle" id="config-card-subtitle">先完成岗位和阶段设置，模型配置可在高级设置中调整</div>
                 </div>
               </div>
-              <button id="mockBtn" class="btn btn-secondary btn-sm" type="button">填充脱敏样例</button>
+              <div class="config-quick-actions">
+                <label class="sample-route-select">
+                  <span>样例路线</span>
+                  <select id="sampleScenario" class="field-select">
+                    <option value="candidate_prep">候选人准备</option>
+                    <option value="interviewer_eval">面试官评估</option>
+                    <option value="offer_negotiation">Offer 谈判</option>
+                  </select>
+                </label>
+                <button id="mockBtn" class="btn btn-secondary btn-sm" type="button">填充脱敏样例</button>
+                <button id="clearCacheBtn" class="btn btn-ghost btn-sm" type="button">清理本机缓存</button>
+              </div>
             </div>
+            <div id="cacheStatus" class="cache-status" aria-live="polite">本机缓存：运行记录 0 条，反馈记录 0 条</div>
             <div class="card-body">
               <div class="model-sandbox-grid">
                 <section class="sub-card sandbox-panel sub-panel" aria-label="Offer 沙盘">
@@ -277,6 +294,9 @@
                   </div>
                 </div>
                 <div class="top-export-bar summary-export-actions" aria-label="导出报告">
+                  <button id="copySummaryBtn" class="btn btn-secondary btn-sm" type="button" disabled>复制结论</button>
+                  <button id="copyQuestionsBtn" class="btn btn-secondary btn-sm" type="button" disabled>复制追问</button>
+                  <button id="copyPrepBtn" class="btn btn-secondary btn-sm" type="button" disabled>复制准备清单</button>
                   <button id="downloadMdBtn" class="btn btn-secondary btn-sm" type="button" disabled hidden>导出候选人报告</button>
                   <button id="downloadInterviewerBtn" class="btn btn-secondary btn-sm" type="button" disabled hidden>导出面试官报告</button>
                   <button id="downloadOfferBtn" class="btn btn-secondary btn-sm" type="button" disabled hidden>导出 Offer 推演</button>

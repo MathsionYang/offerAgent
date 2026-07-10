@@ -1298,6 +1298,38 @@ def static_checks():
         and "input.apiKey" not in "\n".join(
             line for line in app_modules.splitlines() if "localStorage" in line or "persistRunCache" in line
         ),
+        "product_enhancement_first_use_cache_copy_routes": all(
+            term in content["index"] + content["app"] + content["domain_data"] + content["css"]
+            for term in [
+                "persona-guide",
+                "sampleScenario",
+                "sampleScenarios",
+                "candidate_prep",
+                "interviewer_eval",
+                "offer_negotiation",
+                "clearCacheBtn",
+                "cacheStatus",
+                "clearLocalOfferAgentCache",
+                "copySummaryBtn",
+                "copyQuestionsBtn",
+                "copyPrepBtn",
+                "buildCopyPayload",
+            ]
+        ),
+        "product_enhancement_summary_graph_feedback": all(
+            term in app_modules + content["css"]
+            for term in [
+                "decision-action-board",
+                "buildDecisionActionBoard",
+                "Conclusion-first action board",
+                "graph-decision-explainer",
+                "highRiskWhy",
+                "buildFeedbackInfluenceAdjustment",
+                "feedback_influence",
+                "model_not_found",
+                "insufficient",
+            ]
+        ),
         "privacy_no_non_cache_persistence_api": not re.search(
             r"sessionStorage|indexedDB|document\.cookie",
             app_modules + content["index"],

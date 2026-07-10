@@ -354,6 +354,21 @@ async function main() {
       client,
       "document.querySelector('#resume')?.value.length > 20 && document.querySelector('#jobDescription')?.value.length > 20",
     );
+    const sampleRouteState = await evaluate(client, `(() => {
+      const scenario = document.querySelector('#sampleScenario');
+      const cache = document.querySelector('#cacheStatus');
+      return {
+        hasScenario: Boolean(scenario),
+        routeCount: scenario?.options.length || 0,
+        hasCacheStatus: /本机缓存/.test(cache?.textContent || ''),
+        hasClearCache: Boolean(document.querySelector('#clearCacheBtn')),
+      };
+    })()`);
+    assert.equal(sampleRouteState.hasScenario, true);
+    assert.ok(sampleRouteState.routeCount >= 3);
+    assert.equal(sampleRouteState.hasCacheStatus, true);
+    assert.equal(sampleRouteState.hasClearCache, true);
+
     await evaluate(client, `document.querySelector('#generateBtn').click(); true;`);
     await waitForExpression(
       client,
@@ -367,11 +382,19 @@ async function main() {
       resultView: document.body.dataset.resultView || '',
       bodyGraphView: document.body.classList.contains('view-graph'),
       graphButtonSelected: document.querySelector('[data-workspace-view="graph"]')?.getAttribute('aria-selected') || '',
+      copySummaryEnabled: !document.querySelector('#copySummaryBtn')?.disabled,
+      copyQuestionsEnabled: !document.querySelector('#copyQuestionsBtn')?.disabled,
+      actionBoard: Boolean(document.querySelector('.decision-action-board')),
+      cacheStatus: document.querySelector('#cacheStatus')?.textContent || '',
     }))()`);
     assert.ok(generatedState.reportChars > 200);
     assert.ok(generatedState.graphNodes > 3);
     assert.equal(generatedState.bodyGraphView, true);
     assert.equal(generatedState.graphButtonSelected, "true");
+    assert.equal(generatedState.copySummaryEnabled, true);
+    assert.equal(generatedState.copyQuestionsEnabled, true);
+    assert.equal(generatedState.actionBoard, true);
+    assert.match(generatedState.cacheStatus, /运行记录\s+1/);
 
     const graphSearchState = await evaluate(client, `(() => {
       const input = document.querySelector('.graph-search-input');
@@ -412,6 +435,7 @@ async function main() {
       source.dispatchEvent(new Event('change', { bubbles: true }));
       highRisk.click();
       const highRiskVisible = nodes.filter((node) => !node.classList.contains('graph-node-hidden')).length;
+      const explainerActive = document.querySelector('.graph-decision-explainer')?.classList.contains('active') || false;
       highRisk.click();
       return {
         hasEvidenceLevel: Boolean(evidenceLevel),
@@ -420,6 +444,7 @@ async function main() {
         levelThreeVisible,
         panelSourceVisible,
         highRiskVisible,
+        explainerActive,
       };
     })()`);
     assert.equal(graphAdvancedFilterState.hasEvidenceLevel, true);
@@ -428,6 +453,7 @@ async function main() {
     assert.ok(graphAdvancedFilterState.levelThreeVisible > 0);
     assert.ok(graphAdvancedFilterState.panelSourceVisible > 0);
     assert.ok(graphAdvancedFilterState.highRiskVisible > 0);
+    assert.equal(graphAdvancedFilterState.explainerActive, true);
 
     await waitForExpression(client, "document.querySelectorAll('.chat-bubble').length >= 2", 8000);
     const panelFilterState = await evaluate(client, `(() => {
@@ -510,6 +536,18 @@ async function main() {
     assert.ok(storedFeedbackState.count >= 1);
     assert.equal(storedFeedbackState.notes, "browser e2e feedback history");
     assert.equal(storedFeedbackState.hasApiKey, false);
+
+    const clearedCacheState = await evaluate(client, `(() => {
+      document.querySelector('#clearCacheBtn').click();
+      return {
+        runKeys: Object.keys(localStorage).filter((key) => key.startsWith('offeragent:run:')).length,
+        feedbackKeys: Object.keys(localStorage).filter((key) => key.startsWith('offeragent_feedback_history_v1:')).length,
+        status: document.querySelector('#cacheStatus')?.textContent || '',
+      };
+    })()`);
+    assert.equal(clearedCacheState.runKeys, 0);
+    assert.equal(clearedCacheState.feedbackKeys, 0);
+    assert.match(clearedCacheState.status, /运行记录\s+0/);
 
     const screenshot = await client.send("Page.captureScreenshot", { format: "png" });
     assert.ok((screenshot.data || "").length > 1000, "browser screenshot should not be blank");

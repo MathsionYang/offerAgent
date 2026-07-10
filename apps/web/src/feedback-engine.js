@@ -254,6 +254,8 @@
   }
 
   global.OfferAgentFeedbackEngine = {
+    FEEDBACK_HISTORY_PREFIX,
+    FEEDBACK_HISTORY_LIMIT,
     createFeedbackEngine,
   };
 })(typeof window !== "undefined" ? window : globalThis);

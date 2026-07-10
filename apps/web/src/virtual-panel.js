@@ -14,7 +14,7 @@
       : (roleId) => roleId || defaultRoleId || "";
     const workflow = workflowMapping || [];
 
-    function buildVirtualInterviewPanel(snapshot, rows, gate) {
+    function buildVirtualInterviewPanel(snapshot, rows, gate, feedback = null) {
       const selected = snapshot.selected_skills?.length
         ? snapshot.selected_skills
         : ["hr", "business", "project", "decision"];
@@ -28,20 +28,23 @@
 
           const focusRow = weakRows[index % Math.max(weakRows.length, 1)]
             || rows[index % Math.max(rows.length, 1)];
-          const stance = focusRow?.isMissing || focusRow?.evidenceLevel >= 3
+          const baseStance = focusRow?.isMissing || focusRow?.evidenceLevel >= 3
             ? "opposing"
             : id === "negotiation"
               ? "observer"
               : gate.enterSandbox
                 ? "supportive"
                 : "neutral";
-          const influenceWeight = id === "decision"
+          const feedbackInfluence = buildFeedbackInfluenceAdjustment(id, feedback);
+          const stance = feedbackInfluence.stance || baseStance;
+          const baseInfluenceWeight = id === "decision"
             ? 3
             : id === "business"
               ? 2.5
               : id === "project"
                 ? 2
                 : 1.5;
+          const influenceWeight = Math.max(1, Math.min(4, baseInfluenceWeight + feedbackInfluence.delta));
           const activityLevel = Math.min(1, 0.45 + influenceWeight / 8);
           const focusIndex = rows.indexOf(focusRow);
 
@@ -69,10 +72,64 @@
                 influence_weight: influenceWeight,
                 activity_level: activityLevel,
               },
+              feedback_influence: feedbackInfluence.reason
+                ? {
+                    delta: feedbackInfluence.delta,
+                    reason: feedbackInfluence.reason,
+                    stance_override: feedbackInfluence.stance || "",
+                  }
+                : null,
             },
           };
         })
         .filter(Boolean);
+    }
+
+    function buildFeedbackInfluenceAdjustment(skillId, feedback) {
+      if (!feedback) return { delta: 0, reason: "", stance: "" };
+      const signals = [];
+      let delta = 0;
+      let stance = "";
+
+      if (feedback.risk_validation === "已证实") {
+        if (["decision", "business", "project"].includes(skillId)) {
+          delta += skillId === "decision" ? 0.6 : 0.35;
+          stance = "opposing";
+          signals.push("confirmed risk raises challenge weight");
+        }
+      }
+      if (feedback.risk_validation === "已推翻") {
+        if (["decision", "business"].includes(skillId)) {
+          delta -= 0.25;
+          stance = "neutral";
+          signals.push("disproved risk lowers challenge weight");
+        }
+      }
+      if (feedback.evidence_sufficiency === "不充分") {
+        if (["business", "project", "decision"].includes(skillId)) {
+          delta += 0.3;
+          stance = "opposing";
+          signals.push("insufficient evidence requires stricter validation");
+        }
+      }
+      if (feedback.question_use === "未采用") {
+        if (["hr", "project"].includes(skillId)) {
+          delta += 0.2;
+          signals.push("rejected questions trigger rewrite attention");
+        }
+      }
+      if (feedback.question_use === "采用" || feedback.question_use === "改写采用") {
+        if (["business", "project"].includes(skillId)) {
+          delta += 0.15;
+          signals.push("adopted questions strengthen this interviewer lens");
+        }
+      }
+
+      return {
+        delta: Number(delta.toFixed(2)),
+        reason: signals.join("; "),
+        stance,
+      };
     }
 
     function buildPanelDiscussionRounds(panel, rows, gate, offerLeverage, feedback) {
@@ -191,6 +248,7 @@
 
     return {
       buildVirtualInterviewPanel,
+      buildFeedbackInfluenceAdjustment,
       buildPanelDiscussionRounds,
       buildPanelTurn,
       buildModeratorSummary,

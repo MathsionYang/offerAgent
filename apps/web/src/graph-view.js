@@ -202,6 +202,9 @@
               ["offer", "Offer"],
             ],
             highRiskDecision: "High-risk decision",
+            highRiskWhyTitle: "Why this view",
+            highRiskWhy:
+              "Includes high-severity risks, Level 3 or missing evidence, questions linked to challenge rounds, and offer-impact nodes. Source filters also inspect related edge metadata.",
           },
           columns: {
             requirements: "JD Requirements",
@@ -263,9 +266,12 @@
             ["generated", "生成规则"],
             ["resume_jd", "JD / 简历"],
             ["offer", "Offer"],
-          ],
-          highRiskDecision: "高风险决策",
-        },
+            ],
+            highRiskDecision: "高风险决策",
+            highRiskWhyTitle: "为什么进入高风险视图",
+            highRiskWhy:
+              "包含高风险节点、三级 / 缺失证据、委员会 challenge 关联追问，以及影响 Offer 推演的节点；来源筛选会同时查看节点与关系元数据。",
+          },
         columns: {
           requirements: "JD 要求",
           evidence: "简历证据",
@@ -296,6 +302,10 @@
           ${renderGraphFilterSelect("evidenceLevel", labels.advanced.evidenceLabel, labels.advanced.evidenceOptions)}
           ${renderGraphFilterSelect("source", labels.advanced.sourceLabel, labels.advanced.sourceOptions)}
           <button class="graph-decision-filter ${advancedFilters.decisionView === "high_risk" ? "active" : ""}" type="button" data-graph-decision-view="high_risk" aria-pressed="${advancedFilters.decisionView === "high_risk" ? "true" : "false"}">${escapeHtml(labels.advanced.highRiskDecision)}</button>
+        </div>
+        <div class="graph-decision-explainer ${advancedFilters.decisionView === "high_risk" ? "active" : ""}">
+          <strong>${escapeHtml(labels.advanced.highRiskWhyTitle)}</strong>
+          <span>${escapeHtml(labels.advanced.highRiskWhy)}</span>
         </div>
         <p class="graph-filter-empty" hidden>${escapeHtml(labels.noResults)}</p>`;
     }
@@ -336,6 +346,10 @@
       if (countEl) countEl.textContent = labels.resultCount(visibleCount, totalCount);
       const emptyEl = evidenceGraphEl.querySelector(".graph-filter-empty");
       if (emptyEl) emptyEl.hidden = visibleCount !== 0;
+      evidenceGraphEl.querySelector(".graph-decision-explainer")?.classList.toggle(
+        "active",
+        advancedFilters.decisionView === "high_risk",
+      );
     }
 
     function matchesEvidenceGraphNode(node, options = {}) {

@@ -63,6 +63,7 @@
     
       decisionSummaryEl.className = "decision-summary";
       decisionSummaryEl.innerHTML = `${renderDecisionSummaryCards(cards)}
+        ${renderDecisionActionBoard(run)}
         ${renderDecisionOfferRunSection(run)}
         ${renderRoleDecisionSummarySections(run)}`;
     }
@@ -80,6 +81,80 @@
     function renderDecisionOfferRunSection(run) {
       const labels = getEvidenceGraphLabels();
       return renderOfferRunPanel(run?.offer_simulation_run || null, labels);
+    }
+
+    function renderDecisionActionBoard(run) {
+      if (!run) return "";
+      const board = buildDecisionActionBoard(run);
+      const title = resolveLanguage() === "en" ? "Conclusion-first action board" : "结论优先行动看板";
+      const labels = resolveLanguage() === "en"
+        ? {
+            next: "Next action",
+            risks: "Top risks",
+            questions: "Must-ask questions",
+            evidence: "Weakest evidence",
+            empty: "No urgent item yet.",
+          }
+        : {
+            next: "下一步动作",
+            risks: "最高风险",
+            questions: "必问追问",
+            evidence: "最弱证据",
+            empty: "暂无紧急项。",
+          };
+      return `<section class="decision-action-board" aria-label="${escapeHtml(title)}">
+        <div class="decision-action-board-head">
+          <h4>${escapeHtml(title)}</h4>
+          <strong class="${escapeHtml(riskToneClass(board.decision))}">${escapeHtml(board.decision)}</strong>
+        </div>
+        <div class="decision-action-grid">
+          ${renderDecisionActionColumn(labels.next, [board.nextAction || labels.empty], "next")}
+          ${renderDecisionActionColumn(labels.risks, board.risks, "risk")}
+          ${renderDecisionActionColumn(labels.questions, board.questions, "question")}
+          ${renderDecisionActionColumn(labels.evidence, board.weakEvidence, "evidence")}
+        </div>
+      </section>`;
+    }
+
+    function renderDecisionActionColumn(title, items, tone) {
+      const safeItems = (items || []).filter(Boolean).slice(0, 3);
+      return `<article class="decision-action-column action-${escapeHtml(tone)}">
+        <span>${escapeHtml(title)}</span>
+        <ul>
+          ${(safeItems.length ? safeItems : [resolveLanguage() === "en" ? "No urgent item yet." : "暂无紧急项。"])
+            .map((item) => `<li>${escapeHtml(clip(item, 120))}</li>`).join("")}
+        </ul>
+      </article>`;
+    }
+
+    function buildDecisionActionBoard(run) {
+      const summary = run?.evaluation_summary || {};
+      const requirements = run?.requirement_matches || [];
+      const questions = run?.top_follow_up_questions || run?.interview_questions || [];
+      const risks = (run?.offer_simulation_run?.risks || [])
+        .map((risk) => risk.label || risk.title || risk.summary || risk.reason)
+        .filter(Boolean)
+        .slice(0, 3);
+      const weakRows = requirements
+        .filter((row) => row.is_missing || row.evidence_level >= 2)
+        .sort((a, b) => Number(b.evidence_level || 0) - Number(a.evidence_level || 0))
+        .slice(0, 3)
+        .map((row) => `${row.capability || ""}：${row.evidence_gap || row.match_status || row.evidence_level_label || ""}`);
+      const mustAsk = questions
+        .slice(0, 3)
+        .map((question) => question.question || question.capability)
+        .filter(Boolean);
+      return {
+        decision: resolveLanguage() === "en" ? translateGateResult(summary.gate_result) : summary.gate_result || (resolveLanguage() === "en" ? "Pending" : "待判断"),
+        nextAction: summary.next_validation_focus?.[0]
+          || mustAsk[0]
+          || (summary.enter_sandbox
+            ? (resolveLanguage() === "en" ? "Proceed, but validate the highest-risk evidence first." : "可推进，但先验证最高风险证据。")
+            : (resolveLanguage() === "en" ? "Pause progression and request stronger evidence." : "暂缓推进，先补关键证据。")),
+        risks: risks.length ? risks : weakRows,
+        questions: mustAsk,
+        weakEvidence: weakRows,
+      };
     }
     
     function renderRoleDecisionSummarySections(run) {

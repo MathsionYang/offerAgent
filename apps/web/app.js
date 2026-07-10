@@ -26,6 +26,12 @@ const generateBtn = $("generateBtn");
 const downloadMdBtn = $("downloadMdBtn");
 const downloadInterviewerBtn = $("downloadInterviewerBtn");
 const downloadOfferBtn = $("downloadOfferBtn");
+const copySummaryBtn = $("copySummaryBtn");
+const copyQuestionsBtn = $("copyQuestionsBtn");
+const copyPrepBtn = $("copyPrepBtn");
+const sampleScenarioEl = $("sampleScenario");
+const clearCacheBtn = $("clearCacheBtn");
+const cacheStatusEl = $("cacheStatus");
 const feedbackAgreementEl = $("feedbackAgreement");
 const feedbackQuestionUseEl = $("feedbackQuestionUse");
 const feedbackDisagreementReasonEl = $("feedbackDisagreementReason");
@@ -57,9 +63,11 @@ const { i18n, reportStagesByLanguage } = window.OfferAgentI18n;
 
 const {
   CONSISTENCY_SCHEMA_VERSION,
+  RUN_CACHE_PREFIX,
   MIROFISH_REFERENCE_WORKFLOW,
   providerDefaults,
   samples,
+  sampleScenarios,
   sample,
   roleProfiles,
   defaultRoleId,
@@ -96,6 +104,7 @@ const {
   persistFeedbackHistory,
   attachFeedbackHistory,
 } = window.OfferAgentFeedbackEngine.createFeedbackEngine();
+const FEEDBACK_HISTORY_PREFIX = window.OfferAgentFeedbackEngine.FEEDBACK_HISTORY_PREFIX || "offeragent_feedback_history_v1:";
 const {
   buildRequirementEvidenceRows,
   normalizeSnapshot,
@@ -728,7 +737,9 @@ setAudienceMode(activeAudienceMode);
 setAudienceOnboardingComplete(false);
 setWorkspaceView("workbench");
 setReportDownloadsAvailable(false);
+setCopyActionsAvailable(false);
 refreshInputReadiness();
+updateCacheStatus();
 
 providerEl.addEventListener("change", () => {
   const defaults = providerDefaults[providerEl.value] || providerDefaults.mock;
@@ -784,7 +795,11 @@ personaChoiceEls.forEach((button) => {
 });
 
 bindClick("mockBtn", () => {
-  const localizedSample = samples[currentLanguage] || samples.zh;
+  const route = sampleScenarioEl?.value || "candidate_prep";
+  const localizedSample = sampleScenarios?.[route]?.[currentLanguage]
+    || sampleScenarios?.[route]?.zh
+    || samples[currentLanguage]
+    || samples.zh;
   if (targetRoleEl) targetRoleEl.value = localizedSample.targetRole || defaultRoleId;
   resumeEl.value = localizedSample.resume;
   jobEl.value = localizedSample.job;
@@ -795,7 +810,16 @@ bindClick("mockBtn", () => {
   providerEl.value = "mock";
   providerEl.dispatchEvent(new Event("change"));
   refreshInputReadiness();
-  setStatus(getText().statusSample);
+  const routeLabel = localizedSample.label ? `：${localizedSample.label}` : "";
+  setStatus(`${getText().statusSample}${routeLabel}`);
+});
+
+bindClick("clearCacheBtn", () => {
+  const stats = clearLocalOfferAgentCache();
+  updateCacheStatus(stats);
+  setStatus(currentLanguage === "en"
+    ? `Cleared local cache: ${stats.cleared} item(s).`
+    : `已清理本机缓存：${stats.cleared} 条。`);
 });
 
 bindClick("clearBtn", () => {
@@ -816,6 +840,7 @@ bindClick("clearBtn", () => {
   renderVirtualPanelChat(null);
   runBadgeEl.textContent = getText().runPending;
   downloadMdBtn.disabled = true;
+  setCopyActionsAvailable(false);
   setInterviewerDownloadDisabled(true);
   setOfferDownloadDisabled(true);
   setReportDownloadsAvailable(false);
@@ -841,6 +866,7 @@ generateBtn.addEventListener("click", async () => {
 
   generateBtn.disabled = true;
   downloadMdBtn.disabled = true;
+  setCopyActionsAvailable(false);
   setInterviewerDownloadDisabled(true);
   setOfferDownloadDisabled(true);
   setReportDownloadsAvailable(false);
@@ -869,6 +895,7 @@ generateBtn.addEventListener("click", async () => {
       });
       runBadgeEl.textContent = currentRun.id;
       downloadMdBtn.disabled = false;
+      setCopyActionsAvailable(true);
       setInterviewerDownloadDisabled(false);
       setOfferDownloadDisabled(false);
       setReportDownloadsAvailable(true);
@@ -876,6 +903,7 @@ generateBtn.addEventListener("click", async () => {
       setResultView("report");
       setWorkspaceView("graph");
       setStatus(getText().statusCacheHit);
+      updateCacheStatus();
       return;
     }
 
@@ -918,6 +946,7 @@ generateBtn.addEventListener("click", async () => {
     });
     runBadgeEl.textContent = currentRun.id;
     downloadMdBtn.disabled = false;
+    setCopyActionsAvailable(true);
     setInterviewerDownloadDisabled(false);
     setOfferDownloadDisabled(false);
     setReportDownloadsAvailable(true);
@@ -925,6 +954,7 @@ generateBtn.addEventListener("click", async () => {
     setResultView("report");
     setWorkspaceView("graph");
     setStatus(input.useRealModel ? getText().statusLlmDone : getText().statusMockDone);
+    updateCacheStatus();
   } catch (error) {
     const errorMessage = formatGenerationError(error);
     renderGenerationError(errorMessage);
@@ -956,6 +986,10 @@ if (downloadOfferBtn) {
   });
 }
 
+bindClick("copySummaryBtn", () => copyRunText("summary"));
+bindClick("copyQuestionsBtn", () => copyRunText("questions"));
+bindClick("copyPrepBtn", () => copyRunText("prep"));
+
 appendFeedbackBtn.addEventListener("click", async () => {
   if (!currentRun) {
     setStatus(getText().statusNeedReport, true);
@@ -981,6 +1015,7 @@ appendFeedbackBtn.addEventListener("click", async () => {
   }
   renderAllOutputSurfaces(getDisplayRun(), { playPanel: true });
   downloadMdBtn.disabled = false;
+  setCopyActionsAvailable(true);
   setInterviewerDownloadDisabled(false);
   setOfferDownloadDisabled(false);
   setReportDownloadsAvailable(true);
@@ -992,6 +1027,7 @@ appendFeedbackBtn.addEventListener("click", async () => {
       : getText().statusFeedback,
     Boolean(localizationError),
   );
+  updateCacheStatus();
 });
 
 function collectInput() {
@@ -1036,6 +1072,136 @@ function setInterviewerDownloadDisabled(disabled) {
 
 function setOfferDownloadDisabled(disabled) {
   if (downloadOfferBtn) downloadOfferBtn.disabled = disabled;
+}
+
+function setCopyActionsAvailable(available) {
+  [copySummaryBtn, copyQuestionsBtn, copyPrepBtn].forEach((button) => {
+    if (button) button.disabled = !available;
+  });
+}
+
+function getLocalStorageKeysByPrefix(prefix) {
+  try {
+    return Object.keys(localStorage).filter((key) => key.startsWith(prefix));
+  } catch {
+    return [];
+  }
+}
+
+function getLocalCacheStats() {
+  return {
+    runCount: getLocalStorageKeysByPrefix(RUN_CACHE_PREFIX).length,
+    feedbackCount: getLocalStorageKeysByPrefix(FEEDBACK_HISTORY_PREFIX).length,
+    cleared: 0,
+  };
+}
+
+function clearLocalOfferAgentCache() {
+  const runKeys = getLocalStorageKeysByPrefix(RUN_CACHE_PREFIX);
+  const feedbackKeys = getLocalStorageKeysByPrefix(FEEDBACK_HISTORY_PREFIX);
+  [...runKeys, ...feedbackKeys].forEach((key) => {
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      // Ignore private-mode storage errors; the status text still explains the attempted action.
+    }
+  });
+  return {
+    ...getLocalCacheStats(),
+    cleared: runKeys.length + feedbackKeys.length,
+  };
+}
+
+function updateCacheStatus(stats = getLocalCacheStats()) {
+  if (!cacheStatusEl) return;
+  cacheStatusEl.textContent = currentLanguage === "en"
+    ? `Local cache: ${stats.runCount} run(s), ${stats.feedbackCount} feedback record(s). API keys are not stored.`
+    : `本机缓存：运行记录 ${stats.runCount} 条，反馈记录 ${stats.feedbackCount} 条。API Key 不会写入缓存。`;
+}
+
+async function copyRunText(kind) {
+  if (!currentRun) {
+    setStatus(getText().statusNeedReport, true);
+    return;
+  }
+  const run = getDisplayRun();
+  const text = buildCopyPayload(run, kind);
+  if (!text.trim()) {
+    setStatus(currentLanguage === "en" ? "Nothing to copy yet." : "暂无可复制内容。", true);
+    return;
+  }
+  await copyTextToClipboard(text);
+  const label = currentLanguage === "en"
+    ? ({ summary: "summary", questions: "questions", prep: "prep checklist" }[kind] || "content")
+    : ({ summary: "结论", questions: "追问", prep: "准备清单" }[kind] || "内容");
+  setStatus(currentLanguage === "en" ? `Copied ${label}.` : `已复制${label}。`);
+}
+
+async function copyTextToClipboard(text) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "readonly");
+  textarea.style.position = "fixed";
+  textarea.style.left = "-9999px";
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand("copy");
+  textarea.remove();
+}
+
+function buildCopyPayload(run, kind) {
+  if (kind === "questions") return buildQuestionsCopyText(run);
+  if (kind === "prep") return buildPrepCopyText(run);
+  return buildSummaryCopyText(run);
+}
+
+function buildSummaryCopyText(run) {
+  const isEnglish = currentLanguage === "en";
+  const summary = run?.evaluation_summary || {};
+  const topQuestion = (run?.top_follow_up_questions || run?.interview_questions || [])[0];
+  const offerText = summary.offer_leverage_summary || run?.offer_simulation_run?.current_output?.recommendation || "";
+  return [
+    isEnglish ? "Conclusion first" : "结论优先",
+    `${isEnglish ? "Decision" : "决策建议"}：${summary.gate_result || (isEnglish ? "Pending" : "待判断")}`,
+    `${isEnglish ? "Evidence" : "证据覆盖"}：${summary.matched_count || 0}/${summary.total_requirements || run?.requirement_matches?.length || 0}`,
+    `${isEnglish ? "Weak or missing evidence" : "弱证据 / 缺证"}：${summary.weak_or_missing_evidence_count ?? countWeakRequirementRows(run)}`,
+    `${isEnglish ? "Next validation" : "下一步验证"}：${summary.next_validation_focus?.[0] || topQuestion?.question || (isEnglish ? "No priority question yet." : "暂无优先追问。")}`,
+    offerText ? `${isEnglish ? "Offer signal" : "Offer 信号"}：${offerText}` : "",
+  ].filter(Boolean).join("\n");
+}
+
+function buildQuestionsCopyText(run) {
+  const isEnglish = currentLanguage === "en";
+  const questions = (run?.top_follow_up_questions || run?.interview_questions || []).slice(0, 6);
+  if (!questions.length) return "";
+  return [
+    isEnglish ? "Priority follow-up questions" : "优先追问清单",
+    ...questions.map((item, index) => `${index + 1}. ${item.question || item.capability || ""}${item.capability ? `（${item.capability}）` : ""}`),
+  ].join("\n");
+}
+
+function buildPrepCopyText(run) {
+  const isEnglish = currentLanguage === "en";
+  const weakRows = (run?.requirement_matches || [])
+    .filter((row) => row.is_missing || row.evidence_level >= 2)
+    .slice(0, 5);
+  const actions = weakRows.map((row, index) => `${index + 1}. ${row.capability || ""}：${row.verification_question || row.evidence_gap || row.match_status || ""}`);
+  const feedbackActions = (run?.feedback_distillation?.actions || []).slice(0, 3).map((action, index) => `${index + 1}. ${action.reason || action.type || ""}`);
+  return [
+    isEnglish ? "Prep checklist" : "面试准备清单",
+    ...(actions.length ? actions : [isEnglish ? "1. Recheck the highest-risk evidence gap before the next interview." : "1. 先补齐最高风险的证据缺口。"]),
+    feedbackActions.length ? "" : "",
+    feedbackActions.length ? (isEnglish ? "Feedback actions" : "反馈动作") : "",
+    ...feedbackActions,
+  ].filter((line) => line !== "").join("\n");
+}
+
+function countWeakRequirementRows(run) {
+  return (run?.requirement_matches || []).filter((row) => row.is_missing || row.evidence_level >= 3).length;
 }
 
 function getPageMode() {
@@ -1271,9 +1437,22 @@ async function applyLanguage(language) {
   setText('[data-persona-choice="interviewer"] .persona-option-kicker', currentLanguage === "en" ? "Evaluate candidates" : "评估候选人");
   setText('[data-persona-choice="candidate"] .persona-option-action', currentLanguage === "en" ? "Open candidate workspace →" : "进入候选人工作台 →");
   setText('[data-persona-choice="interviewer"] .persona-option-action', currentLanguage === "en" ? "Open interviewer workspace →" : "进入面试官工作台 →");
+  const guideItems = document.querySelectorAll(".persona-guide span");
+  const guideCopy = currentLanguage === "en"
+    ? ["Add resume / JD", "Generate summary, graph, questions", "Local cache, clear anytime"]
+    : ["输入简历 / JD", "生成摘要、图谱和追问", "本机缓存，可随时清理"];
+  guideItems.forEach((item, index) => {
+    const number = item.querySelector("strong")?.textContent || String(index + 1);
+    item.innerHTML = `<strong>${escapeHtml(number)}</strong> ${escapeHtml(guideCopy[index] || "")}`;
+  });
   setText("#config-title", text.labels.advancedModelTitle);
   setText("#config-panel-hint", text.labels.advancedModelHint);
   setText("#mockBtn", text.labels.mockBtn);
+  setText(".sample-route-select span", currentLanguage === "en" ? "Sample route" : "样例路线");
+  setOptionText(sampleScenarioEl, "candidate_prep", currentLanguage === "en" ? "Candidate prep" : "候选人准备");
+  setOptionText(sampleScenarioEl, "interviewer_eval", currentLanguage === "en" ? "Interviewer evaluation" : "面试官评估");
+  setOptionText(sampleScenarioEl, "offer_negotiation", currentLanguage === "en" ? "Offer negotiation" : "Offer 谈判");
+  setText("#clearCacheBtn", currentLanguage === "en" ? "Clear local cache" : "清理本机缓存");
   setFieldLabel(providerEl, text.labels.provider);
   setFieldLabel(modelEl, text.labels.model);
   setFieldLabel(apiKeyEl, text.labels.apiKey);
@@ -1315,6 +1494,9 @@ async function applyLanguage(language) {
     currentLanguage === "en" ? "Evidence Graph" : "证据关系图谱",
   );
   setText("#virtual-panel-title", text.labels.panelChatTitle);
+  setText("#copySummaryBtn", currentLanguage === "en" ? "Copy summary" : "复制结论");
+  setText("#copyQuestionsBtn", currentLanguage === "en" ? "Copy questions" : "复制追问");
+  setText("#copyPrepBtn", currentLanguage === "en" ? "Copy prep list" : "复制准备清单");
   setText("#downloadMdBtn", text.labels.downloadCandidate);
   setText("#downloadInterviewerBtn", text.labels.downloadInterviewer);
   setText("#downloadOfferBtn", text.labels.downloadOffer);
@@ -1377,6 +1559,7 @@ async function applyLanguage(language) {
   applyCleanChineseCopy();
   applyAudienceFlowCopy();
   refreshInputReadiness();
+  updateCacheStatus();
 
   if (!currentRun) {
     renderEmptyReport();
@@ -1434,6 +1617,11 @@ function applyCleanChineseCopy() {
   setText("#config-title", "高级设置：模型与代理");
   setText("#config-panel-hint", "默认使用 Mock Demo，无需配置即可体验");
   setText("#mockBtn", "填充脱敏样例");
+  setText(".sample-route-select span", "样例路线");
+  setOptionText(sampleScenarioEl, "candidate_prep", "候选人准备");
+  setOptionText(sampleScenarioEl, "interviewer_eval", "面试官评估");
+  setOptionText(sampleScenarioEl, "offer_negotiation", "Offer 谈判");
+  setText("#clearCacheBtn", "清理本机缓存");
   setText("#input-title", "输入简历与 JD");
   setText("#clearBtn", "清空当前页面");
   setText("#generateBtn", "生成评估报告");
@@ -1444,6 +1632,9 @@ function applyCleanChineseCopy() {
   setText("#interviewer-scorecard-title", "面试官评分表");
   setText("#graph-title", "证据关系图谱");
   setText("#virtual-panel-title", "虚拟面试委员会");
+  setText("#copySummaryBtn", "复制结论");
+  setText("#copyQuestionsBtn", "复制追问");
+  setText("#copyPrepBtn", "复制准备清单");
   setText("#downloadMdBtn", "导出 PDF");
   setText("#downloadInterviewerBtn", "导出 PDF");
   setText("#downloadOfferBtn", "导出 Offer 推演 PDF");
@@ -1659,7 +1850,7 @@ function enrichEvaluationRun(run) {
   const feedback = run.human_feedback || null;
   const offerSimulationRun = buildOfferSimulationRun(run, snapshot, gate, offerLeverage, requirementRows, feedback);
   const feedbackDistillation = buildFeedbackDistillation(feedback, requirementRows, snapshot);
-  const virtualPanel = buildVirtualInterviewPanel(snapshot, requirementRows, gate);
+  const virtualPanel = buildVirtualInterviewPanel(snapshot, requirementRows, gate, feedback);
   const panelDiscussionRounds = buildPanelDiscussionRounds(virtualPanel, requirementRows, gate, offerLeverage, feedback);
   const moderatorSummary = buildModeratorSummary(virtualPanel, panelDiscussionRounds, gate, offerLeverage, feedback);
   const interviewQuestions = buildStructuredInterviewQuestions(snapshot, requirementRows, feedback);
@@ -2269,10 +2460,35 @@ function formatGenerationError(error) {
       ? "Generation failed: API key authorization failed. Check the key and provider."
       : "生成失败：API Key 鉴权失败，请检查 Key 与模型服务商是否匹配。";
   }
+  if (/HTTP 402|payment required|insufficient|balance|quota/i.test(message)) {
+    return isEnglish
+      ? "Generation failed: the model account has no usable quota or balance. Check billing/quota, then retry or switch to Mock Demo."
+      : "生成失败：模型账号额度或余额不可用。请检查余额 / 额度后重试，或先切回 Mock Demo。";
+  }
+  if (/HTTP 403|Forbidden|permission|access denied/i.test(message)) {
+    return isEnglish
+      ? "Generation failed: the key does not have permission for this provider, model, or endpoint. Check provider, Base URL, and model access."
+      : "生成失败：当前 Key 没有访问该服务商、模型或接口的权限。请检查服务商、Base URL 和模型权限。";
+  }
+  if (/HTTP 404|Not Found|model_not_found|model not found|does not exist/i.test(message)) {
+    return isEnglish
+      ? "Generation failed: the endpoint or model was not found. Check Base URL, remove duplicated /chat/completions paths, and confirm the model name."
+      : "生成失败：接口或模型不存在。请检查 Base URL，避免重复填写 /chat/completions，并确认模型名称。";
+  }
+  if (/HTTP 400|Bad Request|invalid_request|invalid request|context_length|maximum context|too many tokens/i.test(message)) {
+    return isEnglish
+      ? "Generation failed: the request payload was rejected. Check model name, Base URL compatibility, and whether the resume/JD is too long."
+      : "生成失败：请求参数被模型服务拒绝。请检查模型名称、Base URL 兼容性，以及简历 / JD 是否过长。";
+  }
   if (/HTTP 429|Too Many Requests|rate limit/i.test(message)) {
     return isEnglish
       ? "Generation failed: the model service is rate limited. Wait and retry, or switch to Mock Demo."
       : "生成失败：模型服务限流。请稍后重试，或先切回 Mock Demo。";
+  }
+  if (/JSON|parse|Unexpected token|Unexpected end|empty response|no content|stream/i.test(message)) {
+    return isEnglish
+      ? "Generation failed: the model returned an empty or malformed response. Check whether the proxy returns OpenAI-compatible chat completions."
+      : "生成失败：模型返回为空或格式不完整。请检查代理是否返回 OpenAI-compatible Chat Completions 格式。";
   }
   if (/Failed to fetch|NetworkError|Load failed/i.test(message)) {
     return getText().errorCors;
