@@ -186,7 +186,7 @@ In Interviewer mode, human feedback can be written into the report. Feedback is 
 4. Skill Registry is still an example-driven frontend structure, not a complete plugin or marketplace system.
 5. EvidenceGraph is a minimal usable graph, not a full knowledge-graph database.
 6. The virtual interview panel is a lightweight rule-driven layer, not a full multi-agent simulation engine.
-7. Frontend modularization phase 6 is complete: `apps/web/src/domain-data.js` owns role/sample/constants, `apps/web/src/run-cache.js` owns input fingerprints and run caching, `apps/web/src/i18n.js` owns localized copy and report-progress stages, `apps/web/src/virtual-panel.js` owns the virtual-panel model, `apps/web/src/evidence-graph.js` owns the graph model, `apps/web/src/graph-view.js` owns the graph UI, and `apps/web/src/model-client.js` owns live-model requests, endpoint resolution, timeouts, SSE parsing, and JSON fallback; `apps/web/app.js` still owns page orchestration, reports, panel rendering, and PDF flow for the next split.
+7. Frontend modularization phase 7 is complete: `apps/web/src/domain-data.js` owns role/sample/constants, `apps/web/src/run-cache.js` owns input fingerprints and run caching, `apps/web/src/i18n.js` owns localized copy and report-progress stages, `apps/web/src/virtual-panel.js` owns the virtual-panel model, `apps/web/src/evidence-graph.js` owns the graph model, `apps/web/src/graph-view.js` owns the graph UI, `apps/web/src/model-client.js` owns live-model requests, and `apps/web/src/reports-view.js` owns report rendering, stream progress, decision summaries, and the interviewer scorecard; `apps/web/app.js` still owns page orchestration, report content generation, panel rendering, and PDF flow for the next split.
 
 ## Local Usage
 
@@ -217,11 +217,13 @@ node --check apps/web/src/i18n.js
 node --check apps/web/src/virtual-panel.js
 node --check apps/web/src/evidence-graph.js
 node --check apps/web/src/graph-view.js
+node --check apps/web/src/reports-view.js
 node --check apps/web/src/model-client.js
 node --check apps/web/app.js
 node scripts/virtual_panel_test.js
 node scripts/evidence_graph_test.js
 node scripts/graph_view_test.js
+node scripts/reports_view_test.js
 node scripts/model_client_test.js
 python scripts/smoke_test.py
 git diff --check

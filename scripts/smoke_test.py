@@ -19,6 +19,7 @@ def static_checks():
     virtual_panel_path = web_root / "src" / "virtual-panel.js"
     evidence_graph_path = web_root / "src" / "evidence-graph.js"
     graph_view_path = web_root / "src" / "graph-view.js"
+    reports_view_path = web_root / "src" / "reports-view.js"
     model_client_path = web_root / "src" / "model-client.js"
     files = {
         "index": web_root / "index.html",
@@ -46,6 +47,7 @@ def static_checks():
     virtual_panel_content = read(virtual_panel_path) if virtual_panel_path.exists() else ""
     evidence_graph_content = read(evidence_graph_path) if evidence_graph_path.exists() else ""
     graph_view_content = read(graph_view_path) if graph_view_path.exists() else ""
+    reports_view_content = read(reports_view_path) if reports_view_path.exists() else ""
     model_client_content = read(model_client_path) if model_client_path.exists() else ""
     app_modules = (
         content["app"]
@@ -55,6 +57,7 @@ def static_checks():
         + virtual_panel_content
         + evidence_graph_content
         + graph_view_content
+        + reports_view_content
         + model_client_content
     )
     ids = set(re.findall(r'id="([^"]+)"', content["index"]))
@@ -135,10 +138,10 @@ def static_checks():
         and "buildCandidateRevisionAdvice" in content["app"]
         and "blockQuestions" in content["app"],
         "markdown_artifacts_cleaned": all(
-            term in content["app"] for term in ["裸露表格分隔线", "代码围栏", "replace(/```", "replace(/^\\s{0,3}>\\s?/gm", "<ol>"]
+            term in app_modules for term in ["裸露表格分隔线", "代码围栏", "replace(/```", "replace(/^\\s{0,3}>\\s?/gm", "<ol>"]
         ),
         "match_degree_colors_exist": all(
-            term in content["app"] + content["css"] for term in ["tone-good", "tone-warn", "tone-risk", "cellToneClass"]
+            term in app_modules + content["css"] for term in ["tone-good", "tone-warn", "tone-risk", "cellToneClass"]
         ),
         "no_raw_backticks_in_system_prompt": "例如 **、---、```" not in content["app"],
         "pdf_export_exists": all(
@@ -419,7 +422,7 @@ def static_checks():
             ]
         ),
         "decision_summary_card_exists": all(
-            term in content["app"] + content["index"] + content["css"]
+            term in app_modules + content["index"] + content["css"]
             for term in [
                 "decisionSummary",
                 "renderDecisionSummaryCards",
@@ -430,7 +433,7 @@ def static_checks():
             ]
         ),
         "interviewer_scorecard_exists": all(
-            term in content["app"] + content["index"] + content["css"]
+            term in app_modules + content["index"] + content["css"]
             for term in [
                 "interviewerScorecard",
                 "renderInterviewerScorecard",
@@ -565,6 +568,50 @@ def static_checks():
                 "focusReportAnchor",
                 "findGraphNodeById",
                 "cssEscape",
+            ]
+        ),
+        "reports_view_module_exists": reports_view_path.exists(),
+        "reports_view_api_exists": all(
+            term in reports_view_content
+            for term in [
+                "OfferAgentReportsView",
+                "createReportsView",
+                "renderReport",
+                "renderStreamingReport",
+                "renderGenerationError",
+                "renderDecisionSummaryCard",
+                "buildDecisionSummaryCards",
+                "renderInterviewerScorecard",
+                "buildInterviewerScorecardRows",
+                "markdownToHtml",
+                "cleanReportMarkdown",
+            ]
+        ),
+        "reports_view_builders_injected_into_app": all(
+            term in content["app"]
+            for term in [
+                "buildDecisionSummaryCards,",
+                "buildInterviewerScorecardRows,",
+                "window.OfferAgentReportsView.createReportsView",
+            ]
+        ),
+        "reports_view_loads_before_app": content["index"].find("./src/reports-view.js")
+        < content["index"].find("./app.js")
+        and content["index"].find("./src/reports-view.js") >= 0,
+        "reports_view_removed_from_app": all(
+            f"function {name}" not in content["app"]
+            for name in [
+                "cleanReportMarkdown",
+                "renderDecisionSummaryCard",
+                "renderInterviewerScorecard",
+                "renderReport",
+                "renderStreamingReport",
+                "renderGenerationError",
+                "buildStreamProgress",
+                "inferStageIndex",
+                "markdownToHtml",
+                "renderOfferRunPanel",
+                "renderFeedbackDistillationPanel",
             ]
         ),
         "model_client_module_exists": model_client_path.exists(),
@@ -849,6 +896,7 @@ def main():
         "virtual_panel_model": node_test(ROOT / "scripts" / "virtual_panel_test.js"),
         "evidence_graph_model": node_test(ROOT / "scripts" / "evidence_graph_test.js"),
         "graph_view": node_test(ROOT / "scripts" / "graph_view_test.js"),
+        "reports_view": node_test(ROOT / "scripts" / "reports_view_test.js"),
         "model_client": node_test(ROOT / "scripts" / "model_client_test.js"),
     }
     if args.with_llm:
@@ -859,6 +907,7 @@ def main():
         and result["virtual_panel_model"]["passed"]
         and result["evidence_graph_model"]["passed"]
         and result["graph_view"]["passed"]
+        and result["reports_view"]["passed"]
         and result["model_client"]["passed"]
         and result.get("llm_stream", {"passed": True})["passed"]
     )

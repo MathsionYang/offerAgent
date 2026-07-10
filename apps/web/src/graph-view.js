@@ -722,6 +722,8 @@
       openGraphNodeDetail,
       openPanelMessageDetail,
       openReportAnchorDetail,
+      openTraceDetailPanel,
+      renderTraceDetailRows,
       findGraphNodeById,
       cssEscape,
     };
