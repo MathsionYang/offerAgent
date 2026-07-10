@@ -21,7 +21,10 @@ def static_checks():
     graph_view_path = web_root / "src" / "graph-view.js"
     panel_view_path = web_root / "src" / "panel-view.js"
     skill_registry_path = web_root / "src" / "skill-registry.js"
+    localization_mappers_path = web_root / "src" / "localization-mappers.js"
     report_builders_path = web_root / "src" / "report-builders.js"
+    report_content_helpers_path = web_root / "src" / "report-content-helpers.js"
+    report_export_template_path = web_root / "src" / "report-export-template.js"
     reports_view_path = web_root / "src" / "reports-view.js"
     model_client_path = web_root / "src" / "model-client.js"
     pdf_export_path = web_root / "src" / "pdf-export.js"
@@ -56,7 +59,10 @@ def static_checks():
     graph_view_content = read(graph_view_path) if graph_view_path.exists() else ""
     panel_view_content = read(panel_view_path) if panel_view_path.exists() else ""
     skill_registry_content = read(skill_registry_path) if skill_registry_path.exists() else ""
+    localization_mappers_content = read(localization_mappers_path) if localization_mappers_path.exists() else ""
     report_builders_content = read(report_builders_path) if report_builders_path.exists() else ""
+    report_content_helpers_content = read(report_content_helpers_path) if report_content_helpers_path.exists() else ""
+    report_export_template_content = read(report_export_template_path) if report_export_template_path.exists() else ""
     reports_view_content = read(reports_view_path) if reports_view_path.exists() else ""
     model_client_content = read(model_client_path) if model_client_path.exists() else ""
     pdf_export_content = read(pdf_export_path) if pdf_export_path.exists() else ""
@@ -73,7 +79,10 @@ def static_checks():
         + graph_view_content
         + panel_view_content
         + skill_registry_content
+        + localization_mappers_content
         + report_builders_content
+        + report_content_helpers_content
+        + report_export_template_content
         + reports_view_content
         + model_client_content
         + pdf_export_content
@@ -150,14 +159,14 @@ def static_checks():
         and "招聘岗位分析" in content["app"]
         and "证据链" in content["readme"]
         and "证据缺口" in content["readme"],
-        "direct_mismatch_conclusion_exists": "当前简历与 JD 全部为待验证 / 缺证，视同不匹配" in content["app"]
-        and "当前简历与 JD 部分匹配" in content["app"]
-        and "不匹配 / 缺证" in content["app"]
-        and "不列追问问题，先要求补充项目证据" in content["app"],
+        "direct_mismatch_conclusion_exists": "当前简历与 JD 全部为待验证 / 缺证，视同不匹配" in report_content_helpers_content
+        and "当前简历与 JD 部分匹配" in report_content_helpers_content
+        and "不匹配 / 缺证" in report_content_helpers_content
+        and "不列追问问题，先要求补充项目证据" in report_content_helpers_content,
         "audience_reports_branch_on_mismatch": "当前不列举追问问题" in app_modules
         and "简历修改意见与重点准备" in app_modules
-        and "buildCandidateRevisionAdvice" in content["app"]
-        and "blockQuestions" in content["app"],
+        and "buildCandidateRevisionAdvice" in app_modules
+        and "blockQuestions" in app_modules,
         "markdown_artifacts_cleaned": all(
             term in app_modules for term in ["裸露表格分隔线", "代码围栏", "replace(/```", "replace(/^\\s{0,3}>\\s?/gm", "<ol>"]
         ),
@@ -429,7 +438,7 @@ def static_checks():
             ]
         ),
         "localized_internal_codes_exist": all(
-            term in content["app"]
+            term in app_modules
             for term in [
                 "localizeOfferLifecycleState",
                 "localizeOfferScenarioName",
@@ -675,7 +684,7 @@ def static_checks():
                 "downloadFile,",
                 "downloadPdfReport,",
                 "getText: () => getText()",
-                "reportToStaticHtmlDocument: (...args) => reportToStaticHtmlDocument(...args)",
+                "reportToStaticHtmlDocument,",
             ]
         ),
         "pdf_export_removed_from_app": all(
@@ -1267,6 +1276,9 @@ def main():
         "virtual_panel_model": node_test(ROOT / "scripts" / "virtual_panel_test.js"),
         "panel_view": node_test(ROOT / "scripts" / "panel_view_test.js"),
         "report_builders": node_test(ROOT / "scripts" / "report_builders_test.js"),
+        "report_content_helpers": node_test(ROOT / "scripts" / "report_content_helpers_test.js"),
+        "report_export_template": node_test(ROOT / "scripts" / "report_export_template_test.js"),
+        "localization_mappers": node_test(ROOT / "scripts" / "localization_mappers_test.js"),
         "evidence_graph_model": node_test(ROOT / "scripts" / "evidence_graph_test.js"),
         "graph_view": node_test(ROOT / "scripts" / "graph_view_test.js"),
         "reports_view": node_test(ROOT / "scripts" / "reports_view_test.js"),
@@ -1285,6 +1297,9 @@ def main():
         and result["virtual_panel_model"]["passed"]
         and result["panel_view"]["passed"]
         and result["report_builders"]["passed"]
+        and result["report_content_helpers"]["passed"]
+        and result["report_export_template"]["passed"]
+        and result["localization_mappers"]["passed"]
         and result["evidence_graph_model"]["passed"]
         and result["graph_view"]["passed"]
         and result["reports_view"]["passed"]

@@ -186,7 +186,7 @@ In Interviewer mode, human feedback can be written into the report. Feedback is 
 4. Skill Registry is still an example-driven frontend structure, not a complete plugin or marketplace system.
 5. EvidenceGraph is a minimal usable graph, not a full knowledge-graph database.
 6. The virtual interview panel is a lightweight rule-driven layer, not a full multi-agent simulation engine.
-7. Frontend modularization phase 14 is complete. In addition to the existing domain-data, cache, i18n, panel model / view, EvidenceGraph model / view, model-client, reports-view, report-builder, PDF export, feedback-distillation, structured-evaluation, and base assessment modules, `apps/web/src/skill-registry.js` now owns the SkillDefinition library, runtime Skill audit records, evidence / question edges, and skill-specific follow-up generation. `apps/web/app.js` is now about 3,966 lines; the remaining report helper functions are the next split target.
+7. Frontend modularization phase 15 is complete. `apps/web/src/report-content-helpers.js` now owns candidate and interviewer report content helpers, `apps/web/src/report-export-template.js` owns the static report HTML and PDF summary-card template, and `apps/web/src/localization-mappers.js` owns report translations and enum localization. `apps/web/app.js` is now 1,893 lines and primarily retains page orchestration, event binding, state flow, model prompts, and Mock report generation.
 
 ## Local Usage
 
@@ -214,12 +214,15 @@ http://localhost:5173
 node --check apps/web/src/domain-data.js
 node --check apps/web/src/run-cache.js
 node --check apps/web/src/i18n.js
+node --check apps/web/src/localization-mappers.js
 node --check apps/web/src/virtual-panel.js
 node --check apps/web/src/evidence-graph.js
 node --check apps/web/src/graph-view.js
 node --check apps/web/src/skill-registry.js
 node --check apps/web/src/panel-view.js
 node --check apps/web/src/report-builders.js
+node --check apps/web/src/report-content-helpers.js
+node --check apps/web/src/report-export-template.js
 node --check apps/web/src/reports-view.js
 node --check apps/web/src/model-client.js
 node --check apps/web/src/pdf-export.js
@@ -230,6 +233,9 @@ node --check apps/web/app.js
 node scripts/virtual_panel_test.js
 node scripts/panel_view_test.js
 node scripts/report_builders_test.js
+node scripts/report_content_helpers_test.js
+node scripts/report_export_template_test.js
+node scripts/localization_mappers_test.js
 node scripts/evidence_graph_test.js
 node scripts/graph_view_test.js
 node scripts/skill_registry_test.js

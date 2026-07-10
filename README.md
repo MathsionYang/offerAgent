@@ -186,7 +186,7 @@ OfferSimulationRun 已从报告段落升级为可回填的结构化状态。
 4. Skill Registry 仍是示例和前端运行结构，不是完整市场或插件系统。
 5. EvidenceGraph 是最小可用结构，不是持久化知识图谱数据库。
 6. 虚拟面试委员会是轻量规则驱动，不是完整多 Agent 仿真引擎。
-7. 已完成第十四阶段前端模块化：在既有领域数据、缓存、国际化、委员会模型 / 视图、EvidenceGraph 模型 / 视图、模型请求、报告视图、报告拼装、PDF 导出、反馈蒸馏、结构化评估和基础评估规则模块之外，新增 `apps/web/src/skill-registry.js` 承载 SkillDefinition 静态库、Skill 运行时审计、证据 / 问题边和 Skill 追问生成；`apps/web/app.js` 已降至约 3966 行，下一步继续拆分剩余报告辅助函数。
+7. 已完成第十五阶段前端模块化：`apps/web/src/report-content-helpers.js` 承载候选人 / 面试官报告内容辅助函数，`apps/web/src/report-export-template.js` 承载静态报告 HTML 与 PDF 摘要卡模板，`apps/web/src/localization-mappers.js` 承载报告翻译和枚举本地化；`apps/web/app.js` 已降至 1893 行，主要保留页面编排、事件绑定、状态流转、模型提示词和 Mock 报告生成。
 
 ## 本地运行
 
@@ -214,12 +214,15 @@ http://localhost:5173
 node --check apps/web/src/domain-data.js
 node --check apps/web/src/run-cache.js
 node --check apps/web/src/i18n.js
+node --check apps/web/src/localization-mappers.js
 node --check apps/web/src/virtual-panel.js
 node --check apps/web/src/evidence-graph.js
 node --check apps/web/src/graph-view.js
 node --check apps/web/src/skill-registry.js
 node --check apps/web/src/panel-view.js
 node --check apps/web/src/report-builders.js
+node --check apps/web/src/report-content-helpers.js
+node --check apps/web/src/report-export-template.js
 node --check apps/web/src/reports-view.js
 node --check apps/web/src/model-client.js
 node --check apps/web/src/pdf-export.js
@@ -230,6 +233,9 @@ node --check apps/web/app.js
 node scripts/virtual_panel_test.js
 node scripts/panel_view_test.js
 node scripts/report_builders_test.js
+node scripts/report_content_helpers_test.js
+node scripts/report_export_template_test.js
+node scripts/localization_mappers_test.js
 node scripts/evidence_graph_test.js
 node scripts/graph_view_test.js
 node scripts/skill_registry_test.js
