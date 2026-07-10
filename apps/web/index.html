@@ -8,7 +8,7 @@
       name="description"
       content="OfferAgent redesigned workspace for candidate preparation, interviewer evaluation, evidence graph, virtual committee, feedback, and offer simulation."
     />
-    <link rel="stylesheet" href="./styles.css?v=web-20260709-3" />
+    <link rel="stylesheet" href="./styles.css?v=web-20260710-4" />
   </head>
   <body data-page-mode="candidate">
     <div class="app page view-workbench">
@@ -173,6 +173,7 @@
                 <label class="skill-card skill-card-item selected"><input class="skill-toggle" type="checkbox" value="decision" checked /><span class="skill-card-body"><strong>决策层压力官</strong><small>用预算、战略取舍和 ROI 压力测试判断</small></span></label>
               </div>
               <div class="generate-row">
+                <div id="inputReadiness" class="input-readiness" aria-live="polite"></div>
                 <button id="generateBtn" class="btn btn-primary btn-lg" type="button">生成报告</button>
                 <p id="status" class="status" role="status">准备就绪。未配置 Key 时会使用 Mock Demo。</p>
               </div>
@@ -300,11 +301,12 @@
     <script src="./src/domain-data.js?v=web-20260710-2"></script>
     <script src="./src/skill-registry.js?v=web-20260710-1"></script>
     <script src="./src/run-cache.js?v=web-20260710-2"></script>
+    <script src="./src/input-readiness.js?v=web-20260710-1"></script>
     <script src="./src/i18n.js?v=web-20260710-2"></script>
     <script src="./src/localization-mappers.js?v=web-20260710-1"></script>
     <script src="./src/virtual-panel.js?v=web-20260710-2"></script>
     <script src="./src/evidence-graph.js?v=web-20260710-2"></script>
-    <script src="./src/graph-view.js?v=web-20260710-3"></script>
+    <script src="./src/graph-view.js?v=web-20260710-4"></script>
     <script src="./src/panel-view.js?v=web-20260710-1"></script>
     <script src="./src/report-builders.js?v=web-20260710-1"></script>
     <script src="./src/reports-view.js?v=web-20260710-5"></script>
@@ -315,6 +317,6 @@
     <script src="./src/assessment-rules.js?v=web-20260710-1"></script>
     <script src="./src/report-content-helpers.js?v=web-20260710-1"></script>
     <script src="./src/evaluation-engine.js?v=web-20260710-1"></script>
-    <script src="./app.js?v=web-20260710-10"></script>
+    <script src="./app.js?v=web-20260710-11"></script>
   </body>
 </html>

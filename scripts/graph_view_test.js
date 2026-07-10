@@ -34,6 +34,36 @@ const graphView = createGraphView({
   localizePanelStance: (value) => value,
 });
 
+assert.equal(typeof graphView.matchesEvidenceGraphNode, "function");
+
+const searchableRisk = {
+  id: "risk_1",
+  type: "risk",
+  label: "Metrics ownership is unclear",
+  summary: "Validate denominator and personal contribution",
+};
+
+assert.equal(
+  graphView.matchesEvidenceGraphNode(searchableRisk, { type: "all", query: "ownership" }),
+  true,
+);
+assert.equal(
+  graphView.matchesEvidenceGraphNode(searchableRisk, { type: "risk", query: "" }),
+  true,
+);
+assert.equal(
+  graphView.matchesEvidenceGraphNode(searchableRisk, { type: "resume_evidence", query: "ownership" }),
+  false,
+);
+assert.equal(
+  graphView.matchesEvidenceGraphNode(searchableRisk, { type: "risk", query: "denominator" }),
+  true,
+);
+assert.equal(
+  graphView.matchesEvidenceGraphNode(searchableRisk, { type: "risk", query: "salary" }),
+  false,
+);
+
 assert.deepEqual(
   graphView.groupEvidenceGraphNodes([
     { id: "req_1", type: "job_requirement" },

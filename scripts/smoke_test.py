@@ -19,6 +19,7 @@ def static_checks():
     virtual_panel_path = web_root / "src" / "virtual-panel.js"
     evidence_graph_path = web_root / "src" / "evidence-graph.js"
     graph_view_path = web_root / "src" / "graph-view.js"
+    input_readiness_path = web_root / "src" / "input-readiness.js"
     panel_view_path = web_root / "src" / "panel-view.js"
     skill_registry_path = web_root / "src" / "skill-registry.js"
     localization_mappers_path = web_root / "src" / "localization-mappers.js"
@@ -57,6 +58,7 @@ def static_checks():
     virtual_panel_content = read(virtual_panel_path) if virtual_panel_path.exists() else ""
     evidence_graph_content = read(evidence_graph_path) if evidence_graph_path.exists() else ""
     graph_view_content = read(graph_view_path) if graph_view_path.exists() else ""
+    input_readiness_content = read(input_readiness_path) if input_readiness_path.exists() else ""
     panel_view_content = read(panel_view_path) if panel_view_path.exists() else ""
     skill_registry_content = read(skill_registry_path) if skill_registry_path.exists() else ""
     localization_mappers_content = read(localization_mappers_path) if localization_mappers_path.exists() else ""
@@ -77,6 +79,7 @@ def static_checks():
         + virtual_panel_content
         + evidence_graph_content
         + graph_view_content
+        + input_readiness_content
         + panel_view_content
         + skill_registry_content
         + localization_mappers_content
@@ -950,6 +953,39 @@ def static_checks():
                 "cssEscape",
             ]
         ),
+        "input_readiness_module_exists": input_readiness_path.exists(),
+        "input_readiness_api_exists": all(
+            term in input_readiness_content
+            for term in [
+                "OfferAgentInputReadiness",
+                "evaluateInputReadiness",
+                "getInputReadinessLabels",
+                "renderInputReadiness",
+                "MIN_CONTEXT_CHARS",
+            ]
+        ),
+        "input_readiness_loads_before_app": content["index"].find("./src/input-readiness.js")
+        < content["index"].find("./app.js")
+        and content["index"].find("./src/input-readiness.js") >= 0,
+        "input_readiness_ui_exists": all(
+            term in content["index"] + content["app"] + content["css"]
+            for term in [
+                'id="inputReadiness"',
+                "refreshInputReadiness",
+                ".input-readiness",
+                ".input-readiness-item",
+            ]
+        ),
+        "graph_keyword_search_exists": all(
+            term in graph_view_content + content["css"]
+            for term in [
+                "matchesEvidenceGraphNode",
+                "graph-search-input",
+                "graph-filter-count",
+                "graph-filter-empty",
+                "applyEvidenceGraphFilters",
+            ]
+        ),
         "reports_view_module_exists": reports_view_path.exists(),
         "reports_view_api_exists": all(
             term in reports_view_content
@@ -1281,6 +1317,7 @@ def main():
         "localization_mappers": node_test(ROOT / "scripts" / "localization_mappers_test.js"),
         "evidence_graph_model": node_test(ROOT / "scripts" / "evidence_graph_test.js"),
         "graph_view": node_test(ROOT / "scripts" / "graph_view_test.js"),
+        "input_readiness": node_test(ROOT / "scripts" / "input_readiness_test.js"),
         "reports_view": node_test(ROOT / "scripts" / "reports_view_test.js"),
         "model_client": node_test(ROOT / "scripts" / "model_client_test.js"),
         "pdf_export": node_test(ROOT / "scripts" / "pdf_export_test.js"),
@@ -1302,6 +1339,7 @@ def main():
         and result["localization_mappers"]["passed"]
         and result["evidence_graph_model"]["passed"]
         and result["graph_view"]["passed"]
+        and result["input_readiness"]["passed"]
         and result["reports_view"]["passed"]
         and result["model_client"]["passed"]
         and result["pdf_export"]["passed"]

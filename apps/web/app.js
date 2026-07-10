@@ -34,6 +34,7 @@ const feedbackRiskValidationEl = $("feedbackRiskValidation");
 const feedbackNotesEl = $("feedbackNotes");
 const appendFeedbackBtn = $("appendFeedbackBtn");
 const languageEl = $("language");
+const inputReadinessEl = $("inputReadiness");
 const skillToggleEls = Array.from(document.querySelectorAll(".skill-toggle"));
 const audienceModeEls = Array.from(document.querySelectorAll("[data-audience-mode]"));
 const workspaceViewEls = Array.from(document.querySelectorAll("[data-workspace-view]"));
@@ -68,6 +69,10 @@ const {
   restoreCachedRun,
   persistRunCache,
 } = window.OfferAgentCache;
+const {
+  evaluateInputReadiness,
+  renderInputReadiness,
+} = window.OfferAgentInputReadiness;
 
 const {
   buildFeedbackDistillation,
@@ -549,6 +554,7 @@ renderStreamProgress("", getText().progressWaiting, false);
 setAudienceMode(activeAudienceMode);
 setWorkspaceView("workbench");
 setReportDownloadsAvailable(false);
+refreshInputReadiness();
 
 providerEl.addEventListener("change", () => {
   const defaults = providerDefaults[providerEl.value] || providerDefaults.mock;
@@ -565,6 +571,17 @@ apiKeyEl.addEventListener("input", updateModelMode);
 if (languageEl) {
   languageEl.addEventListener("change", () => applyLanguage(languageEl.value));
 }
+
+[resumeEl, jobEl].forEach((element) => {
+  element?.addEventListener("input", refreshInputReadiness);
+});
+
+skillToggleEls.forEach((toggle) => {
+  toggle.addEventListener("change", () => {
+    toggle.closest(".skill-card-item")?.classList.toggle("selected", toggle.checked);
+    refreshInputReadiness();
+  });
+});
 
 workspaceViewEls.forEach((button) => {
   button.addEventListener("click", () => setWorkspaceView(button.dataset.workspaceView));
@@ -589,6 +606,7 @@ bindClick("mockBtn", () => {
   offerConstraintsEl.value = localizedSample.offerConstraints;
   providerEl.value = "mock";
   providerEl.dispatchEvent(new Event("change"));
+  refreshInputReadiness();
   setStatus(getText().statusSample);
 });
 
@@ -620,6 +638,7 @@ bindClick("clearBtn", () => {
   feedbackEvidenceSufficiencyEl.value = "未反馈";
   feedbackRiskValidationEl.value = "未反馈";
   feedbackNotesEl.value = "";
+  refreshInputReadiness();
   setWorkspaceView("workbench");
   setStatus(getText().statusCleared);
 });
@@ -785,6 +804,17 @@ function collectInput() {
     language: currentLanguage,
     useRealModel: providerEl.value !== "mock" && Boolean(apiKeyEl.value.trim()),
   };
+}
+
+function refreshInputReadiness() {
+  if (!inputReadinessEl) return;
+  const state = evaluateInputReadiness({
+    resume: resumeEl?.value || "",
+    jobDescription: jobEl?.value || "",
+    selectedSkills: skillToggleEls.filter((item) => item.checked).map((item) => item.value),
+    language: currentLanguage,
+  });
+  renderInputReadiness(inputReadinessEl, state, escapeHtml);
 }
 
 
@@ -1049,6 +1079,7 @@ function applyLanguage(language) {
     renderVirtualPanelChat(currentRun);
   }
   applyCleanChineseCopy();
+  refreshInputReadiness();
 }
 
 function applyCleanChineseCopy() {

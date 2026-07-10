@@ -169,7 +169,7 @@ In Interviewer mode, human feedback can be written into the report. Feedback is 
 7. Chunked streaming report output.
 8. Candidate and interviewer report split.
 9. Two-module PDF export.
-10. EvidenceGraph display, filtering, gap detection, and report-section jump.
+10. EvidenceGraph display, type filters, keyword search, match counts, gap detection, and report-section jump.
 11. VirtualPanel, PanelDiscussionRound, ModeratorSummary, and chat-style panel streaming.
 12. Consistency mode with input fingerprinting, structured intermediate state, and local cache reuse.
 13. Structured Offer sandbox state.
@@ -177,6 +177,7 @@ In Interviewer mode, human feedback can be written into the report. Feedback is 
 15. GitHub Pages deployment.
 16. Cloudflare Worker proxy example.
 17. Static smoke test script.
+18. Input readiness feedback for resume / JD length, limited context, and interviewer-role selection.
 
 ## Current Limits
 

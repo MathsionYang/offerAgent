@@ -19,6 +19,9 @@
     const resolveCurrentRun = () => getCurrentRun?.() || null;
     const resolveLanguage = () => getLanguage?.() === "en" ? "en" : "zh";
     let traceDetailPanelEl = null;
+    let activeFilterType = "all";
+    let searchQuery = "";
+    let currentNodesById = new Map();
 
     // Render graph state and bind node, relation, filter, and gap interactions.
     function renderEvidenceGraph(run) {
@@ -38,6 +41,7 @@
       }
 
       const nodesById = new Map(graph.nodes.map((node) => [node.id, node]));
+      currentNodesById = nodesById;
       const grouped = groupEvidenceGraphNodes(graph.nodes);
       const labels = getEvidenceGraphLabels();
       const gaps = detectEvidenceGraphGaps(graph);
@@ -76,11 +80,17 @@
 
       evidenceGraphEl.querySelectorAll(".graph-filter").forEach((filterEl) => {
         filterEl.addEventListener("click", () => {
-          const type = filterEl.dataset.filterType;
+          activeFilterType = filterEl.dataset.filterType || "all";
           evidenceGraphEl.querySelectorAll(".graph-filter").forEach((item) => item.classList.remove("active"));
           filterEl.classList.add("active");
-          applyEvidenceGraphFilter(type);
+          applyEvidenceGraphFilters();
         });
+      });
+
+      const searchEl = evidenceGraphEl.querySelector(".graph-search-input");
+      searchEl?.addEventListener("input", () => {
+        searchQuery = searchEl.value;
+        applyEvidenceGraphFilters();
       });
 
       evidenceGraphEl.querySelectorAll(".evidence-gap-item").forEach((gapEl) => {
@@ -90,6 +100,7 @@
         });
       });
 
+      applyEvidenceGraphFilters();
     }
 
     // Keep graph grouping and localization helpers independent from the page shell.
@@ -121,6 +132,10 @@
           gapTitle: "Evidence gaps",
           gapEmpty: "No obvious evidence gaps detected.",
           gapAction: "Click to inspect",
+          searchPlaceholder: "Search nodes",
+          searchLabel: "Search evidence graph nodes",
+          resultCount: (visible, total) => `${visible} / ${total} nodes`,
+          noResults: "No nodes match the current search and filter.",
           columns: {
             requirements: "JD Requirements",
             evidence: "Resume Evidence",
@@ -153,6 +168,10 @@
         gapTitle: "证据缺口",
         gapEmpty: "暂未发现明显证据缺口。",
         gapAction: "点击查看",
+        searchPlaceholder: "搜索节点",
+        searchLabel: "搜索证据图谱节点",
+        resultCount: (visible, total) => `${visible} / ${total} 个节点`,
+        noResults: "当前搜索和筛选条件下没有匹配节点。",
         columns: {
           requirements: "JD 要求",
           evidence: "简历证据",
@@ -169,21 +188,55 @@
     }
 
     function renderEvidenceGraphFilters(labels) {
-      return `<div class="evidence-graph-filters">
-        ${labels.filters.map(([type, label], index) => `<button class="graph-filter ${index === 0 ? "active" : ""}" type="button" data-filter-type="${escapeHtml(type)}">${escapeHtml(label)}</button>`).join("")}
-      </div>`;
+      return `<div class="evidence-graph-toolbar">
+          <div class="evidence-graph-filters">
+            ${labels.filters.map(([type, label]) => `<button class="graph-filter ${type === activeFilterType ? "active" : ""}" type="button" data-filter-type="${escapeHtml(type)}">${escapeHtml(label)}</button>`).join("")}
+          </div>
+          <label class="graph-search">
+            <input class="graph-search-input" type="search" value="${escapeHtml(searchQuery)}" placeholder="${escapeHtml(labels.searchPlaceholder)}" aria-label="${escapeHtml(labels.searchLabel)}" />
+            <span class="graph-filter-count"></span>
+          </label>
+        </div>
+        <p class="graph-filter-empty" hidden>${escapeHtml(labels.noResults)}</p>`;
     }
 
-    function applyEvidenceGraphFilter(type) {
-      const isAll = type === "all";
+    function applyEvidenceGraphFilters() {
+      const labels = getEvidenceGraphLabels();
+      let visibleCount = 0;
       evidenceGraphEl.querySelectorAll(".graph-node").forEach((nodeEl) => {
-        const visible = isAll || nodeEl.dataset.nodeType === type;
+        const node = currentNodesById.get(nodeEl.dataset.nodeId);
+        const visible = matchesEvidenceGraphNode(node, {
+          type: activeFilterType,
+          query: searchQuery,
+        });
         nodeEl.classList.toggle("graph-node-hidden", !visible);
+        if (visible) visibleCount += 1;
       });
       evidenceGraphEl.querySelectorAll(".evidence-graph-column").forEach((columnEl) => {
         const visibleNodes = Array.from(columnEl.querySelectorAll(".graph-node")).filter((nodeEl) => !nodeEl.classList.contains("graph-node-hidden"));
-        columnEl.classList.toggle("graph-column-dimmed", !isAll && visibleNodes.length === 0);
+        columnEl.classList.toggle("graph-column-dimmed", visibleNodes.length === 0);
       });
+      const totalCount = currentNodesById.size;
+      const countEl = evidenceGraphEl.querySelector(".graph-filter-count");
+      if (countEl) countEl.textContent = labels.resultCount(visibleCount, totalCount);
+      const emptyEl = evidenceGraphEl.querySelector(".graph-filter-empty");
+      if (emptyEl) emptyEl.hidden = visibleCount !== 0;
+    }
+
+    function matchesEvidenceGraphNode(node, options = {}) {
+      if (!node) return false;
+      const type = options.type || "all";
+      const query = normalizeSearchText(options.query || "");
+      const typeMatches = type === "all" || node.type === type;
+      if (!typeMatches) return false;
+      if (!query) return true;
+      const searchableText = normalizeSearchText([
+        node.label,
+        node.summary,
+        node.type,
+        typeLabel(node.type),
+      ].filter(Boolean).join(" "));
+      return searchableText.includes(query);
     }
 
     function renderEvidenceGraphGaps(gaps, labels) {
@@ -716,6 +769,7 @@
       groupEvidenceGraphNodes,
       getEvidenceGraphLabels,
       typeLabel,
+      matchesEvidenceGraphNode,
       focusReportAnchor,
       normalizeSearchText,
       resolveReportAnchorAliases,

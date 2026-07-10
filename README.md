@@ -169,7 +169,7 @@ OfferSimulationRun 已从报告段落升级为可回填的结构化状态。
 7. 报告分块流式输出。
 8. 候选人报告与面试官报告拆分。
 9. 双模式 PDF 导出。
-10. EvidenceGraph 图谱显示、筛选、缺口检测和报告段落跳转。
+10. EvidenceGraph 图谱显示、类型筛选、关键词搜索、匹配计数、缺口检测和报告段落跳转。
 11. VirtualPanel、PanelDiscussionRound、ModeratorSummary 与虚拟委员会群聊式流式展示。
 12. 一致性模式：输入指纹、结构化中间层、本地缓存复用。
 13. Offer 沙盘结构化状态。
@@ -177,6 +177,7 @@ OfferSimulationRun 已从报告段落升级为可回填的结构化状态。
 15. GitHub Pages 部署。
 16. Cloudflare Worker 代理示例。
 17. smoke test 静态验收脚本。
+18. 输入就绪度提示：简历 / JD 字数、内容不足提示和面试官角色选择状态。
 
 ## 当前边界
 
