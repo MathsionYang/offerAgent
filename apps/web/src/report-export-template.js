@@ -5,7 +5,6 @@
   function createReportExportTemplate(dependencies = {}) {
     const {
       i18n = { zh: { pdfTitles: { full: ["Report", "Report"] } } },
-      getRunLanguage = () => "zh",
       buildAudienceMarkdown = () => "",
       markdownToHtml = (value) => value || "",
       escapeHtml = (value) => String(value ?? ""),
@@ -18,10 +17,13 @@
       translateGateResult = (value) => value || "",
       translateCapability = (value) => value || "",
     } = dependencies;
+    const getLanguage = dependencies.getLanguage
+      || dependencies.getRunLanguage
+      || (() => "zh");
 
     function reportToStaticHtmlDocument(run, audience = "full", options = {}) {
       const markdown = buildAudienceMarkdown(run, audience);
-      const language = getRunLanguage(run);
+      const language = getLanguage() === "en" ? "en" : "zh";
       const text = i18n[language] || i18n.zh;
       const createdAt = new Date(run.created_at).toLocaleString(language === "en" ? "en-US" : "zh-CN");
       const [reportTitle, reportEyebrow] = text.pdfTitles[audience] || text.pdfTitles.full;
@@ -1242,8 +1244,8 @@
 
     function buildPdfSummaryCards(run, audience = "full") {
       const snapshot = run.input_snapshot || {};
-      const language = getRunLanguage(run);
-      const report = run.report || "";
+      const language = getLanguage() === "en" ? "en" : "zh";
+      const report = run.display_report ?? run.report ?? "";
       const rows = buildRequirementEvidenceRows(snapshot);
       const gate = buildGateAssessment(snapshot, rows);
       const recommendation = buildInterviewerRecommendation(gate);

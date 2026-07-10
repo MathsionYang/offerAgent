@@ -178,6 +178,7 @@ In Interviewer mode, human feedback can be written into the report. Feedback is 
 16. Cloudflare Worker proxy example.
 17. Static smoke test script.
 18. Input readiness feedback for resume / JD length, limited context, and interviewer-role selection.
+19. Unified language projection: user input remains verbatim while the interface, reports, graph, virtual panel, scorecards, summaries, and exports follow the active language. Mock runs build language artifacts locally, while live-model runs translate on demand and cache the result.
 
 ## Current Limits
 
@@ -187,7 +188,15 @@ In Interviewer mode, human feedback can be written into the report. Feedback is 
 4. Skill Registry is still an example-driven frontend structure, not a complete plugin or marketplace system.
 5. EvidenceGraph is a minimal usable graph, not a full knowledge-graph database.
 6. The virtual interview panel is a lightweight rule-driven layer, not a full multi-agent simulation engine.
-7. Frontend modularization phase 15 is complete. `apps/web/src/report-content-helpers.js` now owns candidate and interviewer report content helpers, `apps/web/src/report-export-template.js` owns the static report HTML and PDF summary-card template, and `apps/web/src/localization-mappers.js` owns report translations and enum localization. `apps/web/app.js` is now 1,893 lines and primarily retains page orchestration, event binding, state flow, model prompts, and Mock report generation.
+7. Frontend modularization phase 15 is complete. `apps/web/src/report-content-helpers.js` now owns candidate and interviewer report content helpers, `apps/web/src/report-export-template.js` owns the static report HTML and PDF summary-card template, and `apps/web/src/localization-mappers.js` owns report translations and enum localization. `apps/web/app.js` is currently 2,191 lines, `apps/web/src` contains 20 JavaScript modules, and the entry point primarily retains page orchestration, event binding, state flow, model prompts, and Mock report generation.
+
+## Language Projection
+
+1. All user input remains verbatim, including the resume, JD, company context, target level, offer constraints, and quoted source excerpts.
+2. Interface copy, generated report content, EvidenceGraph nodes, the virtual panel, scorecards, summaries, and PDF exports are projected into the active language.
+3. Mock mode builds Chinese and English artifacts in the browser. Live-model mode calls the model only when the target-language artifact is first needed, then reuses the cached result.
+4. Language artifacts use `language-artifact.v3`. Older schemas and artifacts missing newly translatable fields are invalidated and rebuilt automatically.
+5. A language-switch token prevents stale asynchronous work from overwriting the current language when the user switches languages during generation.
 
 ## Local Usage
 
@@ -237,8 +246,11 @@ node scripts/report_builders_test.js
 node scripts/report_content_helpers_test.js
 node scripts/report_export_template_test.js
 node scripts/localization_mappers_test.js
+node scripts/i18n_test.js
+node scripts/localized_run_view_test.js
 node scripts/evidence_graph_test.js
 node scripts/graph_view_test.js
+node scripts/input_readiness_test.js
 node scripts/skill_registry_test.js
 node scripts/reports_view_test.js
 node scripts/model_client_test.js
@@ -252,4 +264,4 @@ git diff --check
 
 ## Privacy
 
-Mock Demo does not call external models. In real-model mode, the API key is only used temporarily in the current browser page and is not written to the repository or the consistency cache. The cache stores base report run state only, not API keys or human feedback. Avoid entering real sensitive resume data on public or untrusted devices.
+Mock Demo does not call external models. In live-model mode, the API key is only used temporarily in the current browser page and is not written to the repository or the consistency cache. Translation is requested only when a target-language artifact is missing; generated language artifacts may be cached with the run, but API keys and human feedback are not. Avoid entering real sensitive resume data on public or untrusted devices.

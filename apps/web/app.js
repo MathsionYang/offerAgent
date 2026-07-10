@@ -43,6 +43,7 @@ const appShellEl = document.querySelector(".page");
 
 let currentRun = null;
 let currentLanguage = languageEl?.value || "zh";
+let languageSwitchToken = 0;
 let activeAudienceMode = document.body?.dataset.pageMode === "interviewer" ? "interviewer" : "candidate";
 let activeWorkspaceView = "workbench";
 let activeResultView = "report";
@@ -69,6 +70,14 @@ const {
   restoreCachedRun,
   persistRunCache,
 } = window.OfferAgentCache;
+const {
+  ARTIFACT_SCHEMA_VERSION,
+  collectTranslatableArtifacts,
+  isGeneratedSourcePlaceholder,
+  isLocalizedArtifactCurrent,
+  mergeLocalizedArtifacts,
+  projectRunForLanguage,
+} = window.OfferAgentLocalizedRunView;
 const {
   evaluateInputReadiness,
   renderInputReadiness,
@@ -104,6 +113,7 @@ const {
   translateVerificationQuestionText,
   translateStage,
   translateCapability,
+  translateGeneratedText,
   translateEvidenceLevel,
   translateMatchStatus,
   localizeOfferLifecycleState,
@@ -161,6 +171,8 @@ const {
   findEvidence,
   translateCapability,
   translateOfferRating,
+  translateGateResult,
+  translateGeneratedText,
   translateInterviewerRecommendation,
   translateInterviewerAction,
   translateDirectConclusionPoints,
@@ -367,7 +379,7 @@ const {
 } = window.OfferAgentGraphView.createGraphView({
   evidenceGraphEl,
   reportEl,
-  getCurrentRun: () => currentRun,
+  getCurrentRun: () => getDisplayRun(),
   getLanguage: () => currentLanguage,
   detectEvidenceGraphGaps,
   reportAnchorForNodeType,
@@ -423,7 +435,7 @@ const {
   decisionSummaryEl,
   interviewerScorecardEl,
   interviewerScorecardStatusEl,
-  getCurrentRun: () => currentRun,
+  getCurrentRun: () => getDisplayRun(),
   getLanguage: () => currentLanguage,
   getText: () => window.OfferAgentI18n.getText(currentLanguage),
   getReportStages: () => window.OfferAgentI18n.getReportStages(currentLanguage),
@@ -491,6 +503,7 @@ const {
   translateGateResult,
   translateStage,
   translateOfferRating,
+  translateGeneratedText,
   summarizeEvidenceCounts,
   normalizeSnapshot,
   buildEvidenceSummary,
@@ -502,6 +515,7 @@ const {
   buildPdfSummaryCards,
 } = window.OfferAgentReportExportTemplate.createReportExportTemplate({
   i18n,
+  getLanguage: () => currentLanguage,
   getRunLanguage,
   buildAudienceMarkdown,
   markdownToHtml,
@@ -538,6 +552,7 @@ const {
 
 const {
   generateWithLLM,
+  translateGeneratedArtifacts,
 } = window.OfferAgentModelClient.createModelClient({
   providerDefaults,
   buildSystemPrompt,
@@ -549,6 +564,141 @@ const {
 
 const getText = () => window.OfferAgentI18n.getText(currentLanguage);
 const getReportStages = () => window.OfferAgentI18n.getReportStages(currentLanguage);
+
+function getDisplayRun(run = currentRun) {
+  return run ? projectRunForLanguage(run, currentLanguage) : null;
+}
+
+function ensureCanonicalLanguageArtifact(run) {
+  if (!run) return run;
+  const sourceLanguage = getRunLanguage(run);
+  const sourceArtifact = run.localized_artifacts?.[sourceLanguage];
+  if (
+    isLocalizedArtifactCurrent(run, sourceLanguage)
+    && sourceArtifact?.report_markdown === (run.report || "")
+  ) {
+    return run;
+  }
+  return mergeLocalizedArtifacts(run, sourceLanguage, {
+    schema_version: ARTIFACT_SCHEMA_VERSION,
+    source: "generated",
+    report_markdown: run.report || "",
+    text_by_id: collectTranslatableArtifacts(run),
+  });
+}
+
+function collectModelRuntimeConfig(run) {
+  return {
+    provider: run?.provider || providerEl.value,
+    model: run?.model || modelEl.value.trim(),
+    apiKey: apiKeyEl.value.trim(),
+    baseUrl: baseUrlEl.value.trim(),
+  };
+}
+
+function buildMockLanguageArtifact(run, targetLanguage) {
+  const snapshot = run?.input_snapshot || {};
+  const mockInput = {
+    provider: "mock",
+    model: providerDefaults.mock?.model || "Mock Demo",
+    apiKey: "",
+    baseUrl: "",
+    targetRole: snapshot.target_role || defaultRoleId,
+    resume: snapshot.resume || "",
+    jobDescription: snapshot.job_description || "",
+    companyContext: snapshot.company_context || "",
+    candidateStage: snapshot.candidate_stage || "",
+    targetLevel: snapshot.target_level || "",
+    offerConstraints: snapshot.offer_constraints || "",
+    selectedSkills: snapshot.selected_skills || [],
+    language: targetLanguage,
+    useRealModel: false,
+  };
+  const reportMarkdown = targetLanguage === "en"
+    ? generateMockReportEn(mockInput)
+    : generateMockReport(mockInput);
+  const projectedMockRun = enrichEvaluationRun({
+    ...run,
+    localized_artifacts: undefined,
+    report: reportMarkdown,
+    input_snapshot: {
+      ...snapshot,
+      language: targetLanguage,
+    },
+  });
+  const textById = collectTranslatableArtifacts(projectedMockRun);
+  return {
+    schema_version: ARTIFACT_SCHEMA_VERSION,
+    source: "projected",
+    report_markdown: cleanReportMarkdown(reportMarkdown),
+    text_by_id: targetLanguage === "en"
+      ? Object.fromEntries(
+          Object.entries(textById).map(([stableId, value]) => [
+            stableId,
+            translateGeneratedText(value, targetLanguage),
+          ]),
+        )
+      : textById,
+  };
+}
+
+async function ensureLocalizedArtifact(run, targetLanguage) {
+  const target = targetLanguage === "en" ? "en" : "zh";
+  const canonicalRun = ensureCanonicalLanguageArtifact(run);
+  if (isLocalizedArtifactCurrent(canonicalRun, target)) return canonicalRun;
+
+  if (canonicalRun.mode === "mock") {
+    return mergeLocalizedArtifacts(
+      canonicalRun,
+      target,
+      buildMockLanguageArtifact(canonicalRun, target),
+    );
+  }
+
+  const runtimeConfig = collectModelRuntimeConfig(canonicalRun);
+  if (!runtimeConfig.apiKey) {
+    throw new Error(
+      target === "en"
+        ? "API key is required to translate this live-model run."
+        : "切换真实模型报告语言需要当前页面中的 API Key。",
+    );
+  }
+
+  const artifact = await translateGeneratedArtifacts({
+    ...runtimeConfig,
+    sourceLanguage: getRunLanguage(canonicalRun),
+    targetLanguage: target,
+    reportMarkdown: canonicalRun.report || "",
+    textById: collectTranslatableArtifacts(canonicalRun),
+  });
+  return mergeLocalizedArtifacts(canonicalRun, target, artifact);
+}
+
+async function ensureDisplayLanguageArtifact(run) {
+  const canonicalRun = ensureCanonicalLanguageArtifact(run);
+  if (isLocalizedArtifactCurrent(canonicalRun, currentLanguage)) {
+    return canonicalRun;
+  }
+  return ensureLocalizedArtifact(canonicalRun, currentLanguage);
+}
+
+function renderAllOutputSurfaces(run, options = {}) {
+  if (!run) return;
+  const markdown = buildPreviewMarkdown(run);
+  if (options.streaming) {
+    renderStreamingReport(markdown, options.status || getText().reportUpdated, true);
+  } else {
+    renderReport(markdown);
+  }
+  renderEvidenceGraph(run);
+  renderDecisionSummaryCard(run);
+  renderInterviewerScorecard(run);
+  if (options.playPanel) {
+    playVirtualPanelChat(run);
+  } else {
+    renderVirtualPanelChat(run);
+  }
+}
 
 renderStreamProgress("", getText().progressWaiting, false);
 setAudienceMode(activeAudienceMode);
@@ -667,15 +817,18 @@ generateBtn.addEventListener("click", async () => {
   try {
     const cachedRun = restoreCachedRun(inputFingerprint);
     if (cachedRun) {
-      currentRun = enrichEvaluationRun({
+      currentRun = await ensureDisplayLanguageArtifact(enrichEvaluationRun({
         ...cachedRun,
         cache_status: "hit",
         restored_at: new Date().toISOString(),
+      }));
+      persistRunCache(currentRun);
+      const displayRun = getDisplayRun();
+      renderAllOutputSurfaces(displayRun, {
+        streaming: true,
+        status: getText().reportUpdated,
+        playPanel: true,
       });
-      renderStreamingReport(buildPreviewMarkdown(currentRun), getText().reportUpdated, true);
-      renderDecisionSummaryCard(currentRun);
-      renderInterviewerScorecard(currentRun);
-      playVirtualPanelChat(currentRun);
       runBadgeEl.textContent = currentRun.id;
       downloadMdBtn.disabled = false;
       setInterviewerDownloadDisabled(false);
@@ -717,13 +870,14 @@ generateBtn.addEventListener("click", async () => {
       },
       report: cleanedReport,
     };
-    currentRun = enrichEvaluationRun(currentRun);
+    currentRun = await ensureDisplayLanguageArtifact(enrichEvaluationRun(currentRun));
     persistRunCache(currentRun);
 
-    renderStreamingReport(buildPreviewMarkdown(currentRun), input.useRealModel ? getText().llmDone : getText().mockDone, true);
-    renderDecisionSummaryCard(currentRun);
-    renderInterviewerScorecard(currentRun);
-    playVirtualPanelChat(currentRun);
+    renderAllOutputSurfaces(getDisplayRun(), {
+      streaming: true,
+      status: input.useRealModel ? getText().llmDone : getText().mockDone,
+      playPanel: true,
+    });
     runBadgeEl.textContent = currentRun.id;
     downloadMdBtn.disabled = false;
     setInterviewerDownloadDisabled(false);
@@ -745,14 +899,14 @@ generateBtn.addEventListener("click", async () => {
 downloadMdBtn.addEventListener("click", () => {
   if (!currentRun) return;
   currentRun.human_feedback = collectFeedback();
-  downloadPdfReport(currentRun, "candidate", buildPdfFilename(currentRun, "candidate"));
+  downloadPdfReport(getDisplayRun(), "candidate", buildPdfFilename(currentRun, "candidate"));
 });
 
 if (downloadInterviewerBtn) {
   downloadInterviewerBtn.addEventListener("click", () => {
     if (!currentRun) return;
     currentRun.human_feedback = collectFeedback();
-    downloadPdfReport(currentRun, "interviewer", buildPdfFilename(currentRun, "interviewer"));
+    downloadPdfReport(getDisplayRun(), "interviewer", buildPdfFilename(currentRun, "interviewer"));
   });
 }
 
@@ -760,31 +914,45 @@ if (downloadOfferBtn) {
   downloadOfferBtn.addEventListener("click", () => {
     if (!currentRun) return;
     currentRun.human_feedback = collectFeedback();
-    downloadPdfReport(currentRun, "offer", buildPdfFilename(currentRun, "offer"));
+    downloadPdfReport(getDisplayRun(), "offer", buildPdfFilename(currentRun, "offer"));
   });
 }
 
-appendFeedbackBtn.addEventListener("click", () => {
+appendFeedbackBtn.addEventListener("click", async () => {
   if (!currentRun) {
     setStatus(getText().statusNeedReport, true);
     return;
   }
 
   const feedback = collectFeedback();
+  const sourceLanguage = getRunLanguage(currentRun);
   currentRun.human_feedback = feedback;
   currentRun.report = appendFeedbackToReport(currentRun.report, feedback);
   currentRun = enrichEvaluationRun(currentRun);
-  renderReport(buildPreviewMarkdown(currentRun));
-  renderDecisionSummaryCard(currentRun);
-  renderInterviewerScorecard(currentRun);
-  playVirtualPanelChat(currentRun);
+  currentRun.localized_artifacts = {};
+  currentRun = ensureCanonicalLanguageArtifact(currentRun);
+  let localizationError = null;
+  if (currentLanguage !== sourceLanguage) {
+    try {
+      currentRun = await ensureLocalizedArtifact(currentRun, currentLanguage);
+    } catch (error) {
+      localizationError = error;
+    }
+  }
+  persistRunCache(currentRun);
+  renderAllOutputSurfaces(getDisplayRun(), { playPanel: true });
   downloadMdBtn.disabled = false;
   setInterviewerDownloadDisabled(false);
   setOfferDownloadDisabled(false);
   setReportDownloadsAvailable(true);
   appendFeedbackBtn.disabled = false;
   setWorkspaceView("graph");
-  setStatus(getText().statusFeedback);
+  setStatus(
+    localizationError
+      ? getText().statusLocalizationFailed(localizationError.message || String(localizationError))
+      : getText().statusFeedback,
+    Boolean(localizationError),
+  );
 });
 
 function collectInput() {
@@ -841,8 +1009,9 @@ function setAudienceMode(mode) {
     document.body.dataset.pageMode = activeAudienceMode;
   }
   applyInterviewerMode();
-  renderDecisionSummaryCard(currentRun);
-  renderInterviewerScorecard(currentRun);
+  const displayRun = getDisplayRun();
+  renderDecisionSummaryCard(displayRun);
+  renderInterviewerScorecard(displayRun);
   setReportDownloadsAvailable(Boolean(currentRun));
 }
 
@@ -879,9 +1048,10 @@ function setWorkspaceView(view) {
   activeWorkspaceView = view === "graph" ? "graph" : "workbench";
   applyWorkspaceView();
   if (activeWorkspaceView === "graph") {
-    renderEvidenceGraph(currentRun);
-    renderDecisionSummaryCard(currentRun);
-    renderInterviewerScorecard(currentRun);
+    const displayRun = getDisplayRun();
+    renderEvidenceGraph(displayRun);
+    renderDecisionSummaryCard(displayRun);
+    renderInterviewerScorecard(displayRun);
   }
 }
 
@@ -945,7 +1115,8 @@ function applyResultView() {
   });
 }
 
-function applyLanguage(language) {
+async function applyLanguage(language) {
+  const token = ++languageSwitchToken;
   currentLanguage = language === "en" ? "en" : "zh";
   if (languageEl) languageEl.value = currentLanguage;
 
@@ -960,6 +1131,51 @@ function applyLanguage(language) {
   setText(".language-switch span", text.languageLabel);
   setText(".hero-copy h1", text.title);
   setText(".hero-subtitle", text.heroSubtitle);
+  document.querySelector(".audience-switch")?.setAttribute(
+    "aria-label",
+    text.labels.audienceLabel,
+  );
+  document.querySelector(".view-switch")?.setAttribute(
+    "aria-label",
+    text.labels.workspaceViewLabel,
+  );
+  document.querySelector(".language-switch")?.setAttribute(
+    "aria-label",
+    text.labels.languageSelectorLabel,
+  );
+  languageEl?.setAttribute("aria-label", text.labels.languageSelectorLabel);
+  document.querySelector("#configView")?.setAttribute(
+    "aria-label",
+    text.labels.workspaceLabel,
+  );
+  document.querySelector("#resultsView")?.setAttribute(
+    "aria-label",
+    text.labels.resultsLabel,
+  );
+  document.querySelector(".config-panel")?.setAttribute(
+    "aria-label",
+    text.labels.modelPanelTitle,
+  );
+  document.querySelector(".sandbox-panel")?.setAttribute(
+    "aria-label",
+    text.labels.offerSandboxLabel,
+  );
+  document.querySelector("#resultTabs")?.setAttribute(
+    "aria-label",
+    text.labels.resultViewLabel,
+  );
+  reportProgressEl?.setAttribute(
+    "aria-label",
+    text.labels.reportProgressLabel,
+  );
+  document.querySelector(".summary-export-actions")?.setAttribute(
+    "aria-label",
+    text.labels.exportReportLabel,
+  );
+  document.querySelector("#sidebar")?.setAttribute(
+    "aria-label",
+    text.labels.sidebarLabel,
+  );
 
   document.querySelectorAll(".cap-card").forEach((card, index) => {
     const item = text.caps[index];
@@ -979,13 +1195,17 @@ function applyLanguage(language) {
     if (body) body.textContent = item[1];
   });
 
-  setText("#config-title", text.labels.configTitle);
+  setText("#config-card-title", text.labels.configCardTitle);
+  setText("#config-card-subtitle", text.labels.configCardSubtitle);
+  setText("#config-title", text.labels.modelPanelTitle);
+  setText("#config-panel-hint", text.labels.modelPanelHint);
   setText("#mockBtn", text.labels.mockBtn);
   setFieldLabel(providerEl, text.labels.provider);
   setFieldLabel(modelEl, text.labels.model);
   setFieldLabel(apiKeyEl, text.labels.apiKey);
   setFieldLabel(baseUrlEl, text.labels.baseUrl);
   setText("#input-title", text.labels.inputTitle);
+  setText("#input-card-subtitle", text.labels.inputCardSubtitle);
   setText("#clearBtn", text.labels.clearBtn);
   setFieldLabel(targetRoleEl, text.labels.targetRole);
   setFieldLabel(resumeEl, text.labels.resume);
@@ -995,6 +1215,8 @@ function applyLanguage(language) {
   setFieldLabel(targetLevelEl, text.labels.targetLevel);
   setFieldLabel(offerConstraintsEl, text.labels.offerConstraints);
   setText("#generateBtn", text.labels.generateBtn);
+  setText("#skill-card-title", text.labels.skillCardTitle);
+  setText("#skill-card-subtitle", text.labels.skillHint);
   setText("#feedback-title", text.labels.feedbackTitle);
   setText(".feedback-panel .run-badge", text.labels.runScope);
   setFieldLabel(feedbackAgreementEl, text.labels.agreement);
@@ -1007,6 +1229,17 @@ function applyLanguage(language) {
   setText("#report-title", text.labels.reportTitle);
   setText("#decision-summary-title", text.labels.decisionSummaryTitle || (currentLanguage === "en" ? "Decision Summary" : "结果摘要"));
   setText("#interviewer-scorecard-title", text.labels.scorecardTitle || (currentLanguage === "en" ? "Interviewer Scorecard" : "面试官评分表"));
+  setText("#graph-title", currentLanguage === "en" ? "Evidence Graph" : "证据关系图谱");
+  setText(
+    ".graph-head .card-subtitle",
+    currentLanguage === "en"
+      ? "Click a node to inspect details while preserving report traceability."
+      : "节点点击使用弹窗查看详情，并保留报告追溯能力",
+  );
+  evidenceGraphEl?.setAttribute(
+    "aria-label",
+    currentLanguage === "en" ? "Evidence Graph" : "证据关系图谱",
+  );
   setText("#virtual-panel-title", text.labels.panelChatTitle);
   setText("#downloadMdBtn", text.labels.downloadCandidate);
   setText("#downloadInterviewerBtn", text.labels.downloadInterviewer);
@@ -1041,7 +1274,10 @@ function applyLanguage(language) {
   setPlaceholder(feedbackNotesEl, text.placeholders.feedbackNotes);
 
   setOptionText(providerEl, "mock", text.providerOptions.mock);
+  setOptionText(providerEl, "openai", text.providerOptions.openai);
+  setOptionText(providerEl, "deepseek", text.providerOptions.deepseek);
   setOptionText(providerEl, "qwen", text.providerOptions.qwen);
+  setOptionText(providerEl, "kimi", text.providerOptions.kimi);
   setOptionText(providerEl, "custom", text.providerOptions.custom);
   Object.entries(text.roleOptions).forEach(([value, label]) => setOptionText(targetRoleEl, value, label));
   Object.entries(text.stageOptions).forEach(([value, label]) => setOptionText(candidateStageEl, value, label));
@@ -1064,6 +1300,9 @@ function applyLanguage(language) {
   });
 
   updateModelMode();
+  applyCleanChineseCopy();
+  refreshInputReadiness();
+
   if (!currentRun) {
     renderEmptyReport();
     renderStreamProgress("", text.progressWaiting, false);
@@ -1072,14 +1311,37 @@ function applyLanguage(language) {
     renderVirtualPanelChat(null);
     runBadgeEl.textContent = text.runPending;
     setStatus(text.statusReady);
-  } else {
-    renderReport(buildPreviewMarkdown(currentRun));
-    renderDecisionSummaryCard(currentRun);
-    renderInterviewerScorecard(currentRun);
-    renderVirtualPanelChat(currentRun);
+    return;
   }
-  applyCleanChineseCopy();
-  refreshInputReadiness();
+
+  currentRun = ensureCanonicalLanguageArtifact(currentRun);
+  renderAllOutputSurfaces(getDisplayRun());
+  if (isLocalizedArtifactCurrent(currentRun, currentLanguage)) {
+    setStatus(text.statusLocalized);
+    return;
+  }
+
+  if (languageEl) languageEl.disabled = true;
+  setStatus(text.statusLocalizing);
+  try {
+    const localizedRun = await ensureLocalizedArtifact(currentRun, currentLanguage);
+    if (token !== languageSwitchToken) return;
+    currentRun = localizedRun;
+    persistRunCache(currentRun);
+    renderAllOutputSurfaces(getDisplayRun());
+    setStatus(getText().statusLocalized);
+  } catch (error) {
+    if (token !== languageSwitchToken) return;
+    renderAllOutputSurfaces(getDisplayRun());
+    setStatus(
+      getText().statusLocalizationFailed(error?.message || String(error)),
+      true,
+    );
+  } finally {
+    if (token === languageSwitchToken && languageEl) {
+      languageEl.disabled = false;
+    }
+  }
 }
 
 function applyCleanChineseCopy() {
@@ -1223,7 +1485,7 @@ function renderEmptyReport() {
 }
 
 function buildPdfFilename(run, audience) {
-  const language = getRunLanguage(run);
+  const language = currentLanguage === "en" ? "en" : "zh";
   const labels = (i18n[language] || i18n.zh).fileNames;
   return `${labels[audience] || labels.candidate}-${run.id}.pdf`;
 }
@@ -1244,7 +1506,7 @@ function buildHumanFeedbackMarkdown(run) {
   const feedback = run?.human_feedback;
   if (!feedback) return "";
 
-  if (getRunLanguage(run) === "en") {
+  if (currentLanguage === "en") {
     return `## Human Feedback
 
 | Item | Feedback |
@@ -1665,20 +1927,25 @@ function generateMockReportEn(input) {
   const offerLeverage = buildOfferLeverage(snapshot);
   const hiddenPains = buildJdHiddenPainRows(snapshot);
   const evidenceSummary = summarizeEvidenceCounts(rows);
+  const localizeResumeEvidence = (value) => (
+    isGeneratedSourcePlaceholder(value)
+      ? translateGeneratedText(value, "en")
+      : value
+  );
   const requirementRows = rows
-    .map((row) => `| ${translateCapability(row.capability)} | ${row.jdEvidence} | ${row.resumeEvidence} | ${translateEvidenceLevel(row.evidenceLevel)} | ${translateMatchStatus(row)} |`)
+    .map((row) => `| ${translateCapability(row.capability)} | ${row.jdEvidence} | ${localizeResumeEvidence(row.resumeEvidence)} | ${translateEvidenceLevel(row.evidenceLevel)} | ${translateMatchStatus(row)} |`)
     .join("\n");
   const gapRows = rows
     .filter((row) => row.isMissing || row.evidenceLevel > 1)
     .slice(0, 5)
-    .map((row) => `| ${translateCapability(row.capability)} | ${row.resumeEvidence} | ${translateEvidenceLevel(row.evidenceLevel)} | Ask for metric definition, decision chain, personal contribution, and retrospective evidence. |`)
+    .map((row) => `| ${translateCapability(row.capability)} | ${localizeResumeEvidence(row.resumeEvidence)} | ${translateEvidenceLevel(row.evidenceLevel)} | Ask for metric definition, decision chain, personal contribution, and retrospective evidence. |`)
     .join("\n");
   const painRows = (hiddenPains.length ? hiddenPains : [
     { phrase: "strong pressure tolerance", pressure: "urgent releases, resource constraints, customer escalations, or shifting priorities", prep: "Prepare one incident or delay retrospective with timeline and corrective actions" },
     { phrase: "business sense", pressure: "ambiguous requirements, prioritization, ROI trade-offs, and opportunity judgment", prep: "Prepare one project where you rejected or reshaped a requirement" },
     { phrase: "communication and coordination", pressure: "cross-functional conflict, engineering capacity competition, customer requirement changes", prep: "Prepare stakeholder map, escalation path, and final decision logic" },
   ])
-    .map((row) => `| ${row.phrase} | ${row.pressure} | ${row.prep} |`)
+    .map((row) => `| ${row.phrase} | ${translateGeneratedText(row.pressure, "en")} | ${translateGeneratedText(row.prep, "en")} |`)
     .join("\n");
   const gateSummary = `${gate.matchedCount}/${rows.length} core requirement evidence items found. ${gate.enterSandbox ? "The candidate can enter the next validation round with explicit evidence checks." : "Do not move into the next sandbox round before stronger project evidence is provided."}`;
 
@@ -1693,7 +1960,7 @@ function generateMockReportEn(input) {
 | Evidence credibility | ${evidenceSummary} | Resume snapshot: ${clip(input.resume)} | Prioritize first-level evidence: denominator, period, before/after comparison, and direct contribution. |
 | Key strength | ${gate.bestEvidence} | Resume evidence | Convert the strongest project into a problem, target, constraint, action, result, and retrospective story. |
 | Key risk | Personal contribution and metric definitions are not fully proven. | JD snapshot: ${clip(input.jobDescription)} | Ask follow-up questions on role boundary, metric ownership, failure details, and decision chain. |
-| Offer leverage | ${translateOfferRating(offerLeverage.rating)} | ${offerLeverage.summary} | Use only verifiable impact, scarce domain knowledge, competing offers, or start-date certainty as leverage. |
+| Offer leverage | ${translateOfferRating(offerLeverage.rating)} | ${translateGeneratedText(offerLeverage.summary, "en")} | Use only verifiable impact, scarce domain knowledge, competing offers, or start-date certainty as leverage. |
 
 ## JD Hidden Pain Point Decoding
 
@@ -1721,7 +1988,7 @@ ${requirementRows}
 
 | Capability | Current Evidence | Credibility | Follow-Up Question |
 | --- | --- | --- | --- |
-${rows.map((row) => `| ${translateCapability(row.capability)} | ${row.resumeEvidence} | ${translateEvidenceLevel(row.evidenceLevel)} | ${translateVerificationQuestion(row)} |`).join("\n")}
+${rows.map((row) => `| ${translateCapability(row.capability)} | ${localizeResumeEvidence(row.resumeEvidence)} | ${translateEvidenceLevel(row.evidenceLevel)} | ${translateVerificationQuestion(row)} |`).join("\n")}
 
 ## Project Highlights
 
@@ -1742,7 +2009,7 @@ ${gapRows || "| Evidence gap | No major missing row detected, but anti-packaging
 | Candidate stage | ${translateStage(input.candidateStage)} | Decide whether this is screening, business validation, final validation, or negotiation. |
 | Target level | ${input.targetLevel || "Not provided"} | Align level expectations before offer discussion. |
 | Offer constraints | ${input.offerConstraints || "Not provided"} | Add budget range, competing offers, start date, and role preference before negotiation. |
-| Negotiation leverage | ${translateOfferRating(offerLeverage.rating)} | ${offerLeverage.detail} |
+| Negotiation leverage | ${translateOfferRating(offerLeverage.rating)} | ${translateGeneratedText(offerLeverage.detail, "en")} |
 | Gate status | ${translateGateResult(gate.result)} | ${gate.enterSandbox ? "Continue validation." : "Do not push to offer before evidence is strengthened."} |
 
 ## Must-Ask Follow-Up Questions

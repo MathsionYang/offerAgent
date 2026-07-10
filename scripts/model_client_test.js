@@ -210,6 +210,8 @@ async function main() {
   assert.deepEqual(localizationBody.response_format, { type: "json_object" });
   assert.match(localizationBody.messages[0].content, /English/);
   assert.match(localizationBody.messages[0].content, /stable ID/);
+  assert.match(localizationBody.messages[0].content, /human feedback/i);
+  assert.match(localizationBody.messages[0].content, /must remain verbatim/i);
   assert.deepEqual(JSON.parse(localizationBody.messages[1].content), {
     schema_version: "language-artifact.v1",
     source_language: "zh",

@@ -178,6 +178,7 @@ OfferSimulationRun 已从报告段落升级为可回填的结构化状态。
 16. Cloudflare Worker 代理示例。
 17. smoke test 静态验收脚本。
 18. 输入就绪度提示：简历 / JD 字数、内容不足提示和面试官角色选择状态。
+19. 统一语言投影层：用户输入始终保持原文，界面、报告、图谱、虚拟委员会、评分表和导出内容按当前语言展示；Mock 运行在本地构建语言 artifact，真实模型运行按需翻译并缓存。
 
 ## 当前边界
 
@@ -187,7 +188,15 @@ OfferSimulationRun 已从报告段落升级为可回填的结构化状态。
 4. Skill Registry 仍是示例和前端运行结构，不是完整市场或插件系统。
 5. EvidenceGraph 是最小可用结构，不是持久化知识图谱数据库。
 6. 虚拟面试委员会是轻量规则驱动，不是完整多 Agent 仿真引擎。
-7. 已完成第十五阶段前端模块化：`apps/web/src/report-content-helpers.js` 承载候选人 / 面试官报告内容辅助函数，`apps/web/src/report-export-template.js` 承载静态报告 HTML 与 PDF 摘要卡模板，`apps/web/src/localization-mappers.js` 承载报告翻译和枚举本地化；`apps/web/app.js` 已降至 1893 行，主要保留页面编排、事件绑定、状态流转、模型提示词和 Mock 报告生成。
+7. 已完成第十五阶段前端模块化：`apps/web/src/report-content-helpers.js` 承载候选人 / 面试官报告内容辅助函数，`apps/web/src/report-export-template.js` 承载静态报告 HTML 与 PDF 摘要卡模板，`apps/web/src/localization-mappers.js` 承载报告翻译和枚举本地化；当前 `apps/web/app.js` 为 2191 行，`apps/web/src` 包含 20 个 JS 模块，主入口主要保留页面编排、事件绑定、状态流转、模型提示词和 Mock 报告生成。
+
+## 语言投影
+
+1. 所有用户输入保持原文，包括简历、JD、公司上下文、目标职级、Offer 约束及报告中的引用摘录。
+2. 界面文案、系统生成的报告内容、EvidenceGraph 节点、虚拟委员会、评分表、Summary 和 PDF 导出统一按当前语言投影。
+3. Mock 模式直接在浏览器内构建中英文 artifact；真实模型模式只在首次切换到目标语言时调用模型翻译，并将结果写入当前运行缓存复用。
+4. 语言 artifact 使用 `language-artifact.v3`。旧 schema 或缺失新字段的缓存会自动失效并重建，避免新增字段回退为中文。
+5. 生成过程中切换语言时使用切换 token 防止旧请求覆盖当前语言，生成结束后会按当前显示语言补齐 artifact 再渲染。
 
 ## 本地运行
 
@@ -237,8 +246,11 @@ node scripts/report_builders_test.js
 node scripts/report_content_helpers_test.js
 node scripts/report_export_template_test.js
 node scripts/localization_mappers_test.js
+node scripts/i18n_test.js
+node scripts/localized_run_view_test.js
 node scripts/evidence_graph_test.js
 node scripts/graph_view_test.js
+node scripts/input_readiness_test.js
 node scripts/skill_registry_test.js
 node scripts/reports_view_test.js
 node scripts/model_client_test.js
@@ -252,4 +264,4 @@ git diff --check
 
 ## 隐私说明
 
-Mock Demo 不会调用外部模型。真实模型模式下，API Key 只在当前浏览器页面内临时使用，不会写入仓库，也不会写入一致性缓存。缓存只保存基础报告运行状态，不保存 API Key 和人工反馈。请不要在公共设备或不可信环境中输入真实敏感简历信息。
+Mock Demo 不会调用外部模型。真实模型模式下，API Key 只在当前浏览器页面内临时使用，不会写入仓库，也不会写入一致性缓存。语言切换所需的真实模型翻译只在目标语言 artifact 缺失时按需调用；缓存可保存生成后的语言 artifact，但不保存 API Key 和人工反馈。请不要在公共设备或不可信环境中输入真实敏感简历信息。

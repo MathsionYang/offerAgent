@@ -13,6 +13,7 @@ const {
 
 assert.equal(typeof createReportExportTemplate, "function");
 
+let language = "zh";
 const template = createReportExportTemplate({
   i18n: {
     zh: {
@@ -21,9 +22,20 @@ const template = createReportExportTemplate({
         full: ["面试准备报告", "完整报告"],
       },
     },
+    en: {
+      pdfTitles: {
+        candidate: ["Candidate Interview Preparation Report", "Candidate Module"],
+        full: ["Interview Preparation Report", "Full Report"],
+      },
+    },
   },
+  getLanguage: () => language,
   getRunLanguage: () => "zh",
-  buildAudienceMarkdown: () => "# 报告正文\n\n内容",
+  buildAudienceMarkdown: () => (
+    language === "en"
+      ? "# Candidate Report\n\nLocalized content"
+      : "# 报告正文\n\n内容"
+  ),
   markdownToHtml: (markdown) => `<article>${markdown}</article>`,
   escapeHtml: (value) => String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -78,5 +90,12 @@ assert.ok(html.includes("<title>候选人面试准备报告</title>"));
 assert.ok(html.includes("<article># 报告正文"));
 assert.ok(html.includes("candidate"));
 assert.ok(html.includes("window.print()"));
+
+language = "en";
+const englishHtml = template.reportToStaticHtmlDocument(run, "candidate");
+assert.ok(englishHtml.includes('<html lang="en">'));
+assert.ok(englishHtml.includes("<title>Candidate Interview Preparation Report</title>"));
+assert.ok(englishHtml.includes("Generated At"));
+assert.equal(englishHtml.includes("生成时间"), false);
 
 console.log("report-export-template tests passed");

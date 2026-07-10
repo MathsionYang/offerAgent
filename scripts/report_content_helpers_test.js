@@ -89,5 +89,18 @@ assert.ok(helpers.buildJdHiddenPainRows(snapshot).some((row) => row.phrase === "
 
 language = "en";
 assert.ok(helpers.buildInterviewerThreeSecondSummary(snapshot).includes("Recommendation"));
+const candidateSummary = helpers.buildCandidateThreeSecondSummary(snapshot);
+assert.ok(candidateSummary.includes("| Review item | Conclusion | Candidate action |"));
+assert.ok(candidateSummary.includes("Core fit"));
+assert.ok(candidateSummary.includes("Differentiated advantage"));
+assert.ok(candidateSummary.includes("主导平台架构升级"));
+assert.equal(candidateSummary.includes("核心匹配度"), false);
+assert.equal(candidateSummary.includes("今晚优先动作"), false);
+
+const candidateAdvantages = helpers.buildCandidateAdvantageCards(snapshot);
+assert.ok(candidateAdvantages.includes("| Advantage | Evidence | How to guide the interview | Risk reminder |"));
+assert.ok(candidateAdvantages.includes("EN:技术架构与研发协同"));
+assert.ok(candidateAdvantages.includes("主导平台架构升级"));
+assert.equal(candidateAdvantages.includes("优势项"), false);
 
 console.log("report-content-helpers tests passed");

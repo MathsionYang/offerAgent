@@ -75,6 +75,7 @@ const builders = createReportBuilders({
   translateGateResult: (value) => `gate:${value}`,
   translateStage: (value) => `stage:${value}`,
   translateOfferRating: (value) => `offer:${value}`,
+  translateGeneratedText: (value) => `translated:${value}`,
   summarizeEvidenceCounts: () => "1 strong / 1 missing",
   normalizeSnapshot: (value) => value,
   buildEvidenceSummary: () => "一级 1 项，三级 1 项",
@@ -175,6 +176,27 @@ const englishRun = {
 };
 assert.ok(builders.buildAudienceMarkdown(englishRun, "candidate").includes("# Candidate Interview Preparation Report"));
 assert.ok(builders.buildAudienceMarkdown(englishRun, "interviewer").includes("# Interviewer Question Guide"));
-assert.ok(builders.buildAudienceMarkdown(englishRun, "offer").includes("# Offer Simulation Report"));
+const englishOffer = builders.buildAudienceMarkdown(englishRun, "offer");
+assert.ok(englishOffer.includes("# Offer Simulation Report"));
+assert.ok(englishOffer.includes("translated:补齐约束后再定价"));
+assert.equal(englishOffer.includes("| offer:中 | 补齐约束后再定价 |"), false);
+
+const projectedEnglishRun = {
+  ...run,
+  language: "zh",
+  display_language: "en",
+  display_report: [
+    "## Project Match Gate",
+    "Localized gate analysis from the current display artifact.",
+    "## Role Match",
+    "Localized role analysis from the current display artifact.",
+    "## Interviewer Decision Support",
+    "Localized interviewer decision analysis from the current display artifact.",
+  ].join("\n"),
+};
+const projectedCandidate = builders.buildAudienceMarkdown(projectedEnglishRun, "candidate");
+assert.ok(projectedCandidate.includes("# Candidate Interview Preparation Report"));
+assert.ok(projectedCandidate.includes("Localized role analysis from the current display artifact."));
+assert.equal(projectedCandidate.includes("# 候选人面试准备报告"), false);
 
 console.log("report-builders tests passed");

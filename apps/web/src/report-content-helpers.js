@@ -24,6 +24,8 @@
       findEvidence = () => "",
       translateCapability = (value) => value || "",
       translateOfferRating = (value) => value || "",
+      translateGateResult = (value) => value || "",
+      translateGeneratedText = (value) => value || "",
       translateInterviewerRecommendation = (value) => value || "",
       translateInterviewerAction = (value) => value || "",
       translateDirectConclusionPoints = (value) => value || "",
@@ -138,6 +140,21 @@
       const matchRate = Math.round((matchedRows.length / Math.max(rows.length, 1)) * 100);
       const topStrength = matchedRows[0] || rows[0];
       const topRisk = missingRows[0] || rows.find((row) => row.evidenceLevel >= 2) || rows[0];
+      if (getLanguage() === "en") {
+        const strengthConclusion = topStrength
+          ? `${translateCapability(topStrength.capability)}: ${topStrength.resumeEvidence}`
+          : "No clear differentiated advantage identified yet";
+        const riskConclusion = topRisk
+          ? `${translateCapability(topRisk.capability)}: ${topRisk.isMissing ? "Evidence gap" : translateGeneratedText(topRisk.evidenceLevelLabel, "en")}`
+          : "Pending validation";
+        return `| Review item | Conclusion | Candidate action |
+    | --- | --- | --- |
+    | Core fit | ${matchRate}%; ${translateGateResult(gate.result)} | Avoid generic fit claims; lead with the project loop closest to the JD. |
+    | Differentiated advantage | ${strengthConclusion} | Guide the interview toward this project and explain the problem, trade-offs, execution, and result. |
+    | Largest risk | ${riskConclusion} | Prepare metric definitions, personal contribution, failure retrospectives, or an honest transfer narrative. |
+    | Tonight's priority | Close the highest-risk evidence gap instead of covering everything. | Draw one project flow, list three key decisions, and add one set of verifiable metrics. |
+    | Negotiation / motivation | ${translateOfferRating(offerLeverage.rating)}: ${translateGeneratedText(offerLeverage.summary, "en")} | Tie expectations to responsibility scope, quantified contribution, and start-date certainty. |`;
+      }
       return `| 速览项 | 结论 | 候选人动作 |
     | --- | --- | --- |
     | 核心匹配度 | ${matchRate}%；${gate.result} | 不要泛泛说匹配，优先讲最贴近 JD 的项目闭环 |
@@ -206,6 +223,19 @@
       const rows = buildRequirementEvidenceRows(snapshot);
       const matchedRows = rows.filter((row) => !row.isMissing).slice(0, 3);
       const sourceRows = matchedRows.length ? matchedRows : rows.slice(0, 3);
+      if (getLanguage() === "en") {
+        return `| Advantage | Evidence | How to guide the interview | Risk reminder |
+    | --- | --- | --- | --- |
+    ${sourceRows.map((row, index) => {
+      const intro = index === 0
+        ? "Lead with this project in the first 30 seconds and invite a deep dive into your strongest evidence."
+        : "Use it as a supporting example to show the capability is not an isolated skill.";
+      const risk = row.isMissing
+        ? "This is only a potential advantage; do not claim ownership before adding real project evidence."
+        : "Do not rely on team outcomes. State your actions, decision authority, and result attribution.";
+      return `| ${translateCapability(row.capability)} | ${row.resumeEvidence} | ${intro} | ${risk} |`;
+    }).join("\n")}`;
+      }
       return `| 优势项 | 证据 | 面试中怎么主动引导 | 风险提醒 |
     | --- | --- | --- | --- |
     ${sourceRows.map((row, index) => {

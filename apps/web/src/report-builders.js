@@ -38,6 +38,7 @@
       translateGateResult = (value) => value || "",
       translateStage = (value) => value || "",
       translateOfferRating = (value) => value || "",
+      translateGeneratedText = (value) => value || "",
       summarizeEvidenceCounts = () => "",
       normalizeSnapshot = (value) => value || {},
       buildEvidenceSummary = () => "",
@@ -57,9 +58,9 @@ ${buildAudienceMarkdown(run, "offer")}`;
 
     // Keep audience selection in one place so exports and preview share logic.
     function buildAudienceMarkdown(run, audience) {
-      if (getRunLanguage(run) === "en") return buildAudienceMarkdownEn(run, audience);
+      if (getLanguage() === "en") return buildAudienceMarkdownEn(run, audience);
 
-      const report = run.report || "";
+      const report = run.display_report ?? run.report ?? "";
       const snapshot = run.input_snapshot || {};
       const directConclusion = buildDirectConclusion(snapshot);
       const gate = buildGateAssessment(snapshot);
@@ -188,7 +189,7 @@ ${body}`;
     }
 
     function buildAudienceMarkdownEn(run, audience) {
-      const report = run.report || "";
+      const report = run.display_report ?? run.report ?? "";
 
       if (audience === "candidate") {
         const body = [
@@ -283,7 +284,7 @@ ${turnRows}
     }
 
     function buildOfferSandboxMarkdownEn(run) {
-      const report = run.report || "";
+      const report = run.display_report ?? run.report ?? "";
       const snapshot = run.input_snapshot || {};
       const gate = buildGateAssessment(snapshot);
       const offerLeverage = buildOfferLeverage(snapshot);
@@ -298,7 +299,7 @@ ${turnRows}
 | Project gate | ${translateGateResult(gate.result)} | ${gate.enterSandbox ? "Continue to offer-risk validation." : "Pause progression and request stronger project evidence."} |
 | Candidate stage | ${translateStage(snapshot.candidate_stage)} | Align interview-round purpose before negotiation. |
 | Target level | ${snapshot.target_level || "Not provided"} | Clarify scope, level anchor, and evaluation standard. |
-| Negotiation leverage | ${translateOfferRating(offerLeverage.rating)} | ${offerLeverage.detail} |
+| Negotiation leverage | ${translateOfferRating(offerLeverage.rating)} | ${translateGeneratedText(offerLeverage.detail, "en")} |
 | Offer constraints | ${snapshot.offer_constraints ? clip(snapshot.offer_constraints) : "Not provided"} | Add budget, expected compensation, competing offers, start date, and team urgency. |
 | Evidence credibility | ${summarizeEvidenceCounts(rows)} | First-level evidence may support pricing; pending evidence should trigger more validation. |
 
@@ -322,7 +323,7 @@ ${[
     }
 
     function buildOfferSandboxMarkdown(run) {
-      const report = run.report || "";
+      const report = run.display_report ?? run.report ?? "";
       const snapshot = run.input_snapshot || {};
       const gate = buildGateAssessment(snapshot);
       const offerLeverage = buildOfferLeverage(snapshot);

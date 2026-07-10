@@ -28,6 +28,7 @@ def static_checks():
     report_export_template_path = web_root / "src" / "report-export-template.js"
     reports_view_path = web_root / "src" / "reports-view.js"
     model_client_path = web_root / "src" / "model-client.js"
+    localized_run_view_path = web_root / "src" / "localized-run-view.js"
     pdf_export_path = web_root / "src" / "pdf-export.js"
     feedback_engine_path = web_root / "src" / "feedback-engine.js"
     assessment_rules_path = web_root / "src" / "assessment-rules.js"
@@ -67,6 +68,7 @@ def static_checks():
     report_export_template_content = read(report_export_template_path) if report_export_template_path.exists() else ""
     reports_view_content = read(reports_view_path) if reports_view_path.exists() else ""
     model_client_content = read(model_client_path) if model_client_path.exists() else ""
+    localized_run_view_content = read(localized_run_view_path) if localized_run_view_path.exists() else ""
     pdf_export_content = read(pdf_export_path) if pdf_export_path.exists() else ""
     feedback_engine_content = read(feedback_engine_path) if feedback_engine_path.exists() else ""
     assessment_rules_content = read(assessment_rules_path) if assessment_rules_path.exists() else ""
@@ -88,6 +90,7 @@ def static_checks():
         + report_export_template_content
         + reports_view_content
         + model_client_content
+        + localized_run_view_content
         + pdf_export_content
         + feedback_engine_content
         + assessment_rules_content
@@ -1058,6 +1061,40 @@ def static_checks():
                 "resolveChatCompletionsEndpoint",
             ]
         ),
+        "localized_run_view_module_exists": localized_run_view_path.exists(),
+        "localized_run_view_api_exists": all(
+            term in localized_run_view_content
+            for term in [
+                "OfferAgentLocalizedRunView",
+                "collectTranslatableArtifacts",
+                "mergeLocalizedArtifacts",
+                "projectRunForLanguage",
+                "resolveLocalizedText",
+            ]
+        ),
+        "localized_run_view_loads_before_app": content["index"].find("./src/localized-run-view.js")
+        < content["index"].find("./app.js")
+        and content["index"].find("./src/localized-run-view.js") >= 0,
+        "async_language_projection_flow_exists": all(
+            term in content["app"] + content["i18n"]
+            for term in [
+                "languageSwitchToken",
+                "ensureLocalizedArtifact",
+                "getDisplayRun",
+                "localized_artifacts",
+                "statusLocalizing",
+                "statusLocalizationFailed",
+                "projectRunForLanguage",
+                "translateGeneratedArtifacts",
+            ]
+        ),
+        "language_projection_assets_cache_busted": all(
+            term in content["index"]
+            for term in [
+                "./src/i18n.js?v=web-20260710-5",
+                "./app.js?v=web-20260710-18",
+            ]
+        ),
         "virtual_panel_chat_stream_exists": all(
             term in content["index"] + app_modules + content["css"]
             for term in [
@@ -1320,6 +1357,7 @@ def main():
         "input_readiness": node_test(ROOT / "scripts" / "input_readiness_test.js"),
         "reports_view": node_test(ROOT / "scripts" / "reports_view_test.js"),
         "model_client": node_test(ROOT / "scripts" / "model_client_test.js"),
+        "localized_run_view": node_test(ROOT / "scripts" / "localized_run_view_test.js"),
         "pdf_export": node_test(ROOT / "scripts" / "pdf_export_test.js"),
         "feedback_engine": node_test(ROOT / "scripts" / "feedback_engine_test.js"),
         "skill_registry": node_test(ROOT / "scripts" / "skill_registry_test.js"),
@@ -1342,6 +1380,7 @@ def main():
         and result["input_readiness"]["passed"]
         and result["reports_view"]["passed"]
         and result["model_client"]["passed"]
+        and result["localized_run_view"]["passed"]
         and result["pdf_export"]["passed"]
         and result["feedback_engine"]["passed"]
         and result["skill_registry"]["passed"]

@@ -173,6 +173,7 @@
         "Preserve every stable ID exactly. Do not add, rename, or remove stable IDs.",
         "Preserve markdown structure, numbers, URLs, identifiers, model names, and product names.",
         "Keep quoted resume, JD, company-context, target-level, and offer-constraint excerpts in their original language.",
+        "Human feedback values and free-text notes are user-authored source material and must remain verbatim.",
         "Set schema_version to language-artifact.v1 and source to translated.",
       ].join("\n");
     }

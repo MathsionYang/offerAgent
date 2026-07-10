@@ -46,8 +46,8 @@
               <div class="card-header-left">
                 <div class="card-step-badge section-icon-badge" aria-hidden="true">⚙</div>
                 <div>
-                  <div class="card-title">配置模型与 Offer 沙盘</div>
-                  <div class="card-subtitle">选择模型服务，设置岗位目标、阶段和谈薪约束</div>
+                  <div class="card-title" id="config-card-title">配置模型与 Offer 沙盘</div>
+                  <div class="card-subtitle" id="config-card-subtitle">选择模型服务，设置岗位目标、阶段和谈薪约束</div>
                 </div>
               </div>
               <button id="mockBtn" class="btn btn-secondary btn-sm" type="button">填充脱敏样例</button>
@@ -56,8 +56,8 @@
               <div class="model-sandbox-grid">
                 <section class="sub-card config-panel" aria-label="临时配置模型">
                   <div class="model-panel-head">
-                    <span>临时配置模型</span>
-                    <small>支持 Mock Demo 与 OpenAI-compatible 代理</small>
+                    <span id="config-title">临时配置模型</span>
+                    <small id="config-panel-hint">支持 Mock Demo 与 OpenAI-compatible 代理</small>
                   </div>
                   <div class="form-row cols-2 compact-fields">
                     <label class="field">
@@ -130,8 +130,8 @@
               <div class="card-header-left">
                 <div class="card-step-badge section-icon-badge" aria-hidden="true">📄</div>
                 <div>
-                  <div class="card-title">输入简历与 JD</div>
-                  <div class="card-subtitle">候选人简历与岗位 JD 左右布局，便于对照补充</div>
+                  <div class="card-title" id="input-title">输入简历与 JD</div>
+                  <div class="card-subtitle" id="input-card-subtitle">候选人简历与岗位 JD 左右布局，便于对照补充</div>
                 </div>
               </div>
               <button id="clearBtn" class="btn btn-ghost btn-sm btn-danger" type="button">清空当前页面</button>
@@ -159,8 +159,8 @@
               <div class="card-header-left">
                 <div class="card-step-badge section-icon-badge" aria-hidden="true">👥</div>
                 <div>
-                  <div class="card-title">选择面试官角色</div>
-                  <div class="card-subtitle">勾选需要参与评估的虚拟面试官，不同角色提供不同视角的追问</div>
+                  <div class="card-title" id="skill-card-title">选择面试官角色</div>
+                  <div class="card-subtitle" id="skill-card-subtitle">勾选需要参与评估的虚拟面试官，不同角色提供不同视角的追问</div>
                 </div>
               </div>
             </div>
@@ -302,22 +302,22 @@
     <script src="./src/skill-registry.js?v=web-20260710-1"></script>
     <script src="./src/run-cache.js?v=web-20260710-2"></script>
     <script src="./src/input-readiness.js?v=web-20260710-1"></script>
-    <script src="./src/i18n.js?v=web-20260710-2"></script>
-    <script src="./src/localization-mappers.js?v=web-20260710-1"></script>
+    <script src="./src/i18n.js?v=web-20260710-5"></script>
+    <script src="./src/localization-mappers.js?v=web-20260710-4"></script>
     <script src="./src/virtual-panel.js?v=web-20260710-2"></script>
     <script src="./src/evidence-graph.js?v=web-20260710-2"></script>
-    <script src="./src/localized-run-view.js?v=web-20260710-1"></script>
+    <script src="./src/localized-run-view.js?v=web-20260710-5"></script>
     <script src="./src/graph-view.js?v=web-20260710-4"></script>
     <script src="./src/panel-view.js?v=web-20260710-1"></script>
-    <script src="./src/report-builders.js?v=web-20260710-1"></script>
+    <script src="./src/report-builders.js?v=web-20260710-3"></script>
     <script src="./src/reports-view.js?v=web-20260710-5"></script>
-    <script src="./src/model-client.js?v=web-20260710-4"></script>
-    <script src="./src/report-export-template.js?v=web-20260710-1"></script>
+    <script src="./src/model-client.js?v=web-20260710-6"></script>
+    <script src="./src/report-export-template.js?v=web-20260710-2"></script>
     <script src="./src/pdf-export.js?v=web-20260710-1"></script>
     <script src="./src/feedback-engine.js?v=web-20260710-1"></script>
     <script src="./src/assessment-rules.js?v=web-20260710-1"></script>
-    <script src="./src/report-content-helpers.js?v=web-20260710-1"></script>
+    <script src="./src/report-content-helpers.js?v=web-20260710-2"></script>
     <script src="./src/evaluation-engine.js?v=web-20260710-1"></script>
-    <script src="./app.js?v=web-20260710-11"></script>
+    <script src="./app.js?v=web-20260710-18"></script>
   </body>
 </html>
