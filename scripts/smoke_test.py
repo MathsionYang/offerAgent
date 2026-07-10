@@ -17,6 +17,7 @@ def read(path):
 def static_checks():
     web_root = ROOT / "apps" / "web"
     virtual_panel_path = web_root / "src" / "virtual-panel.js"
+    evidence_graph_path = web_root / "src" / "evidence-graph.js"
     files = {
         "index": web_root / "index.html",
         "candidate": web_root / "index.html",
@@ -41,12 +42,14 @@ def static_checks():
     }
     content = {name: read(path) for name, path in files.items()}
     virtual_panel_content = read(virtual_panel_path) if virtual_panel_path.exists() else ""
+    evidence_graph_content = read(evidence_graph_path) if evidence_graph_path.exists() else ""
     app_modules = (
         content["app"]
         + content["domain_data"]
         + content["run_cache"]
         + content["i18n"]
         + virtual_panel_content
+        + evidence_graph_content
     )
     ids = set(re.findall(r'id="([^"]+)"', content["index"]))
     refs = set(re.findall(r'\$\("([^"]+)"\)', content["app"]))
@@ -503,6 +506,28 @@ def static_checks():
                 "buildModeratorSummary",
             ]
         ),
+        "evidence_graph_model_module_exists": evidence_graph_path.exists(),
+        "evidence_graph_model_api_exists": all(
+            term in evidence_graph_content
+            for term in [
+                "OfferAgentEvidenceGraph",
+                "createEvidenceGraphModel",
+                "buildEvidenceGraph",
+                "reportAnchorForNodeType",
+                "detectEvidenceGraphGaps",
+            ]
+        ),
+        "evidence_graph_model_loads_before_app": content["index"].find("./src/evidence-graph.js")
+        < content["index"].find("./app.js")
+        and content["index"].find("./src/evidence-graph.js") >= 0,
+        "evidence_graph_model_removed_from_app": all(
+            f"function {name}" not in content["app"]
+            for name in [
+                "buildEvidenceGraph",
+                "reportAnchorForNodeType",
+                "detectEvidenceGraphGaps",
+            ]
+        ),
         "virtual_panel_chat_stream_exists": all(
             term in content["index"] + content["app"] + content["css"]
             for term in [
@@ -755,6 +780,7 @@ def main():
     result = {
         "static": static_checks(),
         "virtual_panel_model": node_test(ROOT / "scripts" / "virtual_panel_test.js"),
+        "evidence_graph_model": node_test(ROOT / "scripts" / "evidence_graph_test.js"),
     }
     if args.with_llm:
         result["llm_stream"] = llm_stream_check(args.with_llm, args.model)
@@ -762,6 +788,7 @@ def main():
     passed = (
         result["static"]["passed"]
         and result["virtual_panel_model"]["passed"]
+        and result["evidence_graph_model"]["passed"]
         and result.get("llm_stream", {"passed": True})["passed"]
     )
     result["passed"] = passed
