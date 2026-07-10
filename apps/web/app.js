@@ -41,8 +41,10 @@ const workspaceViewEls = Array.from(document.querySelectorAll("[data-workspace-v
 const resultViewEls = Array.from(document.querySelectorAll("[data-result-view]"));
 const appShellEl = document.querySelector(".page");
 
+if (languageEl) languageEl.value = "zh";
+
 let currentRun = null;
-let currentLanguage = languageEl?.value || "zh";
+let currentLanguage = "zh";
 let languageSwitchToken = 0;
 let activeAudienceMode = document.body?.dataset.pageMode === "interviewer" ? "interviewer" : "candidate";
 let activeWorkspaceView = "workbench";

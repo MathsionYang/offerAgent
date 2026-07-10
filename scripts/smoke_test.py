@@ -1088,11 +1088,21 @@ def static_checks():
                 "translateGeneratedArtifacts",
             ]
         ),
+        "language_selector_hidden_but_projection_kept": all(
+            term in content["index"] + content["app"]
+            for term in [
+                '<label class="language-switch" aria-label="语言" hidden>',
+                '<option value="en">English</option>',
+                'if (languageEl) languageEl.value = "zh";',
+                'let currentLanguage = "zh";',
+                "async function applyLanguage(language)",
+            ]
+        ),
         "language_projection_assets_cache_busted": all(
             term in content["index"]
             for term in [
                 "./src/i18n.js?v=web-20260710-5",
-                "./app.js?v=web-20260710-18",
+                "./app.js?v=web-20260710-19",
             ]
         ),
         "virtual_panel_chat_stream_exists": all(
