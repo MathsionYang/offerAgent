@@ -149,6 +149,58 @@
       return parseLanguageArtifactPayload(content, textById);
     }
 
+    async function testModelConnection(input) {
+      const startedAt = now();
+      const endpoint = resolveChatCompletionsEndpoint(input);
+      if (typeof fetchImpl !== "function") {
+        throw new Error("Fetch API is unavailable.");
+      }
+      if (typeof AbortControllerImpl !== "function") {
+        throw new Error("AbortController API is unavailable.");
+      }
+      const controller = new AbortControllerImpl();
+      const timeoutId = setTimeoutImpl?.(() => controller.abort(), Math.min(timeoutMs, 15000));
+      let response;
+      try {
+        response = await fetchImpl(endpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${input.apiKey}`,
+          },
+          body: JSON.stringify({
+            model: input.model,
+            messages: [
+              { role: "user", content: "Reply with OK." },
+            ],
+            temperature: 0,
+            max_tokens: 8,
+            stream: false,
+          }),
+          signal: controller.signal,
+        });
+      } finally {
+        if (timeoutId !== undefined) clearTimeoutImpl?.(timeoutId);
+      }
+      if (!response.ok) {
+        const text = await safeReadResponseText(response);
+        throw new Error(formatHttpGenerationError(response, text));
+      }
+      let content = "";
+      try {
+        const data = await response.json();
+        content = data?.choices?.[0]?.message?.content || "";
+      } catch {
+        content = "";
+      }
+      return {
+        ok: true,
+        endpoint,
+        latency_ms: Math.max(0, Math.round(now() - startedAt)),
+        sample: content.trim().slice(0, 40),
+      };
+    }
+
     function normalizeLanguage(language) {
       return language === "en" ? "en" : "zh";
     }
@@ -320,6 +372,7 @@
     return {
       generateWithLLM,
       translateGeneratedArtifacts,
+      testModelConnection,
       formatHttpGenerationError,
       readStreamResponse,
       extractDeltaFromStreamPayload,

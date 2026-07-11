@@ -94,6 +94,7 @@
               </div>
             </div>
             <div id="cacheStatus" class="cache-status" aria-live="polite">本机缓存：运行记录 0 条，反馈记录 0 条</div>
+            <div id="cacheList" class="cache-list" hidden></div>
             <div class="card-body">
               <div class="model-sandbox-grid">
                 <section class="sub-card sandbox-panel sub-panel" aria-label="Offer 沙盘">
@@ -160,13 +161,17 @@
                         <span class="field-label">临时 API Key</span>
                         <input class="field-input" id="apiKey" type="password" placeholder="Mock 模式不需要 Key" autocomplete="off" spellcheck="false" />
                       </label>
-                      <label class="field">
-                        <span class="field-label">Base URL（可选）</span>
-                        <input class="field-input" id="baseUrl" type="url" placeholder="https://your-worker.workers.dev" autocomplete="off" spellcheck="false" />
-                      </label>
-                    </div>
+                    <label class="field">
+                      <span class="field-label">Base URL（可选）</span>
+                      <input class="field-input" id="baseUrl" type="url" placeholder="https://your-worker.workers.dev" autocomplete="off" spellcheck="false" />
+                    </label>
                   </div>
-                </details>
+                  <div class="model-test-row">
+                    <button id="testModelBtn" class="btn btn-secondary btn-sm" type="button">测试连接</button>
+                    <span id="modelTestStatus" class="model-test-status" aria-live="polite">真实模型模式下可测试 Base URL、Key 和模型名。</span>
+                  </div>
+                </div>
+              </details>
               </div>
             </div>
           </div>
@@ -297,6 +302,9 @@
                   <button id="copySummaryBtn" class="btn btn-secondary btn-sm" type="button" disabled>复制结论</button>
                   <button id="copyQuestionsBtn" class="btn btn-secondary btn-sm" type="button" disabled>复制追问</button>
                   <button id="copyPrepBtn" class="btn btn-secondary btn-sm" type="button" disabled>复制准备清单</button>
+                  <button id="downloadMarkdownBtn" class="btn btn-secondary btn-sm" type="button" disabled>导出 Markdown</button>
+                  <button id="copyAtsBtn" class="btn btn-secondary btn-sm" type="button" disabled>复制 ATS</button>
+                  <button id="copyNotionBtn" class="btn btn-secondary btn-sm" type="button" disabled>复制 Notion</button>
                   <button id="downloadMdBtn" class="btn btn-secondary btn-sm" type="button" disabled hidden>导出候选人报告</button>
                   <button id="downloadInterviewerBtn" class="btn btn-secondary btn-sm" type="button" disabled hidden>导出面试官报告</button>
                   <button id="downloadOfferBtn" class="btn btn-secondary btn-sm" type="button" disabled hidden>导出 Offer 推演</button>
@@ -341,6 +349,7 @@
                 <label class="field feedback-notes"><span class="field-label">人工补充意见</span><textarea class="field-textarea" id="feedbackNotes" rows="4" placeholder="记录面试官的人工判断、新风险或需要写入报告的问题。"></textarea></label>
                 <button id="appendFeedbackBtn" class="btn btn-primary feedback-append-btn" type="button" disabled>把反馈写入报告</button>
               </div>
+              <div id="feedbackImpactPreview" class="feedback-impact-preview" aria-live="polite"></div>
             </div>
           </section>
         </aside>

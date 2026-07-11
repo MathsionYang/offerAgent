@@ -222,6 +222,41 @@ async function main() {
     },
   });
 
+  let testConnectionRequest = null;
+  const testConnectionClient = createModelClient({
+    providerDefaults,
+    fetchImpl: async (endpoint, request) => {
+      testConnectionRequest = { endpoint, request };
+      return {
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        headers: { get: () => "application/json" },
+        json: async () => ({ choices: [{ message: { content: "OK" } }] }),
+      };
+    },
+    now: (() => {
+      let value = 1000;
+      return () => {
+        value += 25;
+        return value;
+      };
+    })(),
+  });
+  const connectionResult = await testConnectionClient.testModelConnection({
+    provider: "openai",
+    model: "gpt-test",
+    apiKey: "test-key",
+    baseUrl: "",
+  });
+  assert.equal(connectionResult.ok, true);
+  assert.equal(connectionResult.endpoint, "https://api.openai.com/v1/chat/completions");
+  assert.equal(connectionResult.sample, "OK");
+  assert.equal(testConnectionRequest.request.headers.Authorization, "Bearer test-key");
+  const testConnectionBody = JSON.parse(testConnectionRequest.request.body);
+  assert.equal(testConnectionBody.stream, false);
+  assert.equal(testConnectionBody.max_tokens, 8);
+
   localizationPayload = {
     schema_version: "language-artifact.v3",
     source: "translated",

@@ -362,12 +362,16 @@ async function main() {
         routeCount: scenario?.options.length || 0,
         hasCacheStatus: /本机缓存/.test(cache?.textContent || ''),
         hasClearCache: Boolean(document.querySelector('#clearCacheBtn')),
+        hasQualityPrecheck: Boolean(document.querySelector('.input-quality-card')),
+        hasModelTest: Boolean(document.querySelector('#testModelBtn')),
       };
     })()`);
     assert.equal(sampleRouteState.hasScenario, true);
     assert.ok(sampleRouteState.routeCount >= 3);
     assert.equal(sampleRouteState.hasCacheStatus, true);
     assert.equal(sampleRouteState.hasClearCache, true);
+    assert.equal(sampleRouteState.hasQualityPrecheck, true);
+    assert.equal(sampleRouteState.hasModelTest, true);
 
     await evaluate(client, `document.querySelector('#generateBtn').click(); true;`);
     await waitForExpression(
@@ -384,7 +388,12 @@ async function main() {
       graphButtonSelected: document.querySelector('[data-workspace-view="graph"]')?.getAttribute('aria-selected') || '',
       copySummaryEnabled: !document.querySelector('#copySummaryBtn')?.disabled,
       copyQuestionsEnabled: !document.querySelector('#copyQuestionsBtn')?.disabled,
+      markdownEnabled: !document.querySelector('#downloadMarkdownBtn')?.disabled,
+      atsEnabled: !document.querySelector('#copyAtsBtn')?.disabled,
+      notionEnabled: !document.querySelector('#copyNotionBtn')?.disabled,
       actionBoard: Boolean(document.querySelector('.decision-action-board')),
+      prepPlan: Boolean(document.querySelector('.action-timeline')),
+      cacheListVisible: !document.querySelector('#cacheList')?.hidden,
       cacheStatus: document.querySelector('#cacheStatus')?.textContent || '',
     }))()`);
     assert.ok(generatedState.reportChars > 200);
@@ -393,7 +402,12 @@ async function main() {
     assert.equal(generatedState.graphButtonSelected, "true");
     assert.equal(generatedState.copySummaryEnabled, true);
     assert.equal(generatedState.copyQuestionsEnabled, true);
+    assert.equal(generatedState.markdownEnabled, true);
+    assert.equal(generatedState.atsEnabled, true);
+    assert.equal(generatedState.notionEnabled, true);
     assert.equal(generatedState.actionBoard, true);
+    assert.equal(generatedState.prepPlan, true);
+    assert.equal(generatedState.cacheListVisible, true);
     assert.match(generatedState.cacheStatus, /运行记录\s+1/);
 
     const graphSearchState = await evaluate(client, `(() => {
@@ -454,6 +468,19 @@ async function main() {
     assert.ok(graphAdvancedFilterState.panelSourceVisible > 0);
     assert.ok(graphAdvancedFilterState.highRiskVisible > 0);
     assert.equal(graphAdvancedFilterState.explainerActive, true);
+
+    const graphNodeWhyState = await evaluate(client, `(() => {
+      const riskNode = Array.from(document.querySelectorAll('.graph-node')).find((node) => node.dataset.nodeId?.startsWith('risk_'));
+      riskNode?.click();
+      return {
+        hasRiskNode: Boolean(riskNode),
+        panelOpen: document.querySelector('.trace-detail-panel')?.classList.contains('open') || false,
+        whyText: document.querySelector('.trace-detail-why')?.innerText || '',
+      };
+    })()`);
+    assert.equal(graphNodeWhyState.hasRiskNode, true);
+    assert.equal(graphNodeWhyState.panelOpen, true);
+    assert.match(graphNodeWhyState.whyText, /风险|risk|Offer|验证/);
 
     await waitForExpression(client, "document.querySelectorAll('.chat-bubble').length >= 2", 8000);
     const panelFilterState = await evaluate(client, `(() => {
@@ -536,6 +563,14 @@ async function main() {
     assert.ok(storedFeedbackState.count >= 1);
     assert.equal(storedFeedbackState.notes, "browser e2e feedback history");
     assert.equal(storedFeedbackState.hasApiKey, false);
+
+    const feedbackImpactState = await evaluate(client, `(() => ({
+      preview: document.querySelector('#feedbackImpactPreview')?.innerText || '',
+      comparison: document.querySelector('.feedback-impact-comparison')?.innerText || '',
+      adjustedAgents: window.__unused || Array.from(document.querySelectorAll('.chat-bubble')).length,
+    }))()`);
+    assert.match(feedbackImpactState.preview, /反馈影响|Feedback impact/);
+    assert.match(feedbackImpactState.comparison, /反馈前后|Feedback/);
 
     const clearedCacheState = await evaluate(client, `(() => {
       document.querySelector('#clearCacheBtn').click();

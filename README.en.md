@@ -43,6 +43,8 @@ OfferAgent helps candidates and interviewers connect role requirements with proj
 9. The same input can reuse a cached base report to reduce repeated-generation drift; the page shows local cache counts and provides a clear-cache action.
 10. Sanitized samples now include three routes: candidate prep, interviewer evaluation, and offer negotiation.
 11. The summary view can copy the conclusion, priority questions, and prep checklist for interview notes or team handoff.
+12. The input area now runs a quality precheck for quantified results, ownership boundaries, retrospectives, JD responsibility coverage, and context completeness.
+13. Advanced model settings include a Test connection action for Base URL, API key, and model name verification before generation.
 
 ## Core Capabilities
 
@@ -72,6 +74,7 @@ It includes:
 5. Risks and pending validations.
 6. Offer sandbox simulation.
 7. Evidence chain and evidence gaps.
+8. A 30-minute prep plan.
 
 ### 3. Interviewer Report
 
@@ -88,6 +91,7 @@ It includes:
 7. Risks and pending validations.
 8. Human feedback records.
 9. FeedbackDistillation results.
+10. Interview flow card for the current round.
 
 ### 4. Virtual Interview Panel
 
@@ -113,7 +117,7 @@ To make same-input reports more stable, the current version includes a consisten
 3. Local browser localStorage base-report cache reuse for identical inputs.
 4. Live model calls use `temperature: 0` and include a `seed`.
 5. The base-report cache does not store API keys or human feedback.
-6. The page exposes local cache status and a clear action for run cache plus feedback history.
+6. The page exposes local cache status, cache entries, per-entry deletion, and a clear action for run cache plus feedback history.
 
 ### 6. Interviewer Lens Library
 
@@ -141,6 +145,7 @@ Current support:
 6. Skill output auditability.
 7. Virtual interview panel auditability.
 8. High-risk decision explanation that clarifies whether nodes entered the view because of risk, Level 3 / missing evidence, challenge-linked questions, or offer impact.
+9. Node details explain why each node matters, including links to risk, questions, offer impact, or feedback.
 
 ### 8. OfferSimulationRun
 
@@ -164,6 +169,7 @@ In Interviewer mode, human feedback can be written into the report. Feedback is 
 5. Track feedback impact on risks, offer decisions, and Skill update suggestions.
 6. Feedback history for the same input fingerprint is saved in the local browser localStorage and restored after refresh or cache reuse.
 7. Feedback signals such as confirmed risk, insufficient evidence, and adopted / rejected questions now adjust virtual interviewer `influence_weight`, stance, and audit metadata.
+8. The summary and feedback sidebar show before / after feedback impact for question priority, risk state, and virtual role weights.
 
 ## Implemented
 
@@ -184,13 +190,16 @@ In Interviewer mode, human feedback can be written into the report. Feedback is 
 15. GitHub Pages deployment.
 16. Cloudflare Worker proxy example.
 17. Static smoke test, browser E2E, and visual regression scripts.
-18. Input readiness feedback for resume / JD length, limited context, and interviewer-role selection.
+18. Input readiness and quality precheck for resume / JD length, limited context, interviewer-role selection, quantified results, ownership boundaries, retrospectives, JD responsibility coverage, and context completeness.
 19. Unified language projection: user input remains verbatim while the interface, reports, graph, virtual panel, scorecards, summaries, and exports follow the active language. Mock runs build language artifacts locally, while live-model runs translate on demand and cache the result.
 20. Per-visit persona selection through two illustrated role cards; the selected workspace appears only after entry, identity is not persisted, and model configuration stays collapsed under Advanced by default.
 21. GitHub Actions pre-deploy test gate: syntax checks, JS tests, smoke test, visual regression, and whitespace checks.
 22. First-use three-step guidance, three sanitized sample routes, local cache status, and clear-cache control.
 23. Conclusion-first action board in the summary view with next action, top risks, must-ask questions, weakest evidence, and copy actions.
-24. Live-model error diagnostics for timeout, CORS, 401, 402/quota, 403, 404/model not found, 400/request-too-large, rate limit, and malformed OpenAI-compatible responses.
+24. Live-model error diagnostics and connection testing for timeout, CORS, 401, 402/quota, 403, 404/model not found, 400/request-too-large, rate limit, and malformed OpenAI-compatible responses.
+25. Local cache entries with per-entry deletion.
+26. Markdown export, ATS handoff copy, and Notion brief copy.
+27. Candidate 30-minute prep plan, interviewer flow card, feedback before / after comparison, and node-level graph explanations.
 
 ## Current Limits
 
@@ -200,7 +209,7 @@ In Interviewer mode, human feedback can be written into the report. Feedback is 
 4. Skill Registry is still an example-driven frontend structure, not a complete plugin or marketplace system.
 5. EvidenceGraph is a minimal usable graph, not a full knowledge-graph database.
 6. The virtual interview panel is a lightweight rule-driven layer, not a full multi-agent simulation engine.
-7. Frontend modularization phase 15 is complete. `apps/web/src/report-content-helpers.js` now owns candidate and interviewer report content helpers, `apps/web/src/report-export-template.js` owns the static report HTML and PDF summary-card template, and `apps/web/src/localization-mappers.js` owns report translations and enum localization. `apps/web/app.js` is currently 2,501 lines, `apps/web/src` contains 21 JavaScript modules, and the entry point primarily retains page orchestration, event binding, state flow, model prompts, and Mock report generation.
+7. Frontend modularization phase 15 is complete. `apps/web/src/report-content-helpers.js` now owns candidate and interviewer report content helpers, `apps/web/src/report-export-template.js` owns the static report HTML and PDF summary-card template, and `apps/web/src/localization-mappers.js` owns report translations and enum localization. `apps/web/app.js` is currently 2,681 lines, `apps/web/src` contains 21 JavaScript modules, and the entry point primarily retains page orchestration, event binding, state flow, model prompts, and Mock report generation.
 
 ## Language Projection
 

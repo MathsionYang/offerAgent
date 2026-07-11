@@ -64,6 +64,7 @@
       decisionSummaryEl.className = "decision-summary";
       decisionSummaryEl.innerHTML = `${renderDecisionSummaryCards(cards)}
         ${renderDecisionActionBoard(run)}
+        ${renderFeedbackImpactComparison(run)}
         ${renderDecisionOfferRunSection(run)}
         ${renderRoleDecisionSummarySections(run)}`;
     }
@@ -160,9 +161,11 @@
     function renderRoleDecisionSummarySections(run) {
       if (getPageMode() === "interviewer") {
         return `${renderInterviewerOneMinuteDecisionSection(run)}
+          ${renderInterviewerFlowCard(run)}
           ${renderInterviewerQuickBriefSection(run)}`;
       }
       return `${renderCandidateQuickDecisionSection(run)}
+        ${renderCandidatePrepPlan(run)}
         ${renderCandidateAdvantagesSection(run)}`;
     }
     
@@ -185,6 +188,17 @@
         ${markdownToHtml(table)}
       </section>`;
     }
+
+    function renderCandidatePrepPlan(run) {
+      const title = resolveLanguage() === "en" ? "30-minute prep plan" : "今晚 30 分钟准备计划";
+      const rows = buildCandidatePrepPlan(run);
+      return `<section class="decision-summary-section">
+        <h4>${escapeHtml(title)}</h4>
+        <div class="action-timeline">
+          ${rows.map((row) => `<article><span>${escapeHtml(row.time)}</span><strong>${escapeHtml(row.title)}</strong><p>${escapeHtml(row.detail)}</p></article>`).join("")}
+        </div>
+      </section>`;
+    }
     
     function renderInterviewerOneMinuteDecisionSection(run) {
       const snapshot = run?.input_snapshot || {};
@@ -202,6 +216,105 @@
         <h4>${escapeHtml(title)}</h4>
         ${markdownToHtml(buildInterviewerQuickBrief(snapshot))}
       </section>`;
+    }
+
+    function renderInterviewerFlowCard(run) {
+      const title = resolveLanguage() === "en" ? "Interview flow card" : "本轮面试流程卡";
+      const rows = buildInterviewerFlowCard(run);
+      return `<section class="decision-summary-section">
+        <h4>${escapeHtml(title)}</h4>
+        <div class="action-timeline interviewer-flow">
+          ${rows.map((row) => `<article><span>${escapeHtml(row.time)}</span><strong>${escapeHtml(row.title)}</strong><p>${escapeHtml(row.detail)}</p></article>`).join("")}
+        </div>
+      </section>`;
+    }
+
+    function renderFeedbackImpactComparison(run) {
+      if (!run?.human_feedback && !(run?.feedback_distillation?.actions || []).length) return "";
+      const title = resolveLanguage() === "en" ? "Feedback before / after" : "反馈前后对比";
+      const comparison = buildFeedbackImpactComparison(run);
+      return `<section class="feedback-impact-comparison">
+        <div class="decision-action-board-head">
+          <h4>${escapeHtml(title)}</h4>
+          <strong>${escapeHtml(comparison.status)}</strong>
+        </div>
+        <div class="feedback-impact-grid">
+          ${comparison.items.map((item) => `<article>
+            <span>${escapeHtml(item.label)}</span>
+            <strong>${escapeHtml(item.after)}</strong>
+            <small>${escapeHtml(item.before)}</small>
+          </article>`).join("")}
+        </div>
+      </section>`;
+    }
+
+    function buildCandidatePrepPlan(run) {
+      const weakRows = (run?.requirement_matches || [])
+        .filter((row) => row.is_missing || row.evidence_level >= 2)
+        .slice(0, 3);
+      const questions = (run?.top_follow_up_questions || run?.interview_questions || []).slice(0, 2);
+      if (resolveLanguage() === "en") {
+        return [
+          { time: "0-8 min", title: "Tighten the strongest story", detail: weakRows[0]?.capability ? `Add metric basis and ownership boundary for ${weakRows[0].capability}.` : "Pick the closest project and add metric basis, ownership boundary, and result." },
+          { time: "8-18 min", title: "Patch evidence gaps", detail: weakRows[1]?.verification_question || weakRows[0]?.verification_question || "Prepare one concrete example for each missing JD requirement." },
+          { time: "18-30 min", title: "Rehearse pressure questions", detail: questions[0]?.question || "Practice failure, delay, conflict, motivation, and offer-pressure answers." },
+        ];
+      }
+      return [
+        { time: "0-8 分钟", title: "打磨最强项目故事", detail: weakRows[0]?.capability ? `补齐「${weakRows[0].capability}」的指标口径、个人贡献和结果。` : "选择最贴近 JD 的项目，补齐指标口径、个人贡献和结果。" },
+        { time: "8-18 分钟", title: "补关键证据缺口", detail: weakRows[1]?.verification_question || weakRows[0]?.verification_question || "为每个缺证 JD 要求准备一个具体案例。" },
+        { time: "18-30 分钟", title: "演练压力问题", detail: questions[0]?.question || "演练失败复盘、延期冲突、动机和谈薪压力问题。" },
+      ];
+    }
+
+    function buildInterviewerFlowCard(run) {
+      const questions = (run?.top_follow_up_questions || run?.interview_questions || []).slice(0, 3);
+      const weak = (run?.requirement_matches || []).find((row) => row.is_missing || row.evidence_level >= 2);
+      if (resolveLanguage() === "en") {
+        return [
+          { time: "0-5 min", title: "Calibrate context", detail: "Confirm role scope, candidate stage, motivation, and current constraints." },
+          { time: "5-25 min", title: "Verify the weakest evidence", detail: weak?.verification_question || "Ask for one concrete project timeline with ownership, metrics, and tradeoffs." },
+          { time: "25-40 min", title: "Ask differentiating follow-ups", detail: questions.map((item) => item.question || item.capability).filter(Boolean).join(" / ") || "Use the top follow-up questions from the report." },
+          { time: "40-45 min", title: "Record decision signals", detail: "Write evidence level, risk validation, question usability, and next-round handoff." },
+        ];
+      }
+      return [
+        { time: "0-5 分钟", title: "校准背景", detail: "确认岗位范围、候选人阶段、动机和当前约束。" },
+        { time: "5-25 分钟", title: "验证最弱证据", detail: weak?.verification_question || "要求候选人还原一个具体项目时间线、个人贡献、指标和取舍。" },
+        { time: "25-40 分钟", title: "追问区分度问题", detail: questions.map((item) => item.question || item.capability).filter(Boolean).join(" / ") || "使用报告中的优先追问。" },
+        { time: "40-45 分钟", title: "记录决策信号", detail: "记录证据等级、风险是否验证、追问是否可用和下一轮交接。" },
+      ];
+    }
+
+    function buildFeedbackImpactComparison(run) {
+      const feedback = run?.human_feedback || {};
+      const actions = run?.feedback_distillation?.actions || [];
+      const panelAdjustments = (run?.virtual_panel || []).filter((agent) => agent.audit?.feedback_influence).length;
+      const promoted = actions.filter((action) => /promote|raise/i.test(action.type || action.id || "")).length;
+      const demoted = actions.filter((action) => /demote|lower|downgrade/i.test(action.type || action.id || "")).length;
+      const isEnglish = resolveLanguage() === "en";
+      return {
+        status: feedback.updated_at
+          ? (isEnglish ? "Human feedback applied" : "已应用人工反馈")
+          : (isEnglish ? "Feedback actions detected" : "已检测反馈动作"),
+        items: [
+          {
+            label: isEnglish ? "Questions" : "追问问题",
+            before: isEnglish ? "Before: generated priority only" : "反馈前：仅按系统优先级",
+            after: isEnglish ? `${promoted} promoted / ${demoted} demoted` : `${promoted} 个升权 / ${demoted} 个降权`,
+          },
+          {
+            label: isEnglish ? "Risk" : "风险判断",
+            before: isEnglish ? "Before: model-estimated risk" : "反馈前：模型估计风险",
+            after: feedback.risk_validation || (isEnglish ? "Still pending" : "仍待验证"),
+          },
+          {
+            label: isEnglish ? "Panel" : "虚拟委员会",
+            before: isEnglish ? "Before: base role weights" : "反馈前：基础角色权重",
+            after: isEnglish ? `${panelAdjustments} role weight changes` : `${panelAdjustments} 个角色权重变化`,
+          },
+        ],
+      };
     }
     
     function buildDecisionSummaryCards(run) {

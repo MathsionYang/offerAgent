@@ -166,12 +166,26 @@ assert.equal(graphView.normalizeSearchText(" Risks & Validation - Needed "), "ri
 assert.ok(
   graphView.resolveReportAnchorAliases("Risks and Validation Needed").includes("Risk"),
 );
+assert.ok(
+  graphView.buildGraphNodeDecisionExplanation(searchableRisk, [
+    { from: "risk_1", to: "offer_signal_1", type: "impacts_offer", source: "offer" },
+  ]).some((reason) => /risk signal/i.test(reason)),
+);
+assert.ok(
+  graphView.buildGraphNodeDecisionExplanation(weakEvidence, [
+    { from: "agent_business", to: "ev_req_1", type: "challenges", source: "virtual_panel" },
+  ]).some((reason) => /Level 3|missing evidence/i.test(reason)),
+);
 
 language = "zh";
 assert.equal(graphView.getEvidenceGraphLabels().title, "证据关系图谱");
 assert.equal(graphView.typeLabel("resume_evidence"), "证据");
 assert.ok(
   graphView.resolveReportAnchorAliases("证据链").includes("证据"),
+);
+assert.ok(
+  graphView.buildGraphNodeDecisionExplanation({ id: "q_1", type: "interview_question", metadata: {} }, [])
+    .some((reason) => /验证问题/.test(reason)),
 );
 
 console.log("graph-view tests passed");

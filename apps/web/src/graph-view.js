@@ -694,6 +694,7 @@
       const metadata = node.metadata ? Object.entries(node.metadata).slice(0, 8).map(([key, value]) => [localizeGraphMetadataKey(key), localizeGraphMetadataValue(key, value)]) : [];
       const relatedEdges = edges.filter((edge) => edge.from === node.id || edge.to === node.id).slice(0, 8);
       const anchor = node.metadata?.report_anchor;
+      const decisionReasons = buildGraphNodeDecisionExplanation(node, relatedEdges);
       const relatedHtml = relatedEdges.length
         ? relatedEdges.map((edge) => {
           const otherId = edge.from === node.id ? edge.to : edge.from;
@@ -718,8 +719,59 @@
             <div class="trace-detail-section-title">${escapeHtml(resolveLanguage() === "en" ? "Related nodes" : "关联节点")}</div>
             ${relatedHtml}
           </div>
+          <div class="trace-detail-section trace-detail-why">
+            <div class="trace-detail-section-title">${escapeHtml(resolveLanguage() === "en" ? "Why this matters" : "为什么值得关注")}</div>
+            <ul>${decisionReasons.map((reason) => `<li>${escapeHtml(reason)}</li>`).join("")}</ul>
+          </div>
           ${anchor ? `<div class="trace-detail-section"><button class="trace-detail-action" type="button" data-trace-report-anchor="${escapeHtml(anchor)}">${escapeHtml(labels.reportAnchor)}：${escapeHtml(anchor)}</button></div>` : ""}`,
       });
+    }
+
+    function buildGraphNodeDecisionExplanation(node, relatedEdges = []) {
+      const isEnglish = resolveLanguage() === "en";
+      const reasons = [];
+      const metadata = node?.metadata || {};
+      const severity = String(metadata.severity || metadata.risk_severity || "").toLowerCase();
+      const evidenceLevel = Number(metadata.evidence_level || 0);
+      const source = String(metadata.source || "");
+      const edgeText = relatedEdges.map((edge) => `${edge.type || ""} ${edge.source || ""} ${edge.note || ""}`).join(" ");
+
+      if (node?.type === "risk" || /high|critical|高|严重/.test(severity)) {
+        reasons.push(isEnglish
+          ? "It is a risk signal that can change the proceed / pause recommendation."
+          : "它是风险信号，可能改变推进 / 暂缓建议。");
+      }
+      if (node?.type === "resume_evidence" && (evidenceLevel >= 3 || /missing|缺失|缺证/i.test(`${metadata.evidence_level_label || ""} ${source}`))) {
+        reasons.push(isEnglish
+          ? "It is Level 3 or missing evidence, so the related conclusion must stay pending until validated."
+          : "它属于三级或缺失证据，相关结论必须保持待验证。");
+      }
+      if (/challenge|challenges|panel_simulation|virtual_panel/i.test(edgeText)) {
+        reasons.push(isEnglish
+          ? "It was challenged by the virtual panel, so linked questions should be asked earlier."
+          : "它被虚拟委员会 challenge，关联追问应前置。");
+      }
+      if (node?.type === "interview_question" || /questions|q_/i.test(`${node?.id || ""} ${edgeText}`)) {
+        reasons.push(isEnglish
+          ? "It links to a validation question that can confirm or disprove a risk."
+          : "它关联可验证问题，可用于证实或推翻风险。");
+      }
+      if (node?.type === "offer_signal" || /offer|impacts_offer|affects_offer/i.test(`${node?.type || ""} ${edgeText}`)) {
+        reasons.push(isEnglish
+          ? "It can affect offer readiness, negotiation leverage, or acceptance risk."
+          : "它会影响 Offer 推进、谈薪杠杆或接受风险。");
+      }
+      if (node?.type === "feedback" || /human_feedback|feedback/i.test(`${source} ${edgeText}`)) {
+        reasons.push(isEnglish
+          ? "It reflects human feedback and may recalibrate risk or question priority."
+          : "它来自人工反馈，可能校准风险或问题优先级。");
+      }
+      if (!reasons.length) {
+        reasons.push(isEnglish
+          ? "It is part of the traceable evidence chain for this recommendation."
+          : "它是当前建议可追溯证据链的一部分。");
+      }
+      return reasons;
     }
 
     function openGraphRelationDetail(edge, nodesById = buildCurrentGraphNodeMap(), labels = getEvidenceGraphLabels()) {
@@ -1033,6 +1085,7 @@
       matchesSourceFilter,
       buildEdgesByNodeId,
       buildHighRiskDecisionNodeIds,
+      buildGraphNodeDecisionExplanation,
       isHighRiskDecisionSeedNode,
       focusReportAnchor,
       normalizeSearchText,

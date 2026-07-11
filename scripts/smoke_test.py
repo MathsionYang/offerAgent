@@ -1313,7 +1313,12 @@ def static_checks():
                 "copySummaryBtn",
                 "copyQuestionsBtn",
                 "copyPrepBtn",
+                "downloadMarkdownBtn",
+                "copyAtsBtn",
+                "copyNotionBtn",
+                "cacheList",
                 "buildCopyPayload",
+                "renderCacheList",
             ]
         ),
         "product_enhancement_summary_graph_feedback": all(
@@ -1321,13 +1326,32 @@ def static_checks():
             for term in [
                 "decision-action-board",
                 "buildDecisionActionBoard",
+                "30-minute prep plan",
+                "Interview flow card",
+                "feedback-impact-comparison",
                 "Conclusion-first action board",
                 "graph-decision-explainer",
                 "highRiskWhy",
+                "buildGraphNodeDecisionExplanation",
                 "buildFeedbackInfluenceAdjustment",
                 "feedback_influence",
                 "model_not_found",
                 "insufficient",
+            ]
+        ),
+        "product_enhancement_input_model_reuse": all(
+            term in app_modules + content["index"] + content["css"]
+            for term in [
+                "evaluateInputQuality",
+                "input-quality-card",
+                "质量预检",
+                "testModelConnection",
+                "testModelBtn",
+                "modelTestStatus",
+                "buildAtsCopyText",
+                "buildNotionCopyText",
+                "downloadMarkdownArtifact",
+                "ATS / 面试系统交接卡",
             ]
         ),
         "privacy_no_non_cache_persistence_api": not re.search(

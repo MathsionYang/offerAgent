@@ -29,9 +29,15 @@ const downloadOfferBtn = $("downloadOfferBtn");
 const copySummaryBtn = $("copySummaryBtn");
 const copyQuestionsBtn = $("copyQuestionsBtn");
 const copyPrepBtn = $("copyPrepBtn");
+const downloadMarkdownBtn = $("downloadMarkdownBtn");
+const copyAtsBtn = $("copyAtsBtn");
+const copyNotionBtn = $("copyNotionBtn");
 const sampleScenarioEl = $("sampleScenario");
 const clearCacheBtn = $("clearCacheBtn");
 const cacheStatusEl = $("cacheStatus");
+const cacheListEl = $("cacheList");
+const testModelBtn = $("testModelBtn");
+const modelTestStatusEl = $("modelTestStatus");
 const feedbackAgreementEl = $("feedbackAgreement");
 const feedbackQuestionUseEl = $("feedbackQuestionUse");
 const feedbackDisagreementReasonEl = $("feedbackDisagreementReason");
@@ -585,6 +591,7 @@ const {
 const {
   generateWithLLM,
   translateGeneratedArtifacts,
+  testModelConnection,
 } = window.OfferAgentModelClient.createModelClient({
   providerDefaults,
   buildSystemPrompt,
@@ -725,6 +732,7 @@ function renderAllOutputSurfaces(run, options = {}) {
   renderEvidenceGraph(run);
   renderDecisionSummaryCard(run);
   renderInterviewerScorecard(run);
+  renderFeedbackImpactPreview(run);
   if (options.playPanel) {
     playVirtualPanelChat(run);
   } else {
@@ -749,6 +757,9 @@ providerEl.addEventListener("change", () => {
   apiKeyEl.placeholder =
     providerEl.value === "mock" ? getText().placeholders.apiKeyMock : getText().placeholders.apiKeyReal;
   updateModelMode();
+  setModelTestStatus(providerEl.value === "mock"
+    ? (currentLanguage === "en" ? "Mock Demo is local and does not need a model connection." : "Mock Demo 为本地模式，不需要测试模型连接。")
+    : (currentLanguage === "en" ? "Use Test connection to verify Base URL, key, and model." : "可用“测试连接”验证 Base URL、Key 和模型名。"));
 });
 
 apiKeyEl.addEventListener("input", updateModelMode);
@@ -820,6 +831,10 @@ bindClick("clearCacheBtn", () => {
   setStatus(currentLanguage === "en"
     ? `Cleared local cache: ${stats.cleared} item(s).`
     : `已清理本机缓存：${stats.cleared} 条。`);
+});
+
+bindClick("testModelBtn", async () => {
+  await runModelConnectionTest();
 });
 
 bindClick("clearBtn", () => {
@@ -989,6 +1004,9 @@ if (downloadOfferBtn) {
 bindClick("copySummaryBtn", () => copyRunText("summary"));
 bindClick("copyQuestionsBtn", () => copyRunText("questions"));
 bindClick("copyPrepBtn", () => copyRunText("prep"));
+bindClick("downloadMarkdownBtn", () => downloadMarkdownArtifact());
+bindClick("copyAtsBtn", () => copyRunText("ats"));
+bindClick("copyNotionBtn", () => copyRunText("notion"));
 
 appendFeedbackBtn.addEventListener("click", async () => {
   if (!currentRun) {
@@ -1014,6 +1032,7 @@ appendFeedbackBtn.addEventListener("click", async () => {
     }
   }
   renderAllOutputSurfaces(getDisplayRun(), { playPanel: true });
+  renderFeedbackImpactPreview(getDisplayRun());
   downloadMdBtn.disabled = false;
   setCopyActionsAvailable(true);
   setInterviewerDownloadDisabled(false);
@@ -1075,7 +1094,7 @@ function setOfferDownloadDisabled(disabled) {
 }
 
 function setCopyActionsAvailable(available) {
-  [copySummaryBtn, copyQuestionsBtn, copyPrepBtn].forEach((button) => {
+  [copySummaryBtn, copyQuestionsBtn, copyPrepBtn, downloadMarkdownBtn, copyAtsBtn, copyNotionBtn].forEach((button) => {
     if (button) button.disabled = !available;
   });
 }
@@ -1117,6 +1136,64 @@ function updateCacheStatus(stats = getLocalCacheStats()) {
   cacheStatusEl.textContent = currentLanguage === "en"
     ? `Local cache: ${stats.runCount} run(s), ${stats.feedbackCount} feedback record(s). API keys are not stored.`
     : `本机缓存：运行记录 ${stats.runCount} 条，反馈记录 ${stats.feedbackCount} 条。API Key 不会写入缓存。`;
+  renderCacheList();
+}
+
+function renderCacheList() {
+  if (!cacheListEl) return;
+  const entries = [
+    ...getCacheEntries(RUN_CACHE_PREFIX, "run"),
+    ...getCacheEntries(FEEDBACK_HISTORY_PREFIX, "feedback"),
+  ].sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(0, 8);
+  cacheListEl.hidden = entries.length === 0;
+  if (!entries.length) {
+    cacheListEl.innerHTML = "";
+    return;
+  }
+  const labels = currentLanguage === "en"
+    ? { run: "Run", feedback: "Feedback", delete: "Delete", title: "Local cache entries" }
+    : { run: "运行", feedback: "反馈", delete: "删除", title: "本机缓存明细" };
+  cacheListEl.innerHTML = `<div class="cache-list-head">${escapeHtml(labels.title)}</div>
+    ${entries.map((entry) => `<article class="cache-list-item">
+      <span>${escapeHtml(labels[entry.kind])}</span>
+      <strong>${escapeHtml(entry.title)}</strong>
+      <small>${escapeHtml(entry.at || "")}</small>
+      <button class="btn btn-ghost btn-sm" type="button" data-cache-delete-key="${escapeHtml(entry.key)}">${escapeHtml(labels.delete)}</button>
+    </article>`).join("")}`;
+  cacheListEl.querySelectorAll("[data-cache-delete-key]").forEach((button) => {
+    button.addEventListener("click", () => {
+      try {
+        localStorage.removeItem(button.dataset.cacheDeleteKey);
+      } catch {
+        // Ignore storage failures; the next render will show what remains.
+      }
+      updateCacheStatus();
+      setStatus(currentLanguage === "en" ? "Deleted one local cache entry." : "已删除一条本机缓存。");
+    });
+  });
+}
+
+function getCacheEntries(prefix, kind) {
+  return getLocalStorageKeysByPrefix(prefix).map((key) => {
+    let parsed = null;
+    try {
+      parsed = JSON.parse(localStorage.getItem(key) || "null");
+    } catch {
+      parsed = null;
+    }
+    const snapshot = parsed?.input_snapshot || {};
+    const history = Array.isArray(parsed) ? parsed : [];
+    return {
+      key,
+      kind,
+      title: kind === "run"
+        ? (snapshot.target_level || snapshot.target_role || parsed?.id || key.replace(prefix, "").slice(0, 10))
+        : `${history.length || 0} ${currentLanguage === "en" ? "feedback item(s)" : "条反馈"}`,
+      at: kind === "run"
+        ? (parsed?.cached_at || parsed?.created_at || "")
+        : (history[0]?.updated_at || ""),
+    };
+  });
 }
 
 async function copyRunText(kind) {
@@ -1132,8 +1209,8 @@ async function copyRunText(kind) {
   }
   await copyTextToClipboard(text);
   const label = currentLanguage === "en"
-    ? ({ summary: "summary", questions: "questions", prep: "prep checklist" }[kind] || "content")
-    : ({ summary: "结论", questions: "追问", prep: "准备清单" }[kind] || "内容");
+    ? ({ summary: "summary", questions: "questions", prep: "prep checklist", ats: "ATS handoff", notion: "Notion brief" }[kind] || "content")
+    : ({ summary: "结论", questions: "追问", prep: "准备清单", ats: "ATS 交接卡", notion: "Notion 摘要" }[kind] || "内容");
   setStatus(currentLanguage === "en" ? `Copied ${label}.` : `已复制${label}。`);
 }
 
@@ -1156,6 +1233,8 @@ async function copyTextToClipboard(text) {
 function buildCopyPayload(run, kind) {
   if (kind === "questions") return buildQuestionsCopyText(run);
   if (kind === "prep") return buildPrepCopyText(run);
+  if (kind === "ats") return buildAtsCopyText(run);
+  if (kind === "notion") return buildNotionCopyText(run);
   return buildSummaryCopyText(run);
 }
 
@@ -1198,6 +1277,99 @@ function buildPrepCopyText(run) {
     feedbackActions.length ? (isEnglish ? "Feedback actions" : "反馈动作") : "",
     ...feedbackActions,
   ].filter((line) => line !== "").join("\n");
+}
+
+function buildAtsCopyText(run) {
+  const isEnglish = currentLanguage === "en";
+  const summary = run?.evaluation_summary || {};
+  const questions = (run?.top_follow_up_questions || run?.interview_questions || []).slice(0, 5);
+  const weakRows = (run?.requirement_matches || []).filter((row) => row.is_missing || row.evidence_level >= 2).slice(0, 3);
+  return [
+    isEnglish ? "ATS handoff" : "ATS / 面试系统交接卡",
+    `${isEnglish ? "Decision signal" : "决策信号"}: ${summary.gate_result || (isEnglish ? "Pending" : "待判断")}`,
+    `${isEnglish ? "Evidence coverage" : "证据覆盖"}: ${summary.matched_count || 0}/${summary.total_requirements || run?.requirement_matches?.length || 0}`,
+    `${isEnglish ? "Top risks" : "核心风险"}: ${weakRows.map((row) => row.capability || row.match_status).filter(Boolean).join("；") || (isEnglish ? "None recorded" : "暂无")}`,
+    isEnglish ? "Must-ask questions:" : "必问追问：",
+    ...questions.map((item, index) => `${index + 1}. ${item.question || item.capability || ""}`),
+    `${isEnglish ? "Feedback status" : "反馈状态"}: ${run?.human_feedback?.agreement || (isEnglish ? "No feedback" : "未反馈")}`,
+  ].join("\n");
+}
+
+function buildNotionCopyText(run) {
+  const isEnglish = currentLanguage === "en";
+  return [
+    `# ${isEnglish ? "OfferAgent interview brief" : "OfferAgent 面试摘要"}`,
+    "",
+    `## ${isEnglish ? "Conclusion" : "结论"}`,
+    buildSummaryCopyText(run),
+    "",
+    `## ${isEnglish ? "Priority questions" : "优先追问"}`,
+    buildQuestionsCopyText(run),
+    "",
+    `## ${isEnglish ? "Prep / interview actions" : "准备 / 面试动作"}`,
+    buildPrepCopyText(run),
+  ].join("\n");
+}
+
+function downloadMarkdownArtifact() {
+  if (!currentRun) {
+    setStatus(getText().statusNeedReport, true);
+    return;
+  }
+  currentRun.human_feedback = collectFeedback();
+  const markdown = buildAudienceMarkdown(getDisplayRun(), getPageMode());
+  const filename = `${buildPdfFilename(currentRun, getPageMode()).replace(/\.pdf$/i, "")}.md`;
+  downloadFile(filename, markdown, "text/markdown;charset=utf-8");
+  setStatus(currentLanguage === "en" ? "Markdown exported." : "已导出 Markdown。");
+}
+
+async function runModelConnectionTest() {
+  if (!testModelBtn) return;
+  if (providerEl.value === "mock") {
+    setModelTestStatus(currentLanguage === "en" ? "Mock Demo is local and does not need a model connection." : "Mock Demo 为本地模式，不需要测试模型连接。");
+    return;
+  }
+  const input = collectInput();
+  if (!input.apiKey || !input.model) {
+    setModelTestStatus(currentLanguage === "en" ? "Enter API Key and model name first." : "请先填写 API Key 和模型名称。", true);
+    return;
+  }
+  testModelBtn.disabled = true;
+  setModelTestStatus(currentLanguage === "en" ? "Testing model connection..." : "正在测试模型连接...");
+  try {
+    const result = await testModelConnection(input);
+    setModelTestStatus(currentLanguage === "en"
+      ? `Connection OK · ${result.latency_ms}ms · ${result.endpoint}`
+      : `连接成功 · ${result.latency_ms}ms · ${result.endpoint}`);
+  } catch (error) {
+    setModelTestStatus(formatGenerationError(error), true);
+  } finally {
+    testModelBtn.disabled = false;
+  }
+}
+
+function setModelTestStatus(message, isError = false) {
+  if (!modelTestStatusEl) return;
+  modelTestStatusEl.textContent = message;
+  modelTestStatusEl.classList.toggle("error", Boolean(isError));
+}
+
+function renderFeedbackImpactPreview(run) {
+  const target = $("feedbackImpactPreview");
+  if (!target) return;
+  if (!run?.human_feedback && !(run?.feedback_distillation?.actions || []).length) {
+    target.innerHTML = currentLanguage === "en"
+      ? "<p>Feedback impact appears here after you write feedback into the report.</p>"
+      : "<p>写入反馈后，这里会展示问题、风险和虚拟角色权重的变化。</p>";
+    return;
+  }
+  const actions = run.feedback_distillation?.actions || [];
+  const adjustedAgents = (run.virtual_panel || []).filter((agent) => agent.audit?.feedback_influence);
+  const promoted = actions.filter((action) => /promote|raise/i.test(action.type || action.id || "")).length;
+  const demoted = actions.filter((action) => /demote|lower|downgrade/i.test(action.type || action.id || "")).length;
+  target.innerHTML = currentLanguage === "en"
+    ? `<strong>Feedback impact</strong><span>${promoted} question(s) promoted, ${demoted} demoted, ${adjustedAgents.length} panel role(s) recalibrated.</span>`
+    : `<strong>反馈影响</strong><span>${promoted} 个问题升权，${demoted} 个问题降权，${adjustedAgents.length} 个虚拟角色权重已校准。</span>`;
 }
 
 function countWeakRequirementRows(run) {
@@ -1453,6 +1625,7 @@ async function applyLanguage(language) {
   setOptionText(sampleScenarioEl, "interviewer_eval", currentLanguage === "en" ? "Interviewer evaluation" : "面试官评估");
   setOptionText(sampleScenarioEl, "offer_negotiation", currentLanguage === "en" ? "Offer negotiation" : "Offer 谈判");
   setText("#clearCacheBtn", currentLanguage === "en" ? "Clear local cache" : "清理本机缓存");
+  setText("#testModelBtn", currentLanguage === "en" ? "Test connection" : "测试连接");
   setFieldLabel(providerEl, text.labels.provider);
   setFieldLabel(modelEl, text.labels.model);
   setFieldLabel(apiKeyEl, text.labels.apiKey);
@@ -1497,6 +1670,9 @@ async function applyLanguage(language) {
   setText("#copySummaryBtn", currentLanguage === "en" ? "Copy summary" : "复制结论");
   setText("#copyQuestionsBtn", currentLanguage === "en" ? "Copy questions" : "复制追问");
   setText("#copyPrepBtn", currentLanguage === "en" ? "Copy prep list" : "复制准备清单");
+  setText("#downloadMarkdownBtn", currentLanguage === "en" ? "Export Markdown" : "导出 Markdown");
+  setText("#copyAtsBtn", currentLanguage === "en" ? "Copy ATS" : "复制 ATS");
+  setText("#copyNotionBtn", currentLanguage === "en" ? "Copy Notion" : "复制 Notion");
   setText("#downloadMdBtn", text.labels.downloadCandidate);
   setText("#downloadInterviewerBtn", text.labels.downloadInterviewer);
   setText("#downloadOfferBtn", text.labels.downloadOffer);
@@ -1622,6 +1798,7 @@ function applyCleanChineseCopy() {
   setOptionText(sampleScenarioEl, "interviewer_eval", "面试官评估");
   setOptionText(sampleScenarioEl, "offer_negotiation", "Offer 谈判");
   setText("#clearCacheBtn", "清理本机缓存");
+  setText("#testModelBtn", "测试连接");
   setText("#input-title", "输入简历与 JD");
   setText("#clearBtn", "清空当前页面");
   setText("#generateBtn", "生成评估报告");
@@ -1635,6 +1812,9 @@ function applyCleanChineseCopy() {
   setText("#copySummaryBtn", "复制结论");
   setText("#copyQuestionsBtn", "复制追问");
   setText("#copyPrepBtn", "复制准备清单");
+  setText("#downloadMarkdownBtn", "导出 Markdown");
+  setText("#copyAtsBtn", "复制 ATS");
+  setText("#copyNotionBtn", "复制 Notion");
   setText("#downloadMdBtn", "导出 PDF");
   setText("#downloadInterviewerBtn", "导出 PDF");
   setText("#downloadOfferBtn", "导出 Offer 推演 PDF");
