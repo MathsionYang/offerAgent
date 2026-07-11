@@ -243,6 +243,7 @@
           ${renderPanelFilterSelect("agent", labels.agent, collectPanelAgentOptions(run, labels))}
           ${renderPanelFilterSelect("evidence", labels.evidence, collectPanelEvidenceOptions(run, labels))}
         </div>
+        <p class="panel-filter-status" aria-live="polite"></p>
         <p class="panel-filter-empty" hidden>${escapeHtml(labels.empty)}</p>
       </div>`;
     }
@@ -278,6 +279,7 @@
             allEvidence: "All evidence",
             moderator: "Moderator",
             evidenceItem: (index) => `Evidence ${index + 1}`,
+            matchCount: (visible, total) => `Showing ${visible}/${total} panel turns`,
             empty: "No panel turns match the current filters.",
           }
         : {
@@ -287,6 +289,7 @@
             allEvidence: "全部证据",
             moderator: "主持人",
             evidenceItem: (index) => `证据 ${index + 1}`,
+            matchCount: (visible, total) => `已显示 ${visible}/${total} 条发言`,
             empty: "当前筛选条件下没有匹配发言。",
           };
     }
@@ -340,28 +343,41 @@
       virtualPanelChatEl.querySelectorAll(".panel-chat-filter-select").forEach((selectEl) => {
         if (selectEl.dataset.filterBound === "true") return;
         selectEl.dataset.filterBound = "true";
-        selectEl.addEventListener("change", applyVirtualPanelFilters);
+        selectEl.addEventListener("change", () => applyVirtualPanelFilters({ scrollToFirst: true }));
       });
       applyVirtualPanelFilters();
     }
 
-    function applyVirtualPanelFilters() {
+    function applyVirtualPanelFilters(options = {}) {
       if (!virtualPanelChatEl) return;
       const selectedRound = virtualPanelChatEl.querySelector(".panel-round-filter.active")?.dataset.panelRound || "all";
       const selectedAgent = virtualPanelChatEl.querySelector('[data-panel-filter="agent"]')?.value || "all";
       const selectedEvidence = virtualPanelChatEl.querySelector('[data-panel-filter="evidence"]')?.value || "all";
       let visibleCount = 0;
-      virtualPanelChatEl.querySelectorAll(".chat-bubble").forEach((messageEl) => {
+      let firstVisibleEl = null;
+      const messageEls = Array.from(virtualPanelChatEl.querySelectorAll(".chat-bubble"));
+      messageEls.forEach((messageEl) => {
         const roundMatches = selectedRound === "all" || messageEl.dataset.panelRound === selectedRound;
         const agentMatches = selectedAgent === "all" || messageEl.dataset.panelAgent === selectedAgent;
         const evidenceIds = String(messageEl.dataset.panelEvidenceIds || "").split(/\s+/).filter(Boolean);
         const evidenceMatches = selectedEvidence === "all" || evidenceIds.includes(selectedEvidence);
         const visible = roundMatches && agentMatches && evidenceMatches;
         messageEl.hidden = !visible;
-        if (visible) visibleCount += 1;
+        if (visible) {
+          visibleCount += 1;
+          if (!firstVisibleEl) firstVisibleEl = messageEl;
+        }
       });
+      const labels = getPanelFilterLabels();
+      const statusEl = virtualPanelChatEl.querySelector(".panel-filter-status");
+      if (statusEl) {
+        statusEl.textContent = labels.matchCount(visibleCount, messageEls.length);
+      }
       const emptyEl = virtualPanelChatEl.querySelector(".panel-filter-empty");
       if (emptyEl) emptyEl.hidden = visibleCount !== 0;
+      if (options.scrollToFirst && firstVisibleEl) {
+        firstVisibleEl.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
     }
 
     function buildModeratorBasisTrace(turnTraceItems, run) {

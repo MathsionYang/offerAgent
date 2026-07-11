@@ -111,6 +111,7 @@ assert.ok(tabs.includes('data-panel-round="round_seed_reading"'));
 assert.ok(tabs.includes('data-panel-round="moderator"'));
 assert.ok(tabs.includes('data-panel-filter="agent"'));
 assert.ok(tabs.includes('data-panel-filter="evidence"'));
+assert.ok(tabs.includes("panel-filter-status"));
 assert.ok(tabs.includes("Business Lead"));
 assert.ok(tabs.includes("ev_req_1"));
 
