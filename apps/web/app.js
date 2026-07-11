@@ -156,6 +156,8 @@ const {
 
 const {
   buildInterviewerResumeBrief,
+  buildInterviewerMatchSnapshot,
+  buildInterviewerMandatoryVerificationQuestions,
   buildDirectConclusion,
   buildConcreteJobAnalysis,
   buildCandidateThreeSecondSummary,
@@ -165,11 +167,29 @@ const {
   buildInterviewerAdvantageCards,
   buildAbilityTransferAnalysis,
   buildConcreteGapTable,
+  buildCandidateJdGapActionTable,
+  buildCandidateMatchSnapshot,
+  buildCandidateResumeRevisionWorkbench,
+  buildCandidateFinalResumeChecklist,
+  buildCandidateTruthfulnessGate,
+  buildCandidateScorecard,
+  buildCandidateMaterialQuestions,
+  buildCandidateContributionVerbAudit,
+  buildCandidateOptimizedResumeDraft,
+  buildCandidateAtsPlainTextResume,
+  buildCandidateHrPitch,
+  buildCandidateMetricPromptTable,
+  buildCandidateResumeRewriteTable,
+  buildCandidateRewrittenResumeReference,
+  buildCandidateEvidencePatchCards,
   buildConcreteCandidateQuestions,
   buildCandidateRevisionAdvice,
   buildCandidateStrategyAdvice,
   buildPressureInterviewGuide,
   buildConcreteInterviewerQuestions,
+  buildInterviewerAuthenticityRiskTable,
+  buildInterviewerJdDepthProbeTable,
+  buildInterviewerPotentialSignalsTable,
   buildInterviewerRecommendation,
   buildInterviewerScorecard,
   buildInterviewerSignalTable,
@@ -229,12 +249,12 @@ guardAppShell();
 // scripts/smoke_test.py keeps the critical product contracts aligned.
 const systemPrompt = `你是面试准备助手。
 
-请基于用户提供的简历、JD、Offer 沙盘上下文和已选择的虚拟面试官视角，生成中文 Markdown 面试准备报告。报告的核心用途是帮助候选人更好准备面试，同时生成可供面试官挑选使用的候选人追问题库。
+请基于用户提供的简历、JD、Offer 沙盘上下文和已选择的虚拟面试官视角，生成中文 Markdown 评估材料。候选人报告只服务两件事：对照当前 JD 修改简历，以及准备最可能被问到的问题。面试官报告只服务两件事：判断候选人与 JD 的匹配度，以及通过问询验证简历项目经历是否真实。
 
 报告必须区分两个完全不同的使用场景：
-- 候选人报告：从“诊断清单”升级为“面试打法”，帮助候选人知道优势如何放大、缺证如何诚实表达、今晚先补什么、面试中如何引导项目故事、如何准备动机和谈薪。
-- 面试官报告：从“JD 匹配分析”升级为“多角色决策辅助系统”，帮助面试官快速判断推荐强度、候选人画像、核心风险、追问链、红绿灯信号、评分卡和下一轮接力信息。
-- 不得把同一套结论简单换标题分别给候选人和面试官。候选人要看到行动策略，面试官要看到决策工具。
+- 候选人报告：必须让候选人直接看出相对当前 JD 的匹配度、哪些经历没写清楚、应该怎么改，并给出可参考的改写示例；随后输出面试预测问题、为什么会问、怎么回答、不要怎么答。
+- 面试官报告：必须让面试官看出候选人与 JD 的匹配度、哪些项目经历可能包装，并给出必须问的问题、为什么必须问、候选人绿灯 / 黄灯 / 红灯回答分别说明什么。
+- 不得把同一套结论简单换标题分别给候选人和面试官。候选人要看到可直接改简历和备答的材料，面试官要看到可直接验真的问题链。
 
 必须遵守：
 - 可以输出“项目匹配闸口”的推进建议：项目经历明显不匹配 JD 职责时，建议不进入下一轮沙盘；匹配或待验证时，建议进入下一轮沙盘验证。
@@ -243,8 +263,8 @@ const systemPrompt = `你是面试准备助手。
 - 缺少证据时只能标注为待验证。
 - 每个关键判断必须引用简历或 JD 的具体证据。
 - 潜力只能表达为行为证据和待验证假设。
-- 报告优先服务于候选人的面试准备，帮助候选人补齐项目证据、表达结构和风险预案。
-- 报告同时服务于面试官提问，输出可挑选的岗位要求、项目经历、项目推进和 Offer 动机问题。
+- 候选人内容优先服务于简历润色：补齐项目证据、指标口径、个人贡献边界、改写示例和面试回答预案。
+- 面试官内容优先服务于简历验真：输出必须问、追问路径、红黄绿信号和记录结论，不以 Offer 决策作为第一目标。
 
 运行时契约：
 - 根据 target_role 调整能力模型、评分维度、追问重点、虚拟面试官组合和风险判断。产品、开发、技术支持、销售岗位必须使用各自的岗位判断框架；其他岗位从 JD 动态抽取可验证维度。
@@ -289,9 +309,9 @@ const systemPrompt = `你是面试准备助手。
 - 生成内容允许使用 Markdown 结构，但最终报告不能出现多余 Markdown 装饰符，例如加粗星号、分隔线、代码围栏、引用符号、裸露表格分隔线。
 - 所有报告必须先下结论，再列详细分析。
 - 每一个结论都必须给出证据，表格中优先使用“结论 / 证据 / 详细说明 / 下一步”结构。
-- 面向候选人的报告必须增加招聘岗位分析：企业需要候选人具备什么能力、当前简历与岗位职责的匹配程度、不匹配点和重点准备建议。
-- 面向候选人的报告必须给出策略指导：三秒结论、优势放大、能力迁移、今晚行动清单、模拟面试路线图、压力问题预案、薪资 / 动机准备，不只输出检查清单。
-- 面向面试官的报告必须与候选人报告明显区分，不得复制候选人版结论页。面试官版要回答：这个人能不能干活、是否融入团队、水分有多少、值不值得给 Offer。
+- 面向候选人的报告必须增加招聘岗位分析：企业需要候选人具备什么能力、当前简历与岗位职责的匹配程度、不匹配点、逐项修改建议和改写后简历参考。
+- 面向候选人的报告必须给出面试预测准备：必问问题、为什么会问、回答结构、可直接套用的开头、风险表达和不要这样答，不只输出检查清单。
+- 面向面试官的报告必须与候选人报告明显区分，不得复制候选人版结论页。面试官版要回答：这个人与 JD 是否匹配、简历项目是否真实、哪些问题必须问、不同回答表现说明什么风险。
 - 面向面试官的报告必须按角色分化输出，至少覆盖 HR、技术架构 / 技术负责人、产品负责人、项目推进 / PMO、业务负责人 / 决策层五类视角。每类角色只输出该角色最需要的候选人画像、验证重点、必问问题、深挖问题、快速验证问题、红绿灯信号、评分卡和给下一轮面试官的信息。
 - 面试官报告必须提供“一分钟速览”，用于面试官在面试前 5 分钟快速决策阅读：推荐等级、核心亮点、核心风险、必问 3 题、面试策略、下一轮传递重点。
 - 每个核心追问必须包含追问链：回答好继续深挖什么，回答差如何止损或快速验证，以及面试后记录什么结论。
@@ -419,6 +439,7 @@ const {
   reportEl,
   getCurrentRun: () => getDisplayRun(),
   getLanguage: () => currentLanguage,
+  getPageMode,
   detectEvidenceGraphGaps,
   reportAnchorForNodeType,
   escapeHtml,
@@ -434,6 +455,7 @@ panelViewApi = window.OfferAgentPanelView.createPanelView({
   evidenceGraphEl,
   getLanguage: () => currentLanguage,
   getText: () => window.OfferAgentI18n.getText(currentLanguage),
+  getPageMode,
   detectEvidenceGraphGaps,
   reportAnchorForNodeType,
   escapeHtml,
@@ -491,8 +513,13 @@ const {
   localizeFeedbackStatus,
   buildCandidateThreeSecondSummary,
   buildCandidateAdvantageCards,
+  buildCandidateMatchSnapshot,
+  buildCandidateResumeRevisionWorkbench,
+  buildConcreteCandidateQuestions,
   buildInterviewerOneMinuteDecisionBrief,
   buildInterviewerQuickBrief,
+  buildInterviewerMatchSnapshot,
+  buildInterviewerMandatoryVerificationQuestions,
   translateGateResult,
   translateOfferRating,
   translateCapability,
@@ -516,12 +543,32 @@ const {
   buildConcreteJobAnalysis,
   buildAbilityTransferAnalysis,
   buildConcreteGapTable,
+  buildCandidateJdGapActionTable,
+  buildCandidateMatchSnapshot,
+  buildCandidateResumeRevisionWorkbench,
+  buildCandidateFinalResumeChecklist,
+  buildCandidateTruthfulnessGate,
+  buildCandidateScorecard,
+  buildCandidateMaterialQuestions,
+  buildCandidateContributionVerbAudit,
+  buildCandidateOptimizedResumeDraft,
+  buildCandidateAtsPlainTextResume,
+  buildCandidateHrPitch,
+  buildCandidateMetricPromptTable,
+  buildCandidateResumeRewriteTable,
+  buildCandidateRewrittenResumeReference,
+  buildCandidateEvidencePatchCards,
   buildCandidateRevisionAdvice,
   buildCandidateStrategyAdvice,
   buildConcreteCandidateQuestions,
   buildPressureInterviewGuide,
   buildHumanFeedbackMarkdown,
   buildInterviewerResumeBrief,
+  buildInterviewerMatchSnapshot,
+  buildInterviewerMandatoryVerificationQuestions,
+  buildInterviewerAuthenticityRiskTable,
+  buildInterviewerJdDepthProbeTable,
+  buildInterviewerPotentialSignalsTable,
   buildCandidateProfile,
   buildInterviewerScorecard,
   buildInterviewerSignalTable,
@@ -723,7 +770,7 @@ async function ensureDisplayLanguageArtifact(run) {
 
 function renderAllOutputSurfaces(run, options = {}) {
   if (!run) return;
-  const markdown = buildPreviewMarkdown(run);
+  const markdown = buildAudienceMarkdown(run, getPageMode());
   if (options.streaming) {
     renderStreamingReport(markdown, options.status || getText().reportUpdated, true);
   } else {
@@ -1395,6 +1442,11 @@ function setAudienceMode(mode) {
   applyInterviewerMode();
   applyAudienceFlowCopy();
   const displayRun = getDisplayRun();
+  if (displayRun) {
+    renderReport(buildAudienceMarkdown(displayRun, getPageMode()));
+    renderEvidenceGraph(displayRun);
+    renderVirtualPanelChat(displayRun);
+  }
   renderDecisionSummaryCard(displayRun);
   renderInterviewerScorecard(displayRun);
   setReportDownloadsAvailable(Boolean(currentRun));
@@ -2031,8 +2083,8 @@ function enrichEvaluationRun(run) {
   const offerSimulationRun = buildOfferSimulationRun(run, snapshot, gate, offerLeverage, requirementRows, feedback);
   const feedbackDistillation = buildFeedbackDistillation(feedback, requirementRows, snapshot);
   const virtualPanel = buildVirtualInterviewPanel(snapshot, requirementRows, gate, feedback);
-  const panelDiscussionRounds = buildPanelDiscussionRounds(virtualPanel, requirementRows, gate, offerLeverage, feedback);
-  const moderatorSummary = buildModeratorSummary(virtualPanel, panelDiscussionRounds, gate, offerLeverage, feedback);
+  const panelDiscussionRounds = buildPanelDiscussionRounds(virtualPanel, requirementRows, gate, offerLeverage, feedback, getPageMode());
+  const moderatorSummary = buildModeratorSummary(virtualPanel, panelDiscussionRounds, gate, offerLeverage, feedback, getPageMode());
   const interviewQuestions = buildStructuredInterviewQuestions(snapshot, requirementRows, feedback);
   const decisionSummary = buildDecisionSummaryCards({
     evaluation_summary: buildEvaluationSummary(gate, requirementRows, offerLeverage, feedback),

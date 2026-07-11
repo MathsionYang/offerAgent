@@ -13,12 +13,32 @@
       buildConcreteJobAnalysis = () => "",
       buildAbilityTransferAnalysis = () => "",
       buildConcreteGapTable = () => "",
+      buildCandidateJdGapActionTable = () => "",
+      buildCandidateMatchSnapshot = () => "",
+      buildCandidateResumeRevisionWorkbench = () => "",
+      buildCandidateFinalResumeChecklist = () => "",
+      buildCandidateTruthfulnessGate = () => "",
+      buildCandidateScorecard = () => "",
+      buildCandidateMaterialQuestions = () => "",
+      buildCandidateContributionVerbAudit = () => "",
+      buildCandidateOptimizedResumeDraft = () => "",
+      buildCandidateAtsPlainTextResume = () => "",
+      buildCandidateHrPitch = () => "",
+      buildCandidateMetricPromptTable = () => "",
+      buildCandidateResumeRewriteTable = () => "",
+      buildCandidateRewrittenResumeReference = () => "",
+      buildCandidateEvidencePatchCards = () => "",
       buildCandidateRevisionAdvice = () => "",
       buildCandidateStrategyAdvice = () => "",
       buildConcreteCandidateQuestions = () => "",
       buildPressureInterviewGuide = () => "",
       buildHumanFeedbackMarkdown = () => "",
       buildInterviewerResumeBrief = () => "",
+      buildInterviewerMatchSnapshot = () => "",
+      buildInterviewerMandatoryVerificationQuestions = () => "",
+      buildInterviewerAuthenticityRiskTable = () => "",
+      buildInterviewerJdDepthProbeTable = () => "",
+      buildInterviewerPotentialSignalsTable = () => "",
       buildCandidateProfile = () => "",
       buildInterviewerScorecard = () => "",
       buildInterviewerSignalTable = () => "",
@@ -79,35 +99,99 @@ ${buildAudienceMarkdown(run, "offer")}`;
         ]
           .filter(hasSubstantiveSection)
           .join("\n\n");
-        return `# 候选人面试准备报告
+        return `# 候选人简历润色与面试问题准备报告
 
-## 招聘岗位分析
+## 第一部分：简历润色
 
-${buildConcreteJobAnalysis(snapshot)}
+### 一页结论：匹配度与改简历顺序
 
-## 能力迁移分析
+${buildCandidateMatchSnapshot(snapshot)}
 
-${buildAbilityTransferAnalysis(snapshot)}
+### 逐项改简历工作单：哪里没写清楚、怎么改
 
-## 简历与 JD 不匹配点
+${buildCandidateResumeRevisionWorkbench(snapshot)}
 
-${buildConcreteGapTable(snapshot)}
+### JD 要求与简历差距明细
 
-## 今晚行动清单（简历修改意见与重点准备）
+${buildCandidateJdGapActionTable(snapshot)}
+
+### 事实闸口：哪些内容能写进最终简历
+
+${buildCandidateTruthfulnessGate(snapshot)}
+
+### 当前材料五项评分
+
+${buildCandidateScorecard(snapshot)}
+
+### 先补这些信息，再生成最终投递版
+
+${buildCandidateMaterialQuestions(snapshot)}
+
+### JD 定制版简历草稿
+
+${buildCandidateOptimizedResumeDraft(snapshot)}
+
+### ATS 纯文本版
+
+${buildCandidateAtsPlainTextResume(snapshot)}
+
+### 最终投递前检查清单
+
+${buildCandidateFinalResumeChecklist(snapshot)}
+
+### HR 摘要与投递沟通话术
+
+${buildCandidateHrPitch(snapshot)}
+
+### 岗位指标追问词典
+
+${buildCandidateMetricPromptTable(snapshot)}
+
+### 改写后简历参考稿
+
+${buildCandidateRewrittenResumeReference(snapshot)}
+
+### 贡献动词风险校准
+
+${buildCandidateContributionVerbAudit(snapshot)}
+
+### 简历逐条修改清单
+
+${buildCandidateResumeRewriteTable(snapshot)}
+
+### 最该补强的 3 个项目证据
+
+${buildCandidateEvidencePatchCards(snapshot)}
+
+### 30 分钟简历修改顺序
 
 ${buildCandidateRevisionAdvice(snapshot)}
 
-## 候选人策略建议
+## 第二部分：面试预测问题准备
 
-${buildCandidateStrategyAdvice(snapshot)}
-
-## 模拟面试路线图
+### 面试官最可能追问什么、怎么答
 
 ${buildConcreteCandidateQuestions(snapshot)}
 
-## 压力面试应对指南
+### 压力追问应对
 
 ${buildPressureInterviewGuide(snapshot)}
+
+### 面试主动节奏
+
+${buildAbilityTransferAnalysis(snapshot)}
+
+${buildCandidateStrategyAdvice(snapshot)}
+
+## 附录：招聘岗位分析
+
+${buildConcreteJobAnalysis(snapshot)}
+
+## 附录：简历与 JD 不匹配原始对照
+
+${buildConcreteGapTable(snapshot)}
+
+## 附录：证据链与原始报告摘录
 
 ${body}
 
@@ -127,15 +211,39 @@ ${buildHumanFeedbackMarkdown(run)}`;
         ]
           .filter(hasSubstantiveSection)
           .join("\n\n");
-        return `# 面试官提问辅助报告
+        return `# 面试官 JD 匹配与简历验真手册
+
+## 一页结论：候选人与 JD 的匹配度
+
+${buildInterviewerMatchSnapshot(snapshot)}
+
+## 必问验真问题：用问询证明简历是否真实
+
+${directConclusion.blockQuestions ? "当前核心能力缺少足够项目锚点，建议先要求候选人补充项目材料；补齐后再生成可采用追问。" : buildInterviewerMandatoryVerificationQuestions(snapshot)}
 
 ## 简历初评
 
 ${buildInterviewerResumeBrief(snapshot)}
 
-## 候选人画像
+## 项目经历真实性风险雷达：哪些地方最可能包装
 
-${buildCandidateProfile(snapshot)}
+${buildInterviewerAuthenticityRiskTable(snapshot)}
+
+## JD 技术 / 业务理解验证
+
+${buildInterviewerJdDepthProbeTable(snapshot)}
+
+## 潜力判断：只看可观察信号
+
+${buildInterviewerPotentialSignalsTable(snapshot)}
+
+## 建议面试流程
+
+${buildInterviewerFollowupPaths(snapshot)}
+
+## 备用追问清单
+
+${directConclusion.blockQuestions ? "当前核心能力缺少足够项目锚点，建议先要求候选人补充项目材料；补齐后再生成可采用追问。" : buildConcreteInterviewerQuestions(snapshot)}
 
 ## 结构化评分卡
 
@@ -145,9 +253,9 @@ ${buildInterviewerScorecard(snapshot)}
 
 ${buildInterviewerSignalTable(snapshot)}
 
-## 追问路径图
+## 候选人画像
 
-${buildInterviewerFollowupPaths(snapshot)}
+${buildCandidateProfile(snapshot)}
 
 ## 录用条件与补充验证
 
@@ -157,13 +265,13 @@ ${buildInterviewerDecisionAdvice(snapshot)}
 
 ${buildRoleAwareInterviewerModules(snapshot)}
 
+## 面试后记录卡
+
+${buildPostInterviewEvaluationTemplate(snapshot)}
+
 ## 面试轮次信息传递卡
 
 ${buildInterviewHandoffCard(snapshot)}
-
-## 面试后评估
-
-${buildPostInterviewEvaluationTemplate(snapshot)}
 
 ${directConclusion.blockQuestions ? `## 面试官处理建议
 
@@ -171,10 +279,7 @@ ${directConclusion.blockQuestions ? `## 面试官处理建议
 | --- | --- | --- |
 | 当前不列举追问问题 | 全部核心能力均为待验证 / 缺证，没有足够项目锚点支撑有效追问 | 建议先要求候选人补充能证明缺口能力的项目材料；补齐后再进入追问或沙盘 |
 | 暂不进入下一轮沙盘 | 简历缺少支撑 JD 核心职责的有效项目证据 | 只保留不匹配点和证据缺口，作为筛选记录 |
-` : `## 面试官可选追问
-
-${buildConcreteInterviewerQuestions(snapshot)}
-`}
+` : ""}
 
 ${buildVirtualPanelMarkdown(run)}
 

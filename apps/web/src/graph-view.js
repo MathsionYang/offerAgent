@@ -8,6 +8,7 @@
       reportEl = null,
       getCurrentRun = () => null,
       getLanguage = () => "zh",
+      getPageMode = () => "candidate",
       detectEvidenceGraphGaps = () => [],
       reportAnchorForNodeType = () => "",
       escapeHtml = (value) => String(value ?? ""),
@@ -18,6 +19,7 @@
     } = dependencies;
     const resolveCurrentRun = () => getCurrentRun?.() || null;
     const resolveLanguage = () => getLanguage?.() === "en" ? "en" : "zh";
+    const resolvePageMode = () => getPageMode?.() === "interviewer" ? "interviewer" : "candidate";
     let traceDetailPanelEl = null;
     let activeFilterType = "all";
     let searchQuery = "";
@@ -153,25 +155,26 @@
     }
 
     function getEvidenceGraphLabels() {
+      const pageMode = resolvePageMode();
       if (resolveLanguage() === "en") {
         return {
-          eyebrow: "Traceability",
-          title: "Evidence Graph",
+          eyebrow: pageMode === "candidate" ? "Resume rewrite trace" : "Authenticity trace",
+          title: pageMode === "candidate" ? "JD Resume Gap Graph" : "JD Fit and Verification Graph",
           count: (nodes, edges) => `${nodes} nodes / ${edges} links`,
           filters: [
             ["all", "All"],
             ["job_requirement", "JD"],
-            ["resume_evidence", "Evidence"],
-            ["interview_question", "Questions"],
-            ["risk", "Risks"],
+            ["resume_evidence", pageMode === "candidate" ? "Resume fixes" : "Evidence"],
+            ["interview_question", pageMode === "candidate" ? "Interview prep" : "Verification"],
+            ["risk", pageMode === "candidate" ? "Unclear points" : "Risks"],
             ["offer_signal", "Offer"],
             ["feedback", "Feedback"],
             ["skill", "Skills"],
             ["agent_persona", "Agents"],
           ],
-          gapTitle: "Evidence gaps",
-          gapEmpty: "No obvious evidence gaps detected.",
-          gapAction: "Click to inspect",
+          gapTitle: pageMode === "candidate" ? "Resume items to fix first" : "Verification risks to ask first",
+          gapEmpty: pageMode === "candidate" ? "No obvious resume rewrite gap detected." : "No obvious verification risk detected.",
+          gapAction: pageMode === "candidate" ? "See how to revise" : "See how to verify",
           searchPlaceholder: "Search nodes",
           searchLabel: "Search evidence graph nodes",
           resultCount: (visible, total) => `${visible} / ${total} nodes`,
@@ -201,18 +204,22 @@
               ["resume_jd", "JD / resume"],
               ["offer", "Offer"],
             ],
-            highRiskDecision: "High-risk decision",
+            highRiskDecision: pageMode === "candidate" ? "Priority resume fixes" : "High-risk verification",
             highRiskWhyTitle: "Why this view",
             highRiskWhy:
-              "Includes high-severity risks, Level 3 or missing evidence, questions linked to challenge rounds, and offer-impact nodes. Source filters also inspect related edge metadata.",
+              pageMode === "candidate"
+                ? "Includes missing or weak resume evidence, questions predicted by the panel, and nodes that should be revised before interview prep."
+                : "Includes high-severity risks, Level 3 or missing evidence, questions linked to challenge rounds, and nodes that affect verification decisions.",
           },
           columns: {
             requirements: "JD Requirements",
-            evidence: "Resume Evidence",
-            validation: "Questions / Risks / Offer",
+            evidence: pageMode === "candidate" ? "Resume Revision Evidence" : "Resume Evidence Credibility",
+            validation: pageMode === "candidate" ? "Interview Prep / Unclear Points" : "Verification Questions / Risks",
           },
           detailTitle: "Node details",
-          detailPlaceholder: "Click a node to inspect evidence, questions, linked risks, and report location.",
+          detailPlaceholder: pageMode === "candidate"
+            ? "Click a node to see what to rewrite and which interview answer to prepare."
+            : "Click a node to inspect credibility, verification questions, and risk signals.",
           reportAnchor: "Report section",
           offerRunTitle: "Offer run state",
           feedbackTitle: "Feedback distillation",
@@ -221,23 +228,23 @@
         };
       }
       return {
-        eyebrow: "可追溯关系",
-        title: "证据关系图谱",
+        eyebrow: pageMode === "candidate" ? "简历修改追踪" : "验真追踪",
+        title: pageMode === "candidate" ? "JD 简历差距图谱" : "JD 匹配与验真图谱",
         count: (nodes, edges) => `${nodes} 个节点 / ${edges} 条关系`,
         filters: [
           ["all", "全部"],
           ["job_requirement", "JD"],
-          ["resume_evidence", "证据"],
-          ["interview_question", "追问"],
-          ["risk", "风险"],
+          ["resume_evidence", pageMode === "candidate" ? "简历待改" : "证据"],
+          ["interview_question", pageMode === "candidate" ? "面试准备" : "验真问题"],
+          ["risk", pageMode === "candidate" ? "没写清楚" : "风险"],
           ["offer_signal", "Offer"],
           ["feedback", "反馈"],
           ["skill", "Skill"],
           ["agent_persona", "Agent"],
         ],
-        gapTitle: "证据缺口",
-        gapEmpty: "暂未发现明显证据缺口。",
-        gapAction: "点击查看",
+        gapTitle: pageMode === "candidate" ? "优先修改的简历项" : "优先验真的风险项",
+        gapEmpty: pageMode === "candidate" ? "暂未发现明显简历改写缺口。" : "暂未发现明显验真风险。",
+        gapAction: pageMode === "candidate" ? "查看怎么改" : "查看怎么问",
         searchPlaceholder: "搜索节点",
         searchLabel: "搜索证据图谱节点",
         resultCount: (visible, total) => `${visible} / ${total} 个节点`,
@@ -267,18 +274,22 @@
             ["resume_jd", "JD / 简历"],
             ["offer", "Offer"],
             ],
-            highRiskDecision: "高风险决策",
+            highRiskDecision: pageMode === "candidate" ? "优先改简历" : "高风险验真",
             highRiskWhyTitle: "为什么进入高风险视图",
             highRiskWhy:
-              "包含高风险节点、三级 / 缺失证据、委员会 challenge 关联追问，以及影响 Offer 推演的节点；来源筛选会同时查看节点与关系元数据。",
+              pageMode === "candidate"
+                ? "包含缺失或低可信简历证据、委员会预测会追问的问题，以及面试前必须先补清楚的节点。"
+                : "包含高风险节点、三级 / 缺失证据、委员会 challenge 关联追问，以及会影响面试验证判断的节点。",
           },
         columns: {
           requirements: "JD 要求",
-          evidence: "简历证据",
-          validation: "追问 / 风险 / Offer",
+          evidence: pageMode === "candidate" ? "简历修改证据" : "简历证据可信度",
+          validation: pageMode === "candidate" ? "面试准备 / 没写清楚" : "验真问题 / 风险",
         },
         detailTitle: "节点详情",
-        detailPlaceholder: "点击节点查看摘要、证据等级、验证问题、关联关系和报告位置。",
+        detailPlaceholder: pageMode === "candidate"
+          ? "点击节点查看该怎么改简历、准备哪类回答，以及对应报告位置。"
+          : "点击节点查看可信度、验真问题、风险信号和报告位置。",
         reportAnchor: "报告定位",
         offerRunTitle: "Offer 推演状态",
         feedbackTitle: "反馈蒸馏",
@@ -729,6 +740,7 @@
 
     function buildGraphNodeDecisionExplanation(node, relatedEdges = []) {
       const isEnglish = resolveLanguage() === "en";
+      const pageMode = resolvePageMode();
       const reasons = [];
       const metadata = node?.metadata || {};
       const severity = String(metadata.severity || metadata.risk_severity || "").toLowerCase();
@@ -738,28 +750,48 @@
 
       if (node?.type === "risk" || /high|critical|高|严重/.test(severity)) {
         reasons.push(isEnglish
-          ? "It is a risk signal that can change the proceed / pause recommendation."
-          : "它是风险信号，可能改变推进 / 暂缓建议。");
+          ? (pageMode === "candidate"
+            ? "It marks a resume point that must be clarified before interview practice."
+            : "It is a risk signal that should be verified before any proceed decision.")
+          : (pageMode === "candidate"
+            ? "它代表简历里必须先写清楚的风险点，否则面试会被追问。"
+            : "它是验真风险信号，需要在推进前问清楚。"));
       }
       if (node?.type === "resume_evidence" && (evidenceLevel >= 3 || /missing|缺失|缺证/i.test(`${metadata.evidence_level_label || ""} ${source}`))) {
         reasons.push(isEnglish
-          ? "It is Level 3 or missing evidence, so the related conclusion must stay pending until validated."
-          : "它属于三级或缺失证据，相关结论必须保持待验证。");
+          ? (pageMode === "candidate"
+            ? "It is weak or missing resume evidence; rewrite it with facts, metric basis, and ownership boundary."
+            : "It is Level 3 or missing evidence, so the related conclusion must stay pending until validated.")
+          : (pageMode === "candidate"
+            ? "它属于薄弱或缺失简历证据，需要补事实、指标口径和个人边界。"
+            : "它属于三级或缺失证据，相关结论必须保持待验证。"));
       }
       if (/challenge|challenges|panel_simulation|virtual_panel/i.test(edgeText)) {
         reasons.push(isEnglish
-          ? "It was challenged by the virtual panel, so linked questions should be asked earlier."
-          : "它被虚拟委员会 challenge，关联追问应前置。");
+          ? (pageMode === "candidate"
+            ? "The virtual panel predicts this will be challenged, so prepare the answer before polishing the final resume."
+            : "It was challenged by the virtual panel, so linked questions should be asked earlier.")
+          : (pageMode === "candidate"
+            ? "虚拟委员会预测这里会被追问，定稿简历前要先准备回答。"
+            : "它被虚拟委员会 challenge，关联追问应前置。"));
       }
       if (node?.type === "interview_question" || /questions|q_/i.test(`${node?.id || ""} ${edgeText}`)) {
         reasons.push(isEnglish
-          ? "It links to a validation question that can confirm or disprove a risk."
-          : "它关联可验证问题，可用于证实或推翻风险。");
+          ? (pageMode === "candidate"
+            ? "It is a predicted interview question; prepare a concrete answer tied to the revised resume line."
+            : "It links to a validation question that can confirm or disprove a risk.")
+          : (pageMode === "candidate"
+            ? "它是预测面试题，需要准备和改写后简历相匹配的具体回答。"
+            : "它关联可验证问题，可用于证实或推翻风险。"));
       }
       if (node?.type === "offer_signal" || /offer|impacts_offer|affects_offer/i.test(`${node?.type || ""} ${edgeText}`)) {
         reasons.push(isEnglish
-          ? "It can affect offer readiness, negotiation leverage, or acceptance risk."
-          : "它会影响 Offer 推进、谈薪杠杆或接受风险。");
+          ? (pageMode === "candidate"
+            ? "It is secondary for this view; fix resume evidence and interview answers before offer discussion."
+            : "It is secondary to verification; use it only after JD fit and authenticity are checked.")
+          : (pageMode === "candidate"
+            ? "它在候选人视图里是后置项，先改简历和准备回答，再看 Offer。"
+            : "它在面试官视图里后置于验真，先确认匹配度和真实性。"));
       }
       if (node?.type === "feedback" || /human_feedback|feedback/i.test(`${source} ${edgeText}`)) {
         reasons.push(isEnglish
@@ -899,6 +931,8 @@
           lens: "Interviewer role",
           adoption_status: "Adoption status",
           evidence_reason: "Evidence reason",
+          candidate_action: "Candidate action",
+          interviewer_action: "Interviewer action",
           match_status: "Match status",
           report_anchor: "Report anchor",
           source: "Source",
@@ -922,6 +956,8 @@
         lens: "面试官角色",
         adoption_status: "采用状态",
         evidence_reason: "证据原因",
+        candidate_action: "候选人动作",
+        interviewer_action: "面试官动作",
         match_status: "匹配状态",
         report_anchor: "报告定位",
         source: "来源",

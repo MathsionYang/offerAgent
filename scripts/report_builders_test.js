@@ -34,12 +34,32 @@ const builders = createReportBuilders({
   buildConcreteJobAnalysis: () => "JOB_ANALYSIS",
   buildAbilityTransferAnalysis: () => "ABILITY_TRANSFER",
   buildConcreteGapTable: () => "GAP_TABLE",
+  buildCandidateJdGapActionTable: () => "CANDIDATE_GAP_ACTIONS",
+  buildCandidateMatchSnapshot: () => "MATCH_SNAPSHOT",
+  buildCandidateResumeRevisionWorkbench: () => "REVISION_WORKBENCH",
+  buildCandidateFinalResumeChecklist: () => "FINAL_CHECKLIST",
+  buildCandidateTruthfulnessGate: () => "TRUTHFULNESS_GATE",
+  buildCandidateScorecard: () => "CANDIDATE_SCORECARD",
+  buildCandidateMaterialQuestions: () => "MATERIAL_QUESTIONS",
+  buildCandidateContributionVerbAudit: () => "VERB_AUDIT",
+  buildCandidateOptimizedResumeDraft: () => "OPTIMIZED_RESUME_DRAFT",
+  buildCandidateAtsPlainTextResume: () => "ATS_PLAIN_TEXT",
+  buildCandidateHrPitch: () => "HR_PITCH",
+  buildCandidateMetricPromptTable: () => "METRIC_PROMPTS",
+  buildCandidateResumeRewriteTable: () => "RESUME_REWRITE_TABLE",
+  buildCandidateRewrittenResumeReference: () => "REWRITTEN_RESUME_REFERENCE",
+  buildCandidateEvidencePatchCards: () => "EVIDENCE_PATCH_CARDS",
   buildCandidateRevisionAdvice: () => "REVISION_ADVICE",
   buildCandidateStrategyAdvice: () => "STRATEGY_ADVICE",
   buildConcreteCandidateQuestions: () => "CANDIDATE_QUESTIONS",
   buildPressureInterviewGuide: () => "PRESSURE_GUIDE",
   buildHumanFeedbackMarkdown: () => "HUMAN_FEEDBACK",
   buildInterviewerResumeBrief: () => "RESUME_BRIEF",
+  buildInterviewerMatchSnapshot: () => "INTERVIEWER_MATCH_SNAPSHOT",
+  buildInterviewerMandatoryVerificationQuestions: () => "MANDATORY_VERIFICATION_QUESTIONS",
+  buildInterviewerAuthenticityRiskTable: () => "AUTHENTICITY_RISK_TABLE",
+  buildInterviewerJdDepthProbeTable: () => "JD_DEPTH_PROBE_TABLE",
+  buildInterviewerPotentialSignalsTable: () => "POTENTIAL_SIGNALS_TABLE",
   buildCandidateProfile: () => "CANDIDATE_PROFILE",
   buildInterviewerScorecard: () => "SCORECARD",
   buildInterviewerSignalTable: () => "SIGNALS",
@@ -141,12 +161,34 @@ const run = {
 };
 
 const candidate = builders.buildAudienceMarkdown(run, "candidate");
-assert.ok(candidate.includes("# 候选人面试准备报告"));
-assert.ok(candidate.includes("JOB_ANALYSIS"));
+assert.ok(candidate.includes("# 候选人简历润色与面试问题准备报告"));
+assert.ok(candidate.includes("## 第一部分：简历润色"));
+assert.ok(candidate.includes("## 第二部分：面试预测问题准备"));
+assert.ok(candidate.includes("MATCH_SNAPSHOT"));
+assert.ok(candidate.includes("REVISION_WORKBENCH"));
+assert.ok(candidate.includes("CANDIDATE_GAP_ACTIONS"));
+assert.ok(candidate.includes("TRUTHFULNESS_GATE"));
+assert.ok(candidate.includes("CANDIDATE_SCORECARD"));
+assert.ok(candidate.includes("MATERIAL_QUESTIONS"));
+assert.ok(candidate.includes("OPTIMIZED_RESUME_DRAFT"));
+assert.ok(candidate.includes("ATS_PLAIN_TEXT"));
+assert.ok(candidate.includes("FINAL_CHECKLIST"));
+assert.ok(candidate.includes("HR_PITCH"));
+assert.ok(candidate.includes("METRIC_PROMPTS"));
+assert.ok(candidate.includes("## 改写后简历参考稿"));
+assert.ok(candidate.includes("REWRITTEN_RESUME_REFERENCE"));
+assert.ok(candidate.includes("VERB_AUDIT"));
+assert.ok(candidate.includes("RESUME_REWRITE_TABLE"));
+assert.ok(candidate.includes("EVIDENCE_PATCH_CARDS"));
 assert.ok(candidate.includes("HUMAN_FEEDBACK"));
 
 const interviewer = builders.buildAudienceMarkdown(run, "interviewer");
-assert.ok(interviewer.includes("# 面试官提问辅助报告"));
+assert.ok(interviewer.includes("# 面试官 JD 匹配与简历验真手册"));
+assert.ok(interviewer.includes("INTERVIEWER_MATCH_SNAPSHOT"));
+assert.ok(interviewer.includes("MANDATORY_VERIFICATION_QUESTIONS"));
+assert.ok(interviewer.includes("AUTHENTICITY_RISK_TABLE"));
+assert.ok(interviewer.includes("JD_DEPTH_PROBE_TABLE"));
+assert.ok(interviewer.includes("POTENTIAL_SIGNALS_TABLE"));
 assert.ok(interviewer.includes("SCORECARD"));
 assert.ok(interviewer.includes("## 虚拟面试委员会"));
 
@@ -156,8 +198,8 @@ assert.ok(offer.includes("## 七个步骤推理总览"));
 assert.ok(offer.includes("1. 证据解析"));
 
 const preview = builders.buildPreviewMarkdown(run);
-assert.ok(preview.includes("# 候选人面试准备报告"));
-assert.ok(preview.includes("# 面试官提问辅助报告"));
+assert.ok(preview.includes("# 候选人简历润色与面试问题准备报告"));
+assert.ok(preview.includes("# 面试官 JD 匹配与简历验真手册"));
 assert.ok(preview.includes("# Offer 沙盘推演报告"));
 
 assert.ok(builders.extractSection(report, "项目匹配闸口").includes("项目匹配闸口"));

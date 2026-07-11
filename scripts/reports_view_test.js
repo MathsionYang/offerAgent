@@ -99,7 +99,9 @@ const cards = reports.buildDecisionSummaryCards({
   feedback_distillation: { actions: [{ type: "promote_question" }] },
 });
 assert.equal(cards.length, 5);
-assert.equal(cards[0].value, "条件性进入");
+assert.equal(cards[0].label, "JD 匹配度");
+assert.equal(cards[0].value, "67%");
+assert.equal(cards[2].label, "先改这一项");
 assert.equal(cards[4].value, "1 动作");
 
 const scoreRows = reports.buildInterviewerScorecardRows({
@@ -125,7 +127,7 @@ assert.equal(
     evaluation_summary: { gate_result: "条件性进入", enter_sandbox: false },
     requirement_matches: [],
   })[0].value,
-  "EN:条件性进入",
+  "Pending",
 );
 
 console.log("reports-view tests passed");

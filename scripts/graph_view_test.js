@@ -160,7 +160,7 @@ assert.deepEqual(
   },
 );
 
-assert.equal(graphView.getEvidenceGraphLabels().title, "Evidence Graph");
+assert.equal(graphView.getEvidenceGraphLabels().title, "JD Resume Gap Graph");
 assert.equal(graphView.typeLabel("interview_question"), "Question");
 assert.equal(graphView.normalizeSearchText(" Risks & Validation - Needed "), "risks&validationneeded");
 assert.ok(
@@ -169,23 +169,23 @@ assert.ok(
 assert.ok(
   graphView.buildGraphNodeDecisionExplanation(searchableRisk, [
     { from: "risk_1", to: "offer_signal_1", type: "impacts_offer", source: "offer" },
-  ]).some((reason) => /risk signal/i.test(reason)),
+  ]).some((reason) => /resume point|interview practice/i.test(reason)),
 );
 assert.ok(
   graphView.buildGraphNodeDecisionExplanation(weakEvidence, [
     { from: "agent_business", to: "ev_req_1", type: "challenges", source: "virtual_panel" },
-  ]).some((reason) => /Level 3|missing evidence/i.test(reason)),
+  ]).some((reason) => /weak or missing resume evidence/i.test(reason)),
 );
 
 language = "zh";
-assert.equal(graphView.getEvidenceGraphLabels().title, "证据关系图谱");
+assert.equal(graphView.getEvidenceGraphLabels().title, "JD 简历差距图谱");
 assert.equal(graphView.typeLabel("resume_evidence"), "证据");
 assert.ok(
   graphView.resolveReportAnchorAliases("证据链").includes("证据"),
 );
 assert.ok(
   graphView.buildGraphNodeDecisionExplanation({ id: "q_1", type: "interview_question", metadata: {} }, [])
-    .some((reason) => /验证问题/.test(reason)),
+    .some((reason) => /预测面试题/.test(reason)),
 );
 
 console.log("graph-view tests passed");

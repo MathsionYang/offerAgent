@@ -78,6 +78,12 @@
             evidence_level: row.evidenceLevel,
             evidence_level_label: row.evidenceLevelLabel,
             evidence_reason: row.evidenceReason,
+            candidate_action: row.isMissing
+              ? "补充真实项目证据：背景、个人边界、动作、指标口径和复盘"
+              : "把这条经历改写成 JD 证据：问题、动作、结果、个人贡献",
+            interviewer_action: row.isMissing || row.evidenceLevel >= 2
+              ? "必须验真：追问时间线、个人贡献、指标来源和失败细节"
+              : "可作为支持证据，但仍需抽查指标口径和归因",
             report_anchor: reportAnchorForNodeType("resume_evidence"),
             source: row.isMissing ? "missing_resume_evidence" : "resume_requirement_match",
           },
@@ -90,6 +96,8 @@
           metadata: {
             lens: resolveInterviewerLens(index),
             adoption_status: feedback?.question_use || "未反馈",
+            candidate_action: "按背景、职责边界、关键动作、结果口径和复盘准备回答",
+            interviewer_action: "先问起手题，再根据回答追问指标口径、个人边界和现场推演",
             report_anchor: reportAnchorForNodeType("interview_question"),
             source: "generated_question_bank",
           },

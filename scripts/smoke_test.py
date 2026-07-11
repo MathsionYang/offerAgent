@@ -172,8 +172,8 @@ def static_checks():
         and "不匹配 / 缺证" in report_content_helpers_content
         and "不列追问问题，先要求补充项目证据" in report_content_helpers_content,
         "audience_reports_branch_on_mismatch": "当前不列举追问问题" in app_modules
-        and "简历修改意见与重点准备" in app_modules
-        and "buildCandidateRevisionAdvice" in app_modules
+        and "第二部分：面试预测问题准备" in app_modules
+        and "buildCandidateResumeRevisionWorkbench" in app_modules
         and "blockQuestions" in app_modules,
         "markdown_artifacts_cleaned": all(
             term in app_modules for term in ["裸露表格分隔线", "代码围栏", "replace(/```", "replace(/^\\s{0,3}>\\s?/gm", "<ol>"]
@@ -1375,7 +1375,9 @@ def static_checks():
                 "候选人",
                 "项目匹配闸口",
                 "面试官视角库",
-                "候选人追问题库",
+                "简历润色",
+                "面试预测问题准备",
+                "逐项改简历工作单",
                 "双模式 PDF 导出",
                 "报告分块流式输出",
                 "虚拟面试委员会",

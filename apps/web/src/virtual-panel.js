@@ -132,48 +132,86 @@
       };
     }
 
-    function buildPanelDiscussionRounds(panel, rows, gate, offerLeverage, feedback) {
+    function buildPanelDiscussionRounds(panel, rows, gate, offerLeverage, feedback, audienceMode = "interviewer") {
       const weakRows = rows.filter((row) => row.isMissing || row.evidenceLevel >= 2);
       const focusRows = weakRows.length ? weakRows : rows;
+      const mode = audienceMode === "candidate" ? "candidate" : "interviewer";
+      if (mode === "candidate") {
+        return [
+          {
+            id: "round_resume_rewrite",
+            stage: "resume_rewrite_alignment",
+            topic: "resume rewrite alignment",
+            turns: panel.map((agent, index) => buildPanelTurn(
+              agent,
+              focusRows[index % Math.max(focusRows.length, 1)],
+              rows,
+              "resume_rewrite",
+            )),
+          },
+          {
+            id: "round_interview_prediction",
+            stage: "interview_prediction",
+            topic: "interview prediction",
+            turns: panel.map((agent, index) => buildPanelTurn(
+              agent,
+              focusRows[(index + 1) % Math.max(focusRows.length, 1)],
+              rows,
+              "interview_prediction",
+            )),
+          },
+          {
+            id: "round_final_resume_readiness",
+            stage: "final_resume_readiness",
+            topic: "final resume readiness",
+            turns: panel.map((agent, index) => (buildPanelTurn(
+              agent,
+              focusRows[index % Math.max(focusRows.length, 1)],
+              rows,
+              feedback ? "feedback_resume_readiness" : "final_resume_readiness",
+            ))),
+          },
+        ];
+      }
 
       return [
         {
-          id: "round_seed_reading",
-          stage: "seed_extraction",
-          topic: "JD / resume seed reading",
+          id: "round_jd_match",
+          stage: "jd_match_calibration",
+          topic: "jd match calibration",
           turns: panel.map((agent, index) => buildPanelTurn(
             agent,
             focusRows[index % Math.max(focusRows.length, 1)],
             rows,
-            "seed_reading",
+            "jd_match",
           )),
         },
         {
-          id: "round_risk_challenge",
-          stage: "panel_simulation",
-          topic: "risk challenge and counter-evidence",
+          id: "round_authenticity_challenge",
+          stage: "authenticity_challenge",
+          topic: "authenticity challenge",
           turns: panel.map((agent, index) => buildPanelTurn(
             agent,
             focusRows[(index + 1) % Math.max(focusRows.length, 1)],
             rows,
-            "risk_challenge",
+            "authenticity_challenge",
           )),
         },
         {
-          id: "round_offer_alignment",
-          stage: "moderator_report",
-          topic: "offer readiness alignment",
+          id: "round_verification_questions",
+          stage: "verification_questions",
+          topic: "verification questions",
           turns: panel.map((agent, index) => ({
             agent_id: agent.id,
             stance: agent.stance,
-            claim: `${agent.name} links ${offerLeverage.rating} offer leverage to ${gate.result}`,
+            claim: `${agent.name} turns ${focusRows[index % Math.max(focusRows.length, 1)]?.capability || "the weakest evidence"} into a must-ask authenticity question`,
             evidence_ids: focusRows
               .slice(index, index + 2)
               .map((row) => `ev_req_${rows.indexOf(row) + 1}`),
             question_ids: focusRows
               .slice(index, index + 2)
               .map((row) => `q_${rows.indexOf(row) + 1}`),
-            impact: feedback ? "recalibrate_with_human_feedback" : "feed_offer_simulation",
+            impact: feedback ? "recalibrate_with_human_feedback" : "raise_follow_up_priority",
           })),
         },
       ];
@@ -186,16 +224,29 @@
       return {
         agent_id: agent.id,
         stance: agent.stance,
-        claim: mode === "seed_reading"
-          ? `${agent.name} reads ${row?.capability || "core role evidence"} as ${weakClaim ? "pending validation" : "usable evidence"}`
-          : `${agent.name} challenges whether ${row?.capability || "the candidate story"} has first-hand evidence`,
+        claim: buildPanelTurnClaim(agent, row, mode, weakClaim),
         evidence_ids: row ? [`ev_req_${rowIndex + 1}`] : [],
         question_ids: row ? [`q_${rowIndex + 1}`] : [],
-        impact: weakClaim ? "raise_follow_up_priority" : "keep_as_supporting_evidence",
+        impact: mode === "feedback_resume_readiness"
+          ? "recalibrate_with_human_feedback"
+          : weakClaim ? "raise_follow_up_priority" : "keep_as_supporting_evidence",
       };
     }
 
-    function buildModeratorSummary(panel, rounds, gate, offerLeverage, feedback) {
+    function buildPanelTurnClaim(agent, row, mode, weakClaim) {
+      const capability = row?.capability || "core role evidence";
+      const claims = {
+        resume_rewrite: `${agent.name} marks ${capability} as ${weakClaim ? "a resume rewrite priority" : "usable resume proof for this JD"}`,
+        interview_prediction: `${agent.name} predicts the interviewer will challenge ${capability} on metric source, timeline, and personal boundary`,
+        final_resume_readiness: `${agent.name} recommends finalizing ${capability} only after the resume states facts, metrics, and ownership boundary`,
+        feedback_resume_readiness: `${agent.name} recalibrates the resume rewrite priority for ${capability} with human feedback`,
+        jd_match: `${agent.name} calibrates ${capability} against the JD as ${weakClaim ? "surface match pending proof" : "high-confidence match evidence"}`,
+        authenticity_challenge: `${agent.name} challenges whether ${capability} has first-hand evidence, decision details, and failure review`,
+      };
+      return claims[mode] || `${agent.name} reads ${capability} as ${weakClaim ? "pending validation" : "usable evidence"}`;
+    }
+
+    function buildModeratorSummary(panel, rounds, gate, offerLeverage, feedback, audienceMode = "interviewer") {
       const turns = rounds.flatMap((round) => round.turns || []);
       const challengeCount = turns.filter(
         (turn) => turn.impact === "raise_follow_up_priority",
@@ -207,6 +258,7 @@
         (a, b) => b.influence_weight - a.influence_weight,
       )[0];
 
+      const mode = audienceMode === "candidate" ? "candidate" : "interviewer";
       return {
         id: "moderator_summary_1",
         type: "ModeratorSummary",
@@ -214,9 +266,13 @@
         disagreement_count: challengeCount,
         support_count: supportCount,
         lead_agent_id: highestInfluence?.id || "",
-        final_recommendation: gate.enterSandbox
-          ? "Enter the next interview or offer sandbox only after validating the highest-risk evidence nodes."
-          : "Pause offer progression and request stronger project-loop evidence before deep interview questions.",
+        final_recommendation: mode === "candidate"
+          ? (gate.enterSandbox
+            ? "Focus the report on rewriting the resume against the JD, then rehearse the must-ask interview answers."
+            : "Do not polish beyond the facts; first add real project evidence before rehearsing deep interview answers.")
+          : (gate.enterSandbox
+            ? "Use the JD match snapshot and mandatory verification questions before any offer decision."
+            : "Pause progression and ask for stronger project-loop evidence before deep interview validation."),
         offer_impact: offerLeverage.rating,
         feedback_impact: feedback
           ? "human_feedback_applied_to_panel_summary"

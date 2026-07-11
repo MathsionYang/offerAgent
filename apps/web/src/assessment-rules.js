@@ -16,7 +16,7 @@
       const roleProfile = getRoleProfile(normalized.target_role);
       const requirements = roleProfile.requirements;
       return requirements.map((requirement) => {
-        const resumeEvidence = findEvidence(resume, requirement.keywords) || "简历未体现明确证据";
+        const resumeEvidence = findResumeEvidence(resume, requirement.keywords) || "简历未体现明确证据";
         const evidenceLevel = classifyEvidenceLevel(resumeEvidence);
         const isMissing = resumeEvidence === "简历未体现明确证据";
         return {
@@ -175,12 +175,41 @@
 
     function findEvidence(text, keywords) {
       if (!text) return "";
-      const parts = text
+      const parts = splitEvidenceParts(text);
+      const hit = parts.find((part) => keywords.some((keyword) => part.toLowerCase().includes(keyword.toLowerCase())));
+      return hit ? clip(hit) : "";
+    }
+
+    function findResumeEvidence(text, keywords) {
+      if (!text) return "";
+      const parts = splitEvidenceParts(text);
+      const hit = parts.find((part) => {
+        const matchesKeyword = keywords.some((keyword) => part.toLowerCase().includes(String(keyword).toLowerCase()));
+        return matchesKeyword && isSubstantiveResumeEvidence(part);
+      });
+      return hit ? clip(hit) : "";
+    }
+
+    function splitEvidenceParts(text) {
+      return String(text || "")
         .split(/[。；;\n]/)
         .map((item) => item.replace(/\s+/g, " ").trim())
         .filter(Boolean);
-      const hit = parts.find((part) => keywords.some((keyword) => part.toLowerCase().includes(keyword.toLowerCase())));
-      return hit ? clip(hit) : "";
+    }
+
+    function isSubstantiveResumeEvidence(part) {
+      const text = String(part || "").trim();
+      if (!text) return false;
+      if (isEmploymentHeaderEvidence(text)) return false;
+      return true;
+    }
+
+    function isEmploymentHeaderEvidence(text) {
+      const hasDateRange = /(\d{4}[./-]\d{1,2}|\d{4}\s*年\s*\d{1,2}\s*月|\d{4})\s*[-~至到—]+\s*(\d{4}[./-]\d{1,2}|\d{4}\s*年\s*\d{1,2}\s*月|至今|现在|present|now)/i.test(text);
+      const hasOrganization = /公司|有限公司|集团|科技|信息技术|网络|软件|Inc\.?|LLC|Ltd\.?/i.test(text);
+      const hasRoleTitle = /岗位|项目实施岗|实施岗|工程师|经理|顾问|专员|主管|实习|负责人|销售|支持/i.test(text);
+      const hasSubstantiveAction = /主导|负责(?!人|岗位)|牵头|独立|设计|开发|上线|落地|交付|排查|定位|优化|提升|降低|完成|搭建|改造|推动|协调|复盘|签约|回款|处理|解决|沉淀|验证|实现|owner|owned|led|launched|delivered|improved/i.test(text);
+      return hasDateRange && (hasOrganization || hasRoleTitle) && !hasSubstantiveAction;
     }
 
     return {
@@ -195,6 +224,8 @@
       buildTransferPitch,
       buildOfferLeverage,
       findEvidence,
+      findResumeEvidence,
+      isEmploymentHeaderEvidence,
     };
   }
 

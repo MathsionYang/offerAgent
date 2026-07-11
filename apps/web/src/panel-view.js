@@ -9,6 +9,7 @@
       evidenceGraphEl = null,
       getLanguage = () => "zh",
       getText = () => ({}),
+      getPageMode = () => "candidate",
       detectEvidenceGraphGaps = () => [],
       reportAnchorForNodeType = (type) => type,
       escapeHtml = (value) => String(value ?? ""),
@@ -24,6 +25,7 @@
 
     let chatTimer = null;
     const resolveLanguage = () => getLanguage?.() === "en" ? "en" : "zh";
+    const resolvePageMode = () => getPageMode?.() === "interviewer" ? "interviewer" : "candidate";
 
     // Render a complete panel state or the pending placeholder.
     function renderVirtualPanelChat(run, options = {}) {
@@ -202,8 +204,12 @@
         run?.moderator_summary?.disagreement_count || 0,
       );
       const labels = resolveLanguage() === "en"
-        ? [["Pending challenges", challengeCount], ["Supporting evidence", evidenceCount], ["High-risk gaps", riskCount]]
-        : [["待验证挑战", challengeCount], ["支持证据", evidenceCount], ["高风险缺口", riskCount]];
+        ? (resolvePageMode() === "candidate"
+          ? [["Resume fixes", challengeCount], ["Usable evidence", evidenceCount], ["Interview risks", riskCount]]
+          : [["Verification challenges", challengeCount], ["Supporting evidence", evidenceCount], ["Red-flag risks", riskCount]])
+        : (resolvePageMode() === "candidate"
+          ? [["简历待改项", challengeCount], ["可用证据", evidenceCount], ["面试高风险追问", riskCount]]
+          : [["验真挑战", challengeCount], ["支持证据", evidenceCount], ["红灯风险", riskCount]]);
       return `<section class="panel-stats-grid">
         ${labels.map(([label, value]) => `<div class="panel-stat">
           <strong>${escapeHtml(String(value))}</strong>
@@ -215,7 +221,9 @@
     function renderVirtualPanelConclusion(run, messages) {
       const summary = run?.moderator_summary;
       const fallback = messages.find((message) => message.type === "moderator");
-      const title = resolveLanguage() === "en" ? "Panel conclusion" : "委员会结论";
+      const title = resolveLanguage() === "en"
+        ? (resolvePageMode() === "candidate" ? "Resume and interview prep conclusion" : "JD fit and authenticity conclusion")
+        : (resolvePageMode() === "candidate" ? "简历润色与面试准备结论" : "JD 匹配与验真结论");
       const body = localizePanelClaim(summary?.final_recommendation || fallback?.text || "");
       const empty = resolveLanguage() === "en"
         ? "Generate a report to see the panel's consensus, challenges, and traceable evidence."
@@ -500,10 +508,29 @@
         .replaceAll(" as ", "，判断为 ")
         .replaceAll("pending validation", "待验证")
         .replaceAll("usable evidence", "可用证据")
+        .replaceAll(" marks ", " 标记 ")
+        .replaceAll("a resume rewrite priority", "需要优先改写的简历证据")
+        .replaceAll("usable resume proof for this JD", "可用于当前 JD 的简历证据")
+        .replaceAll(" predicts the interviewer will challenge ", " 预测面试官会追问 ")
+        .replaceAll(" on metric source, timeline, and personal boundary", " 的指标来源、时间线和个人边界")
+        .replaceAll(" recommends finalizing ", " 建议定稿 ")
+        .replaceAll(" only after the resume states facts, metrics, and ownership boundary", " 前先写清事实、指标和个人边界")
+        .replaceAll(" recalibrates the resume rewrite priority for ", " 结合人工反馈重新校准简历改写优先级：")
+        .replaceAll(" calibrates ", " 校准 ")
+        .replaceAll(" against the JD as ", " 与 JD 的匹配状态：")
+        .replaceAll("surface match pending proof", "表面匹配但待证明")
+        .replaceAll("high-confidence match evidence", "高可信匹配证据")
         .replaceAll(" challenges whether ", " 挑战：")
+        .replaceAll(" has first-hand evidence, decision details, and failure review", " 是否具备一手证据、决策细节和失败复盘")
         .replaceAll(" has first-hand evidence", " 是否具备一手证据")
+        .replaceAll(" turns ", " 将 ")
+        .replaceAll(" into a must-ask authenticity question", " 转成必问验真问题")
         .replaceAll(" links ", " 将 ")
         .replaceAll(" offer leverage to ", " 的 Offer 杠杆关联到 ")
+        .replaceAll("Focus the report on rewriting the resume against the JD, then rehearse the must-ask interview answers.", "报告应聚焦两件事：先按 JD 改简历，再演练必问面试回答。")
+        .replaceAll("Do not polish beyond the facts; first add real project evidence before rehearsing deep interview answers.", "不要超出事实润色；先补真实项目证据，再准备深挖回答。")
+        .replaceAll("Use the JD match snapshot and mandatory verification questions before any offer decision.", "先用 JD 匹配快照和必问验真问题完成面试验证，再讨论 Offer 决策。")
+        .replaceAll("Pause progression and ask for stronger project-loop evidence before deep interview validation.", "先暂缓推进，要求补充更完整的项目闭环证据，再进入深度验证。")
         .replaceAll("Enter the next interview or offer sandbox only after validating the highest-risk evidence nodes.", "建议先验证最高风险证据节点，再进入下一轮面试或 Offer 沙盘。")
         .replaceAll("Pause offer progression and request stronger project-loop evidence before deep interview questions.", "建议暂停 Offer 推进，先补强项目闭环证据，再进入深度追问。");
     }
@@ -514,11 +541,23 @@
             seed_extraction: "Seed extraction",
             panel_simulation: "Panel discussion",
             moderator_report: "Moderator summary",
+            resume_rewrite_alignment: "Resume rewrite alignment",
+            interview_prediction: "Interview prediction",
+            final_resume_readiness: "Final resume readiness",
+            jd_match_calibration: "JD match calibration",
+            authenticity_challenge: "Authenticity challenge",
+            verification_questions: "Verification questions",
           }
         : {
             seed_extraction: "种子材料读取",
             panel_simulation: "委员会讨论",
             moderator_report: "主持人总结",
+            resume_rewrite_alignment: "简历改写对齐",
+            interview_prediction: "面试追问预测",
+            final_resume_readiness: "简历定稿风险",
+            jd_match_calibration: "JD 匹配校准",
+            authenticity_challenge: "真实性挑战",
+            verification_questions: "必问验真",
           };
       return map[value] || value || "";
     }
@@ -529,17 +568,41 @@
             "JD / resume seed reading": "JD / resume seed reading",
             "risk challenge and counter-evidence": "Risk challenge and counter-evidence",
             "offer readiness alignment": "Offer readiness alignment",
+            "resume rewrite alignment": "Resume rewrite alignment",
+            "interview prediction": "Interview prediction",
+            "final resume readiness": "Final resume readiness",
+            "jd match calibration": "JD match calibration",
+            "authenticity challenge": "Authenticity challenge",
+            "verification questions": "Verification questions",
             seed_extraction: "JD / resume seed reading",
             panel_simulation: "Risk challenge and counter-evidence",
             moderator_report: "Offer readiness alignment",
+            resume_rewrite_alignment: "Resume rewrite alignment",
+            interview_prediction: "Interview prediction",
+            final_resume_readiness: "Final resume readiness",
+            jd_match_calibration: "JD match calibration",
+            authenticity_challenge: "Authenticity challenge",
+            verification_questions: "Verification questions",
           }
         : {
             "JD / resume seed reading": "JD / 简历种子读取",
             "risk challenge and counter-evidence": "风险挑战与反证",
             "offer readiness alignment": "Offer 就绪度对齐",
+            "resume rewrite alignment": "简历润色优先级",
+            "interview prediction": "面试预测追问",
+            "final resume readiness": "简历定稿风险",
+            "jd match calibration": "JD 匹配度校准",
+            "authenticity challenge": "简历真实性挑战",
+            "verification questions": "必问验真问题",
             seed_extraction: "JD / 简历种子读取",
             panel_simulation: "风险挑战与反证",
             moderator_report: "Offer 就绪度对齐",
+            resume_rewrite_alignment: "简历润色优先级",
+            interview_prediction: "面试预测追问",
+            final_resume_readiness: "简历定稿风险",
+            jd_match_calibration: "JD 匹配度校准",
+            authenticity_challenge: "简历真实性挑战",
+            verification_questions: "必问验真问题",
           };
       return map[value] || value || "";
     }
@@ -562,6 +625,8 @@
         keep_as_supporting_evidence: "保留为支持证据",
         recalibrate_with_human_feedback: "结合人工反馈校准",
         feed_offer_simulation: "回填 Offer 推演",
+        rewrite_resume_priority: "提高简历改写优先级",
+        prepare_interview_answer: "准备面试回答",
         panel_signal: "委员会信号",
       };
       return map[value] || value || "";

@@ -67,9 +67,9 @@ assert.match(feedbackAdjustedPanel[1].audit.feedback_influence.reason, /confirme
 const rounds = model.buildPanelDiscussionRounds(panel, rows, gate, offerLeverage, feedback);
 assert.equal(rounds.length, 3);
 assert.deepEqual(rounds.map((round) => round.id), [
-  "round_seed_reading",
-  "round_risk_challenge",
-  "round_offer_alignment",
+  "round_jd_match",
+  "round_authenticity_challenge",
+  "round_verification_questions",
 ]);
 assert.equal(rounds[0].turns[0].impact, "raise_follow_up_priority");
 assert.deepEqual(rounds[0].turns[0].evidence_ids, ["ev_req_2"]);
@@ -88,6 +88,17 @@ assert.equal(summary.consensus, "conditional_progress");
 assert.equal(summary.offer_impact, "中等");
 assert.equal(summary.feedback_impact, "human_feedback_applied_to_panel_summary");
 assert.ok(summary.disagreement_count >= 1);
+assert.match(summary.final_recommendation, /JD match snapshot|mandatory verification/);
+
+const candidateRounds = model.buildPanelDiscussionRounds(panel, rows, gate, offerLeverage, feedback, "candidate");
+assert.deepEqual(candidateRounds.map((round) => round.id), [
+  "round_resume_rewrite",
+  "round_interview_prediction",
+  "round_final_resume_readiness",
+]);
+assert.match(candidateRounds[0].turns[0].claim, /resume rewrite priority/);
+const candidateSummary = model.buildModeratorSummary(panel, candidateRounds, gate, offerLeverage, feedback, "candidate");
+assert.match(candidateSummary.final_recommendation, /rewriting the resume/);
 
 const directTurn = model.buildPanelTurn(panel[0], rows[0], rows, "seed_reading");
 assert.equal(directTurn.impact, "keep_as_supporting_evidence");
@@ -112,7 +123,7 @@ const roundsWithoutFeedback = model.buildPanelDiscussionRounds(
   offerLeverage,
   null,
 );
-assert.equal(roundsWithoutFeedback[2].turns[0].impact, "feed_offer_simulation");
+assert.equal(roundsWithoutFeedback[2].turns[0].impact, "raise_follow_up_priority");
 
 const summaryWithoutFeedback = model.buildModeratorSummary(
   defaultPanel,

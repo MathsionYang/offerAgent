@@ -27,8 +27,13 @@
       localizeFeedbackStatus = (value) => value ?? "",
       buildCandidateThreeSecondSummary = () => "",
       buildCandidateAdvantageCards = () => "",
+      buildCandidateMatchSnapshot = () => "",
+      buildCandidateResumeRevisionWorkbench = () => "",
+      buildConcreteCandidateQuestions = () => "",
       buildInterviewerOneMinuteDecisionBrief = () => "",
       buildInterviewerQuickBrief = () => "",
+      buildInterviewerMatchSnapshot = () => "",
+      buildInterviewerMandatoryVerificationQuestions = () => "",
       translateGateResult = (value) => value || "",
       translateOfferRating = (value) => value || "",
       translateCapability = (value) => value || "",
@@ -65,7 +70,6 @@
       decisionSummaryEl.innerHTML = `${renderDecisionSummaryCards(cards)}
         ${renderDecisionActionBoard(run)}
         ${renderFeedbackImpactComparison(run)}
-        ${renderDecisionOfferRunSection(run)}
         ${renderRoleDecisionSummarySections(run)}`;
     }
     
@@ -145,6 +149,31 @@
         .slice(0, 3)
         .map((question) => question.question || question.capability)
         .filter(Boolean);
+      const pageMode = getPageMode();
+      if (pageMode === "candidate") {
+        const firstWeak = requirements.find(isWeakRequirement) || {};
+        return {
+          decision: resolveLanguage() === "en" ? "Revise resume first" : "先改简历，再准备面试",
+          nextAction: firstWeak.capability
+            ? (resolveLanguage() === "en"
+              ? `Rewrite the resume evidence for ${firstWeak.capability}.`
+              : `先改“${firstWeak.capability}”这一项：补事实、指标口径和个人边界。`)
+            : (resolveLanguage() === "en" ? "Generate the JD-customized resume draft." : "先生成 JD 定制简历草稿。"),
+          risks: weakRows,
+          questions: mustAsk,
+          weakEvidence: weakRows,
+        };
+      }
+      if (pageMode === "interviewer") {
+        return {
+          decision: resolveLanguage() === "en" ? translateGateResult(summary.gate_result) : summary.gate_result || "待判断",
+          nextAction: mustAsk[0]
+            || (resolveLanguage() === "en" ? "Start with the weakest JD evidence and verify ownership." : "从最弱 JD 证据开始验真，先问个人贡献边界。"),
+          risks: weakRows,
+          questions: mustAsk,
+          weakEvidence: weakRows,
+        };
+      }
       return {
         decision: resolveLanguage() === "en" ? translateGateResult(summary.gate_result) : summary.gate_result || (resolveLanguage() === "en" ? "Pending" : "待判断"),
         nextAction: summary.next_validation_focus?.[0]
@@ -160,13 +189,55 @@
     
     function renderRoleDecisionSummarySections(run) {
       if (getPageMode() === "interviewer") {
-        return `${renderInterviewerOneMinuteDecisionSection(run)}
+        return `${renderInterviewerMatchVerificationSection(run)}
+          ${renderInterviewerMandatoryQuestionsSection(run)}
           ${renderInterviewerFlowCard(run)}
           ${renderInterviewerQuickBriefSection(run)}`;
       }
-      return `${renderCandidateQuickDecisionSection(run)}
+      return `${renderCandidateResumePolishSection(run)}
+        ${renderCandidateInterviewPrepSection(run)}
         ${renderCandidatePrepPlan(run)}
-        ${renderCandidateAdvantagesSection(run)}`;
+        ${renderCandidateQuickDecisionSection(run)}`;
+    }
+
+    function renderCandidateResumePolishSection(run) {
+      const snapshot = run?.input_snapshot || {};
+      const title = resolveLanguage() === "en" ? "Resume polishing against this JD" : "简历润色工作单";
+      const body = [
+        buildCandidateMatchSnapshot(snapshot),
+        limitMarkdownTableRows(buildCandidateResumeRevisionWorkbench(snapshot), 4),
+      ].filter(Boolean).join("\n\n");
+      return `<section class="decision-summary-section">
+        <h4>${escapeHtml(title)}</h4>
+        ${markdownToHtml(body)}
+      </section>`;
+    }
+
+    function renderCandidateInterviewPrepSection(run) {
+      const snapshot = run?.input_snapshot || {};
+      const title = resolveLanguage() === "en" ? "Interview prediction and answer prep" : "面试预测问题准备";
+      return `<section class="decision-summary-section">
+        <h4>${escapeHtml(title)}</h4>
+        ${markdownToHtml(limitMarkdownTableRows(buildConcreteCandidateQuestions(snapshot), 4))}
+      </section>`;
+    }
+
+    function renderInterviewerMatchVerificationSection(run) {
+      const snapshot = run?.input_snapshot || {};
+      const title = resolveLanguage() === "en" ? "JD fit and authenticity snapshot" : "JD 匹配与验真摘要";
+      return `<section class="decision-summary-section">
+        <h4>${escapeHtml(title)}</h4>
+        ${markdownToHtml(buildInterviewerMatchSnapshot(snapshot))}
+      </section>`;
+    }
+
+    function renderInterviewerMandatoryQuestionsSection(run) {
+      const snapshot = run?.input_snapshot || {};
+      const title = resolveLanguage() === "en" ? "Mandatory authenticity questions" : "必问验真问题";
+      return `<section class="decision-summary-section">
+        <h4>${escapeHtml(title)}</h4>
+        ${markdownToHtml(limitMarkdownTableRows(buildInterviewerMandatoryVerificationQuestions(snapshot), 4))}
+      </section>`;
     }
     
     function renderCandidateQuickDecisionSection(run) {
@@ -322,9 +393,120 @@
       const summary = run.evaluation_summary || {};
       const requirements = run.requirement_matches || [];
       const questions = run.top_follow_up_questions || run.interview_questions || [];
-      const gaps = requirements.filter((row) => row.is_missing || row.evidence_level >= 3).length;
+      const weakRequirements = requirements.filter(isWeakRequirement);
+      const gaps = weakRequirements.length;
       const feedbackActions = run.feedback_distillation?.actions?.length || 0;
       const offerState = run.offer_simulation_run?.lifecycle_state || run.offer_sandbox?.readiness || "";
+      const matchedCount = summary.matched_count ?? requirements.filter((row) => !row.is_missing && !row.isMissing).length;
+      const totalRequirements = summary.total_requirements || requirements.length || 0;
+      const matchPercent = totalRequirements ? Math.round((matchedCount / totalRequirements) * 100) : 0;
+      const strongEvidenceCount = summary.strong_evidence_count ?? requirements.filter((row) => !row.is_missing && !row.isMissing && getRequirementEvidenceLevel(row) <= 1).length;
+      const firstWeak = weakRequirements[0] || {};
+      const firstQuestion = questions[0]?.question || questions[0]?.capability || summary.next_validation_focus?.[0] || "";
+      if (getPageMode() === "candidate") {
+        const candidateLabels = resolveLanguage() === "en"
+          ? {
+              match: "JD Match",
+              unclear: "Unclear Points",
+              rewrite: "First Rewrite",
+              interview: "Interview Prep",
+              feedback: "Feedback",
+              actions: "actions",
+            }
+          : {
+              match: "JD 匹配度",
+              unclear: "没写清楚",
+              rewrite: "先改这一项",
+              interview: "面试预测",
+              feedback: "反馈影响",
+              actions: "动作",
+            };
+        return [
+          {
+            label: candidateLabels.match,
+            value: totalRequirements ? `${matchPercent}%` : (resolveLanguage() === "en" ? "Pending" : "待计算"),
+            detail: `${matchedCount}/${totalRequirements || 0} ${resolveLanguage() === "en" ? "requirements have resume evidence" : "项 JD 要求有简历证据"}`,
+            tone: matchPercent >= 70 ? "good" : "warn",
+          },
+          {
+            label: candidateLabels.unclear,
+            value: String(gaps),
+            detail: clip(firstWeak.evidence_gap || firstWeak.match_status || firstWeak.capability || (resolveLanguage() === "en" ? "No major gap detected." : "暂无明显缺口。")),
+            tone: gaps ? "warn" : "good",
+          },
+          {
+            label: candidateLabels.rewrite,
+            value: clip(firstWeak.capability || (resolveLanguage() === "en" ? "JD draft" : "JD 定制草稿"), 24),
+            detail: firstWeak.capability
+              ? (resolveLanguage() === "en" ? "Add metric basis, ownership boundary, and result." : "补指标口径、个人边界、动作与结果。")
+              : (resolveLanguage() === "en" ? "Polish the resume around the strongest JD evidence." : "围绕最贴近 JD 的项目先润色。"),
+            tone: gaps ? "warn" : "info",
+          },
+          {
+            label: candidateLabels.interview,
+            value: String(questions.length || 0),
+            detail: clip(firstQuestion || (resolveLanguage() === "en" ? "No predicted question yet." : "暂无预测问题。")),
+            tone: questions.length ? "info" : "neutral",
+          },
+          {
+            label: candidateLabels.feedback,
+            value: `${feedbackActions} ${candidateLabels.actions}`,
+            detail: summary.feedback_status?.agreement || (resolveLanguage() === "en" ? "No human feedback yet." : "暂未写入人工反馈。"),
+            tone: feedbackActions ? "good" : "neutral",
+          },
+        ];
+      }
+      if (getPageMode() === "interviewer") {
+        const interviewerLabels = resolveLanguage() === "en"
+          ? {
+              match: "JD Match",
+              evidence: "High-confidence Evidence",
+              risk: "Truth Risk",
+              mustAsk: "Must-ask",
+              feedback: "Feedback",
+              actions: "actions",
+            }
+          : {
+              match: "JD 匹配度",
+              evidence: "高可信证据",
+              risk: "验真风险",
+              mustAsk: "必问题",
+              feedback: "反馈影响",
+              actions: "动作",
+            };
+        return [
+          {
+            label: interviewerLabels.match,
+            value: totalRequirements ? `${matchPercent}%` : (resolveLanguage() === "en" ? "Pending" : "待计算"),
+            detail: `${matchedCount}/${totalRequirements || 0} ${resolveLanguage() === "en" ? "requirements matched on surface" : "项要求表面匹配"}`,
+            tone: matchPercent >= 70 ? "good" : "warn",
+          },
+          {
+            label: interviewerLabels.evidence,
+            value: String(strongEvidenceCount || 0),
+            detail: resolveLanguage() === "en" ? "Rows with concrete resume evidence." : "可直接支撑 JD 的一手证据项。",
+            tone: strongEvidenceCount ? "good" : "warn",
+          },
+          {
+            label: interviewerLabels.risk,
+            value: String(gaps),
+            detail: clip(firstWeak.capability || firstWeak.evidence_gap || (resolveLanguage() === "en" ? "No obvious truth risk yet." : "暂无明显验真风险。")),
+            tone: gaps ? "warn" : "good",
+          },
+          {
+            label: interviewerLabels.mustAsk,
+            value: String(questions.length || 0),
+            detail: clip(firstQuestion || (resolveLanguage() === "en" ? "No mandatory question yet." : "暂无必问验真问题。")),
+            tone: questions.length ? "info" : "neutral",
+          },
+          {
+            label: interviewerLabels.feedback,
+            value: `${feedbackActions} ${interviewerLabels.actions}`,
+            detail: summary.feedback_status?.agreement || (resolveLanguage() === "en" ? "No human feedback yet." : "暂未写入人工反馈。"),
+            tone: feedbackActions ? "good" : "neutral",
+          },
+        ];
+      }
       const labels = resolveLanguage() === "en"
         ? {
             decision: "Decision",
@@ -381,6 +563,27 @@
           tone: feedbackActions ? "good" : "neutral",
         },
       ];
+    }
+
+    function getRequirementEvidenceLevel(row) {
+      return Number(row?.evidence_level ?? row?.evidenceLevel ?? 0);
+    }
+
+    function isWeakRequirement(row) {
+      const evidenceLevel = getRequirementEvidenceLevel(row);
+      return Boolean(row?.is_missing || row?.isMissing || evidenceLevel >= 2);
+    }
+
+    function limitMarkdownTableRows(markdown, maxRows = 4) {
+      const lines = String(markdown || "").split("\n");
+      let bodyRows = 0;
+      return lines
+        .filter((line) => {
+          if (!isMarkdownTableLine(line) || isMarkdownTableDivider(line)) return true;
+          bodyRows += 1;
+          return bodyRows <= maxRows + 1;
+        })
+        .join("\n");
     }
     
     function renderInterviewerScorecard(run) {

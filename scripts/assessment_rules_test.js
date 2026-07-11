@@ -49,6 +49,18 @@ assert.ok(rules.evidenceLevelReason(3, "").includes("没有可引用"));
 
 const found = rules.findEvidence("第一段无关。主导架构设计并上线支付系统，SLA 提升 99.9%。客户支持跟进。", ["SLA"]);
 assert.ok(found.includes("SLA"));
+assert.equal(
+  rules.findResumeEvidence("2021.7 - 2022.1 北京数慧时空信息技术有限公司 项目实施岗", ["技术", "项目"]),
+  "",
+);
+assert.ok(
+  rules.isEmploymentHeaderEvidence("2021.7 - 2022.1 北京数慧时空信息技术有限公司 项目实施岗"),
+);
+const substantiveResumeEvidence = rules.findResumeEvidence(
+  "2021.7 - 2022.1 北京数慧时空信息技术有限公司 项目实施岗。负责 GIS 平台接口联调，推动研发修复坐标转换缺陷并完成上线验收。",
+  ["技术", "研发", "接口", "GIS"],
+);
+assert.ok(substantiveResumeEvidence.includes("接口联调"));
 
 const rows = rules.buildRequirementEvidenceRows(snapshot);
 assert.equal(rows.length, 4);
@@ -56,6 +68,14 @@ assert.equal(rows[0].capability, "Architecture");
 assert.equal(rows[0].evidenceLevel, 1);
 assert.equal(rows[0].matchStatus, "匹配但仍需复核口径");
 assert.ok(rows[0].verificationQuestion.includes("系统边界"));
+
+const employmentHeaderRows = rules.buildRequirementEvidenceRows({
+  targetRole: "developer",
+  jobDescription: "需要负责技术架构与研发协同",
+  resume: "2021.7 - 2022.1 北京数慧时空信息技术有限公司 项目实施岗",
+});
+assert.equal(employmentHeaderRows[0].resumeEvidence, "简历未体现明确证据");
+assert.equal(employmentHeaderRows[0].isMissing, true);
 
 const evidenceSummary = rules.buildEvidenceSummary(rows);
 assert.ok(evidenceSummary.includes("一级"));
